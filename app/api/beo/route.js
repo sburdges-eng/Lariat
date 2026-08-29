@@ -1,7 +1,8 @@
 // @ts-check
 // Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
 // only, no behavior change.
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { hasPinCookie, hasPinOrTempPin, pinRequiredForPic, requirePin } from '../../../lib/pin';
 import { postAuditEvent } from '../../../lib/auditEvents';
@@ -247,7 +248,7 @@ async function beoPostHandler(req) {
           )
           .run(
             title,
-            clip(body.event_date, 32) || todayISO(),
+            clip(body.event_date, 32) || serviceDate(),
             clip(body.event_time, 32),
             clip(body.contact_name, 120),
             Number.isFinite(gc) ? gc : null,

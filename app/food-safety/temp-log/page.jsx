@@ -11,7 +11,8 @@
 // initialData. The board re-queries `/api/temp-log?date=...&summary=1`
 // after each successful write so the tiles refresh without a full nav.
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { TempPoints, classifyReadings } from '../../../lib/tempLog';
 import TempLogBoard from './TempLogBoard.jsx';
@@ -35,7 +36,7 @@ export default async function TempLogPage({ searchParams }) {
     typeof sp?.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const today = todayISO();
+  const today = serviceDate();
 
   const db = getDb();
   const rows = /** @type {TempLogRow[]} */ (

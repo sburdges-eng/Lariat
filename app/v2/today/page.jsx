@@ -3,11 +3,12 @@
 // against the en catalog, not this file.
 import Link from 'next/link';
 import { getStations, getRecipes } from '../../../lib/data';
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { activeLineCheckStations } from '../../../lib/lineSummary';
 import { stationProgress } from '../../../lib/stationProgress';
 import { cascadedFromEightySix } from '../../../lib/subRecipeGraph';
+import { serviceDate } from '../../../lib/serviceDate';
 import { getMessages, t } from '../../../lib/i18n/index.ts';
 import { getLocale } from '../../../lib/i18n/server.ts';
 
@@ -45,7 +46,7 @@ export default async function V2TodayPage({ searchParams }) {
     typeof sp.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const date = todayISO();
+  const date = serviceDate();
   const locationQuery = locationId !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(locationId)}` : '';
   const locale = await getLocale();
   const m = getMessages(locale);

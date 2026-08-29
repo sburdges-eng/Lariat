@@ -38,6 +38,7 @@ process.env.LARIAT_PIN = '4242';
 
 // Dynamic imports so the resolver hook is active when they load.
 const db = await import('../../lib/db.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 const tempLog = await import('../../lib/tempLog.ts');
 const route = await import('../../app/api/temp-log/route.js');
 const pointsRoute = await import('../../app/api/temp-log/points/route.js');
@@ -48,7 +49,6 @@ const testDb = db.getDb();
 
 const { POST, GET } = route;
 const { GET: GET_POINTS } = pointsRoute;
-const { todayISO } = db;
 
 after(() => {
   db.setDbPathForTest(null);
@@ -86,7 +86,7 @@ function countRows() {
 describe('POST /api/temp-log — happy path', () => {
   it('in-range reading returns 200 with classification ok and the inserted row', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 38,
       cook_id: 'alice',
@@ -108,7 +108,7 @@ describe('POST /api/temp-log — happy path', () => {
 
   it('out-of-range reading WITH corrective action returns 200, classification out_of_range, row stored', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 44,
       corrective_action: 'moved product to reach-in and called tech',
@@ -124,7 +124,7 @@ describe('POST /api/temp-log — happy path', () => {
   it('reading_f of exactly 0 is NOT treated as missing (freezer at 0°F)', async () => {
     // Guard must not use falsiness — 0 is a legal freezer reading.
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'freezer',
       reading_f: 0,
     }));
@@ -137,7 +137,7 @@ describe('POST /api/temp-log — happy path', () => {
   it('rejects corrective_action over 500 chars with 400 and the length', async () => {
     const long = 'x'.repeat(800);
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 44,
       corrective_action: long,
@@ -155,7 +155,7 @@ describe('POST /api/temp-log — happy path', () => {
 describe('POST /api/temp-log — out-of-range without note', () => {
   it('returns 422 with needs_corrective_action flag and inserts NO row', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 44,
     }));
@@ -169,7 +169,7 @@ describe('POST /api/temp-log — out-of-range without note', () => {
 
   it('whitespace-only corrective_action is treated as absent → 422', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 44,
       corrective_action: '    ',
@@ -191,7 +191,7 @@ describe('POST /api/temp-log — bad input is 400, not 422', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        shift_date: todayISO(),
+        shift_date: serviceDate(),
         point_id: 'walk_in_cooler',
         reading_f: NaN,
       }),
@@ -205,7 +205,7 @@ describe('POST /api/temp-log — bad input is 400, not 422', () => {
 
   it('reading_f as string "42" is bad input → 400', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: '42',
     }));
@@ -218,7 +218,7 @@ describe('POST /api/temp-log — bad input is 400, not 422', () => {
 
   it('reading_f of 600 is off the charts → 400', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'cook_poultry',
       reading_f: 600,
       corrective_action: 'does not matter',
@@ -231,7 +231,7 @@ describe('POST /api/temp-log — bad input is 400, not 422', () => {
 
   it('reading_f undefined → 400 with "reading_f is required"', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
     }));
     assert.strictEqual(res.status, 400);
@@ -256,7 +256,7 @@ describe('POST /api/temp-log — missing fields', () => {
 
   it('missing point_id → 400', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       reading_f: 38,
     }));
     assert.strictEqual(res.status, 400);
@@ -280,7 +280,7 @@ describe('POST /api/temp-log — missing fields', () => {
 describe('POST /api/temp-log — unknown point', () => {
   it('unknown point_id → 400 and the offending id in the error body', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'not_a_real_point',
       reading_f: 38,
     }));
@@ -295,15 +295,16 @@ describe('POST /api/temp-log — unknown point', () => {
 // ── POST — PIN gate on past dates ─────────────────────────────────
 
 describe('POST /api/temp-log — PIN gate for past-dated writes', () => {
-  const yesterday = () => {
-    const d = new Date();
+  /** A date strictly before the current service day (not UTC-yesterday). */
+  const pastServiceDay = () => {
+    const d = new Date(`${serviceDate()}T12:00:00Z`);
     d.setUTCDate(d.getUTCDate() - 1);
     return d.toISOString().slice(0, 10);
   };
 
   it('past shift_date WITHOUT PIN cookie → 403', async () => {
     const res = await POST(postReq({
-      shift_date: yesterday(),
+      shift_date: pastServiceDay(),
       point_id: 'walk_in_cooler',
       reading_f: 38,
     }));
@@ -316,7 +317,7 @@ describe('POST /api/temp-log — PIN gate for past-dated writes', () => {
   it('past shift_date WITH PIN cookie → 200', async () => {
     const res = await POST(postReq(
       {
-        shift_date: yesterday(),
+        shift_date: pastServiceDay(),
         point_id: 'walk_in_cooler',
         reading_f: 38,
       },
@@ -330,7 +331,7 @@ describe('POST /api/temp-log — PIN gate for past-dated writes', () => {
 
   it('today with no PIN cookie is fine (cooks shouldn\'t have to log in)', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 38,
     }));
@@ -353,7 +354,7 @@ describe('POST /api/temp-log — PIN gate for past-dated writes', () => {
     );
     const value = await tempPinCookie.signTempPinCookieValue(id, undefined);
     const res = await POST(postReq(
-      { shift_date: yesterday(), point_id: 'walk_in_cooler', reading_f: 38 },
+      { shift_date: pastServiceDay(), point_id: 'walk_in_cooler', reading_f: 38 },
       { cookie: `${tempPinCookie.TEMP_PIN_COOKIE_NAME}=${value}` },
     ));
     assert.strictEqual(res.status, 200);
@@ -375,7 +376,7 @@ describe('POST /api/temp-log — PIN gate for past-dated writes', () => {
     );
     const value = await tempPinCookie.signTempPinCookieValue(id, undefined);
     const res = await POST(postReq(
-      { shift_date: yesterday(), point_id: 'walk_in_cooler', reading_f: 38 },
+      { shift_date: pastServiceDay(), point_id: 'walk_in_cooler', reading_f: 38 },
       { cookie: `${tempPinCookie.TEMP_PIN_COOKIE_NAME}=${value}` },
     ));
     assert.strictEqual(res.status, 403);
@@ -386,7 +387,7 @@ describe('POST /api/temp-log — PIN gate for past-dated writes', () => {
     // Only value '1' counts. Anything else is still gated.
     const res = await POST(postReq(
       {
-        shift_date: yesterday(),
+        shift_date: pastServiceDay(),
         point_id: 'walk_in_cooler',
         reading_f: 38,
       },
@@ -405,16 +406,16 @@ describe('GET /api/temp-log', () => {
     // order assertion, and sqlite's `datetime('now')` has 1-second
     // resolution — using the `id DESC` tiebreaker in the route query
     // is what makes the ordering deterministic here.
-    await POST(postReq({ shift_date: todayISO(), point_id: 'walk_in_cooler', reading_f: 38, cook_id: 'a' }));
-    await POST(postReq({ shift_date: todayISO(), point_id: 'cook_poultry', reading_f: 170, cook_id: 'b' }));
-    await POST(postReq({ shift_date: todayISO(), point_id: 'walk_in_cooler', reading_f: 39, cook_id: 'c' }));
+    await POST(postReq({ shift_date: serviceDate(), point_id: 'walk_in_cooler', reading_f: 38, cook_id: 'a' }));
+    await POST(postReq({ shift_date: serviceDate(), point_id: 'cook_poultry', reading_f: 170, cook_id: 'b' }));
+    await POST(postReq({ shift_date: serviceDate(), point_id: 'walk_in_cooler', reading_f: 39, cook_id: 'c' }));
   });
 
   it('returns today\'s entries for default location, newest first', async () => {
     const res = await GET(getReq());
     assert.strictEqual(res.status, 200);
     const body = await res.json();
-    assert.strictEqual(body.date, todayISO());
+    assert.strictEqual(body.date, serviceDate());
     assert.strictEqual(body.location_id, 'default');
     assert.strictEqual(body.entries.length, 3);
     // Newest first — the 3rd insert (reading_f=39, cook_id=c) should be index 0.
@@ -436,7 +437,7 @@ describe('GET /api/temp-log', () => {
     testDb.prepare(`
       INSERT INTO temp_log (shift_date, location_id, point_id, reading_f, required_min_f, required_max_f, corrective_action, cook_id)
       VALUES (?, 'default', 'retired_point', 33, NULL, 41, NULL, 'd')
-    `).run(todayISO());
+    `).run(serviceDate());
     const res = await GET(getReq('?point_id=retired_point'));
     const body = await res.json();
     assert.strictEqual(body.entries.length, 1);
@@ -451,11 +452,11 @@ describe('GET /api/temp-log', () => {
   });
 
   it('explicit date narrows the result set', async () => {
-    // Use PIN cookie to post to yesterday.
-    const yd = (() => {
-      const d = new Date(); d.setUTCDate(d.getUTCDate() - 1);
-      return d.toISOString().slice(0, 10);
-    })();
+    // A day before the service day — not UTC-yesterday, which can equal
+    // serviceDate() after 18:00 Denver.
+    const d = new Date(`${serviceDate()}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    const yd = d.toISOString().slice(0, 10);
     await POST(postReq(
       { shift_date: yd, point_id: 'hot_hold', reading_f: 150 },
       { cookie: 'lariat_pin_ok=1' },
@@ -470,7 +471,7 @@ describe('GET /api/temp-log', () => {
   it('honors the location query param', async () => {
     // Insert an entry at a non-default location.
     await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'freezer',
       reading_f: -10,
       location_id: 'downtown',

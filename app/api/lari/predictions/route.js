@@ -1,7 +1,8 @@
 // @ts-check
 // Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
 // only, no behavior change.
-import { getDb, todayISO } from '../../../../lib/db';
+import { getDb } from '../../../../lib/db';
+import { serviceDate } from '../../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID } from '../../../../lib/location';
 import { requirePin } from '../../../../lib/pin';
 import {
@@ -45,7 +46,7 @@ export async function GET(req) {
     const u = new URL(req.url);
     const surface = u.searchParams.get('surface') || 'beo';
     const loc = u.searchParams.get('location') || DEFAULT_LOCATION_ID;
-    const today = u.searchParams.get('date') || todayISO();
+    const today = u.searchParams.get('date') || serviceDate();
 
     if (!SUPPORTED_SURFACES.has(surface)) {
       return Response.json({

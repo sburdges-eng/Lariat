@@ -43,12 +43,12 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-bundle-h-apis-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 const auditEvents = await import('../../lib/auditEvents.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
 
-const { todayISO } = db;
 const { postAuditEvent } = auditEvents;
 
 // Routes — import lazily after setDbPathForTest so their getDb()
@@ -157,13 +157,13 @@ describe('POST /api/cleaning — happy path', () => {
     assert.strictEqual(row.area, 'General');
   });
 
-  it('defaults shift_date to todayISO() when omitted', async () => {
+  it('defaults shift_date to the service day when omitted', async () => {
     await cleaning.POST(postReq('http://localhost/api/cleaning', {
       item: 'hoods degrease',
       cook_id: 'alice',
     }));
     const row = testDb.prepare('SELECT shift_date FROM cleaning_log').get();
-    assert.strictEqual(row.shift_date, todayISO());
+    assert.strictEqual(row.shift_date, serviceDate());
   });
 
   it('emits NO audit-context warn (insert + audit in same transaction)', async () => {
@@ -326,7 +326,7 @@ describe('POST /api/sds — happy path', () => {
       cook_id: 'alice',
     }));
     const row = testDb.prepare('SELECT * FROM sds_registry').get();
-    assert.strictEqual(row.last_reviewed, todayISO());
+    assert.strictEqual(row.last_reviewed, serviceDate());
   });
 
   it('honors active=false → 0', async () => {
@@ -575,7 +575,7 @@ describe('GET /api/stations', () => {
     // regression the important thing is that the raw row collapses to
     // the latest status.
     const testItem = 'Regression Test Item';
-    const date = todayISO();
+    const date = serviceDate();
     testDb.prepare(
       `INSERT INTO line_check_entries
          (shift_date, location_id, station_id, item, status, cook_id)
@@ -636,7 +636,7 @@ describe('GET /api/stations', () => {
            (shift_date, station_id, cook_id, signoff_type, location_id)
          VALUES (?, ?, ?, ?, ?)`,
       )
-      .run(todayISO(), target.id, 'alice', 'ready', 'default');
+      .run(serviceDate(), target.id, 'alice', 'ready', 'default');
 
     const res2 = await stations.GET(getReq('http://localhost/api/stations'));
     const rows2 = await res2.json();

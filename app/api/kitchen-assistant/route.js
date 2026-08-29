@@ -1,6 +1,7 @@
 // @ts-check
 import { buildGroundedContext } from '../../../lib/kitchenAssistantContext';
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import {
   getOllamaConfig,
   GROUNDED_SYSTEM,
@@ -480,7 +481,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           ).get(`%${itemName}%`, locationId));
           const depletedToday = invRow ? /** @type {CountRow | undefined} */ (db.prepare(
             `SELECT COUNT(*) as cnt FROM inventory_updates WHERE item LIKE ? AND location_id = ? AND shift_date = ? AND direction IN ('out','waste')`
-          ).get(`%${itemName}%`, locationId, todayISO())) : null;
+          ).get(`%${itemName}%`, locationId, serviceDate())) : null;
           const stockDepleted = depletedToday && depletedToday.cnt > 0;
           if (invRow && invRow.base_qty > 0 && !stockDepleted && !hasPin) {
             actionMsg = `Hold on — order guide shows ${invRow.base_qty} ${invRow.unit || ''} of ${invRow.ingredient} on hand. Look again, then ask a manager if it's really gone.`;
@@ -493,7 +494,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
             let entityId = null;
             db.transaction(() => {
               const info = db.prepare('INSERT INTO eighty_six (location_id, item, shift_date, created_at, reason) VALUES (?, ?, ?, ?, ?)')
-                .run(locationId, itemName, todayISO(), createdAt, reasonClip);
+                .run(locationId, itemName, serviceDate(), createdAt, reasonClip);
               entityId = Number(info.lastInsertRowid);
               auditEventId = postAuditEvent({
                 entity: 'eighty_six', entity_id: Number(info.lastInsertRowid), action: 'insert',
@@ -526,7 +527,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           let entityId = null;
           db.transaction(() => {
             const info = db.prepare('INSERT INTO inventory_updates (location_id, item, shift_date, created_at, delta, direction) VALUES (?, ?, ?, ?, ?, ?)')
-              .run(locationId, itemClip, todayISO(), createdAt, deltaStr, direction);
+              .run(locationId, itemClip, serviceDate(), createdAt, deltaStr, direction);
             entityId = Number(info.lastInsertRowid);
             auditEventId = postAuditEvent({
               entity: 'inventory_updates', entity_id: Number(info.lastInsertRowid), action: 'insert',
@@ -574,7 +575,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           let entityId = null;
           db.transaction(() => {
             const info = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-              .run(locationId, todayISO(), stationClip, itemClip, status, note, createdAt);
+              .run(locationId, serviceDate(), stationClip, itemClip, status, note, createdAt);
             entityId = Number(info.lastInsertRowid);
             auditEventId = postAuditEvent({
               entity: 'line_check_entries', entity_id: Number(info.lastInsertRowid), action: 'insert',
@@ -605,7 +606,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
             let entityId = null;
             db.transaction(() => {
               const info = db.prepare('INSERT INTO equipment_maintenance (location_id, equipment_id, service_date, type, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-                .run(locationId, equipId, todayISO(), 'repair_request', issueString, createdAt);
+                .run(locationId, equipId, serviceDate(), 'repair_request', issueString, createdAt);
               entityId = Number(info.lastInsertRowid);
               auditEventId = postAuditEvent({
                 entity: 'equipment_maintenance', entity_id: Number(info.lastInsertRowid), action: 'insert',
@@ -636,7 +637,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
                 for (const leaf of result.leafRows) {
                   insert.run(
                     locationId,
-                    todayISO(),
+                    serviceDate(),
                     `scaled:${result.recipeSlug}`,
                     clip(leaf.ingredient, MAX_ITEM),
                     'na',
@@ -879,7 +880,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           let entityId = null;
           db.transaction(() => {
             const info = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-              .run(locationId, todayISO(), 'haccp_receiving', itemClip, status, note, createdAt);
+              .run(locationId, serviceDate(), 'haccp_receiving', itemClip, status, note, createdAt);
             entityId = Number(info.lastInsertRowid);
             auditEventId = postAuditEvent({
               entity: 'line_check_entries', entity_id: Number(info.lastInsertRowid), action: 'insert',
@@ -910,7 +911,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
                 for (const leaf of result.leafRows) {
                   prepRows.push([
                     locationId,
-                    todayISO(),
+                    serviceDate(),
                     clip(payload.station, 64),
                     clip(leaf.ingredient, MAX_ITEM),
                     'na',
@@ -928,7 +929,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
             }
             prepRows.push([
               locationId,
-              todayISO(),
+              serviceDate(),
               clip(payload.station, 64),
               clip(t.item, MAX_ITEM),
               'na',

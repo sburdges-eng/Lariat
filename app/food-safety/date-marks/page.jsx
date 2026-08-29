@@ -5,7 +5,8 @@
 // expired first, due-today next, future last. Cooks open this before
 // service to clear anything past its 7-day window.
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { scanExpiringBatches } from '../../../lib/dateMarks';
 import DateMarkBoard from './DateMarkBoard.jsx';
@@ -39,7 +40,7 @@ export default async function DateMarksPage({ searchParams }) {
     typeof sp?.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const today = todayISO();
+  const today = serviceDate();
 
   const db = getDb();
   const active = /** @type {DateMarkRow[]} */ (

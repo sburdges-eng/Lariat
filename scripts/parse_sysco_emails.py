@@ -449,7 +449,10 @@ def main() -> int:
         for o in lost:
             print(f'   #{o["order_number"]} {o["state"]}: lines ${o["line_sum"]:.2f} '
                   f'vs printed {o["printed_total"]}', file=sys.stderr)
-    return 0
+    # The CSV above was already written without those orders, so a caller that
+    # only checks the exit status would ingest a short file and understate
+    # purchases. Fail the run: silence means complete.
+    return 1 if lost else 0
 
 
 if __name__ == '__main__':

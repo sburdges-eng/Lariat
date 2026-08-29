@@ -1,11 +1,12 @@
 // @ts-check
 import Link from 'next/link';
 import { getStations, getRecipes } from '../lib/data';
-import { getDb, todayISO, getPreshiftNote, todayServiceLabel } from '../lib/db';
+import { getDb, getPreshiftNote, todayServiceLabel } from '../lib/db';
 import { DEFAULT_LOCATION_ID } from '../lib/location';
 import { activeLineCheckStations, lineSummaryText } from '../lib/lineSummary';
 import { stationProgress } from '../lib/stationProgress';
 import { cascadedFromEightySix } from '../lib/subRecipeGraph';
+import { serviceDate } from '../lib/serviceDate';
 import PreshiftNotes from './_components/PreshiftNotes';
 import BrandStamp from './_components/BrandStamp';
 
@@ -44,11 +45,11 @@ function kickerFor(hours) {
   return 'Wind it down. Log the losses. Sign it off.';
 }
 
-// Derive the day name from the DB's `today` (todayISO()) — a stable
-// YYYY-MM-DD string — using UTC formatting so the server and client render
-// the same value regardless of timezone. Previously we called `new Date()`
-// in the render pass, producing a hydration mismatch across a TZ boundary
-// (most visible at midnight rollover).
+// Derive the day name from the service date — a stable YYYY-MM-DD string —
+// using UTC formatting so the server and client render the same value
+// regardless of timezone. Previously we called `new Date()` in the render
+// pass, producing a hydration mismatch across a TZ boundary (most visible
+// at midnight rollover).
 /** @param {string} iso */
 function dayName(iso) {
   const [y, m, d] = iso.split('-').map(Number);
@@ -75,7 +76,7 @@ export default async function TodayPage({ searchParams }) {
     typeof sp.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const date = todayISO();
+  const date = serviceDate();
   const stations = getStations();
   const stationsWithProgress = stations.map(s => ({
     ...s,

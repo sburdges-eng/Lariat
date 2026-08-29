@@ -63,9 +63,9 @@ public struct SchemaMigrator {
 
     /// Parity with `SCHEMA_VERSION` in `lib/db.ts` (the web's monotonic marker
     /// recorded in the `schema_migrations` table, replayed by the seed rows in
-    /// `frozen_schema.sql`). v5: BEO event-model wave (six beo_events planning
-    /// columns + beo_event_charges + beo_run_of_show).
-    public static let webSchemaVersion = 5
+    /// `frozen_schema.sql`). v6: day-plan spine (`ops_run_templates`,
+    /// `ops_run_template_steps`, `ops_run_steps`).
+    public static let webSchemaVersion = 6
 
     public init() {}
 

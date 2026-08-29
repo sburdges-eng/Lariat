@@ -7,6 +7,7 @@
 
 import type { BohSheet, BohTier, BohBlock, RichText } from './types.ts';
 import { BOH_SHEETS } from './sheets.generated.ts';
+import { serviceDate } from '../serviceDate.ts';
 
 export type { BohSheet, BohTier };
 export { BOH_SHEETS };
@@ -82,35 +83,21 @@ export const COOK_SHEET_PATHS: string[] = sheetsByTier('cook').map((s) => bohPat
  * Storage key for one sheet on one service date. Scoping to the date means
  * a sheet opened the next morning starts clean without anyone resetting it.
  */
-export function sheetStorageKey(slug: string, serviceDate: string): string {
-  return `lariat.boh.${slug}.${serviceDate}`;
+export function sheetStorageKey(slug: string, day: string): string {
+  return `lariat.boh.${slug}.${day}`;
 }
 
-const VENUE_TIME_ZONE = 'America/Denver';
-const SERVICE_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
-  timeZone: VENUE_TIME_ZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
-
 /**
- * The date the sheet belongs to, in the venue's own day — deliberately
- * local rather than the UTC slice `todayISO()` returns.
+ * The date the sheet belongs to — the venue service day (02:00–02:00
+ * America/Denver), named by the date it started.
  *
- * A UTC date rolls over at 6pm Mountain, which would hand a cook a blank
- * dinner day plan in the middle of dinner service. The venue date rolls
- * at Colorado midnight, so a sheet lasts the shift.
+ * Delegates to `serviceDate()` so the line book rolls with every other
+ * board. A UTC date rolls over at 6pm Mountain; a midnight-only venue
+ * date still hands a cook closing at 01:00 tomorrow's blank sheet.
  *
  * Nothing here reads the database: the line book is reference paper and
  * must still open when SQLite is unhealthy.
  */
 export function serviceDateISO(now: Date = new Date()): string {
-  const parts = Object.fromEntries(
-    SERVICE_DATE_FORMATTER.formatToParts(now).map(({ type, value }) => [type, value]),
-  );
-  const year = parts.year;
-  const month = parts.month;
-  const day = parts.day;
-  return `${year}-${month}-${day}`;
+  return serviceDate(now);
 }

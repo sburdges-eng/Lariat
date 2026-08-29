@@ -29,13 +29,13 @@ const ORIGINAL_PIN = process.env.LARIAT_PIN;
 process.env.LARIAT_PIN = '4242';
 
 const db = await import('../../lib/db.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 const route = await import('../../app/api/temp-log/route.js');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
 
 const { POST, GET } = route;
-const { todayISO } = db;
 
 after(() => {
   db.setDbPathForTest(null);
@@ -98,7 +98,7 @@ describe('GET /api/temp-log — includes per-CCP summary by default', () => {
 
   it('one ok reading flips that tile green; others stay gray', async () => {
     await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 38,
     }));
@@ -113,7 +113,7 @@ describe('GET /api/temp-log — includes per-CCP summary by default', () => {
 
   it('out-of-range with a note is yellow; without a note would not be stored', async () => {
     await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 44,
       corrective_action: 'moved to reach-in and called tech',
@@ -136,7 +136,7 @@ describe('GET /api/temp-log — includes per-CCP summary by default', () => {
 
   it('summary honors the location query param', async () => {
     await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 38,
       location_id: 'downtown',
@@ -159,7 +159,7 @@ describe('GET /api/temp-log — includes per-CCP summary by default', () => {
 describe('POST /api/temp-log — writes an audit_events row per insert', () => {
   it('creates exactly one audit row for an accepted in-range POST', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 38,
       cook_id: 'alice',
@@ -184,7 +184,7 @@ describe('POST /api/temp-log — writes an audit_events row per insert', () => {
 
   it('creates an audit row WITH note="out_of_range:<point_id>" for an accepted out-of-range POST', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 44,
       corrective_action: 'moved to reach-in',
@@ -197,7 +197,7 @@ describe('POST /api/temp-log — writes an audit_events row per insert', () => {
 
   it('does NOT write an audit row when POST is rejected (422 out-of-range without note)', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 44,
     }));
@@ -208,7 +208,7 @@ describe('POST /api/temp-log — writes an audit_events row per insert', () => {
 
   it('does NOT write an audit row when POST is rejected (400 bad input)', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: '42',
     }));
@@ -218,7 +218,7 @@ describe('POST /api/temp-log — writes an audit_events row per insert', () => {
 
   it('does NOT write an audit row for an unknown point_id', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'not_a_point',
       reading_f: 38,
     }));
@@ -229,7 +229,7 @@ describe('POST /api/temp-log — writes an audit_events row per insert', () => {
   it('N accepted POSTs produce exactly N audit rows', async () => {
     for (let i = 0; i < 5; i++) {
       await POST(postReq({
-        shift_date: todayISO(),
+        shift_date: serviceDate(),
         point_id: 'freezer',
         reading_f: -10 - i,
       }));
@@ -247,7 +247,7 @@ describe('POST /api/temp-log — writes an audit_events row per insert', () => {
   // If the UI guard breaks, Number('') = 0 flows through and hits this path.
   it('reading_f=0 on a min-bounded point (cook_poultry) without note returns 422 needs_corrective_action', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'cook_poultry',
       reading_f: 0,
     }));
@@ -260,14 +260,14 @@ describe('POST /api/temp-log — writes an audit_events row per insert', () => {
 
   it('audit.shift_date and location_id match the request', async () => {
     await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'cook_poultry',
       reading_f: 172,
       location_id: 'downtown',
     }));
     const audit = testDb.prepare('SELECT * FROM audit_events WHERE entity=? ORDER BY id DESC').get('temp_log');
     assert.strictEqual(audit.location_id, 'downtown');
-    assert.strictEqual(audit.shift_date, todayISO());
+    assert.strictEqual(audit.shift_date, serviceDate());
   });
 });
 
@@ -297,7 +297,7 @@ describe('POST /api/temp-log — withIdempotency dedup on repeated key', () => {
 
   it('two POSTs with the same idempotency-key produce one temp_log row and one audit row', async () => {
     const body = {
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 38,
       cook_id: 'alice',
@@ -316,7 +316,7 @@ describe('POST /api/temp-log — withIdempotency dedup on repeated key', () => {
 
   it('two POSTs with DIFFERENT idempotency-keys produce two rows (legitimate distinct readings)', async () => {
     const body = {
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 38,
       cook_id: 'alice',

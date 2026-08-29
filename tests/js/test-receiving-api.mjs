@@ -34,6 +34,7 @@ delete process.env.LARIAT_PIN;
 delete process.env.LARIAT_PIN_SECRET;
 
 const db = await import('../../lib/db.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 const route = await import('../../app/api/receiving/route.js');
 const matchesRoute = await import('../../app/api/receiving/matches/route.js');
 const matchByIdRoute = await import('../../app/api/receiving/matches/[id]/route.js');
@@ -42,7 +43,6 @@ db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
 
 const { POST, GET } = route;
-const { todayISO } = db;
 const { GET: GET_MATCHES } = matchesRoute;
 const { PATCH: PATCH_MATCH } = matchByIdRoute;
 
@@ -132,7 +132,7 @@ function seedVendorPrice({ vendor, sku, ingredient, masterId, location = 'defaul
 describe('POST /api/receiving — happy path', () => {
   it('accepts an in-spec refrigerated delivery', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       vendor: 'Shamrock',
       invoice_ref: 'INV-1001',
       category: 'refrigerated',

@@ -31,11 +31,11 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-signoff-atomicity-
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
 
-const { todayISO } = db;
 
 // Lazy-imported so setDbPathForTest has already run.
 const signoff = await import('../../app/api/signoff/route.ts');
@@ -89,7 +89,7 @@ async function captureWarnsAsync(fn) {
 describe('POST /api/signoff — audit atomicity', () => {
   it('commits both station_signoffs and audit_events', async () => {
     const res = await signoff.POST(postReq('http://localhost/api/signoff', {
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       station_id: 'saute',
       cook_id: 'alice',
       signoff_type: 'self',
@@ -102,7 +102,7 @@ describe('POST /api/signoff — audit atomicity', () => {
   it('emits NO "called outside" warn (audit is inside the transaction)', async () => {
     const { captured } = await captureWarnsAsync(async () => {
       await signoff.POST(postReq('http://localhost/api/signoff', {
-        shift_date: todayISO(),
+        shift_date: serviceDate(),
         station_id: 'saute',
         cook_id: 'alice',
         signoff_type: 'self',
@@ -120,7 +120,7 @@ describe('POST /api/signoff — audit atomicity', () => {
     try {
       const beforeSignoffs = countRows('station_signoffs');
       const res = await signoff.POST(postReq('http://localhost/api/signoff', {
-        shift_date: todayISO(),
+        shift_date: serviceDate(),
         station_id: 'saute',
         cook_id: 'alice',
         signoff_type: 'self',
@@ -172,10 +172,10 @@ describe('POST /api/signoff — audit atomicity', () => {
            (shift_date, station_id, item, status, note, location_id, created_at)
          VALUES (?, 'saute', 'walk-in cooler temp', 'fail', NULL, 'default', datetime('now'))`,
       )
-      .run(todayISO());
+      .run(serviceDate());
 
     const res = await signoff.POST(postReq('http://localhost/api/signoff', {
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       station_id: 'saute',
       cook_id: 'alice',
       signoff_type: 'self',
@@ -193,7 +193,7 @@ describe('POST /api/signoff — idempotency replay', () => {
   it('replayed POST with same key writes ONE row, ONE audit, returns identical body', async () => {
     const KEY = 'signoff-key-aaaaaaaaaaaa';
     const payload = {
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       station_id: 'saute',
       cook_id: 'alice',
       signoff_type: 'self',
@@ -225,7 +225,7 @@ describe('POST /api/signoff — idempotency replay', () => {
 
   it('different idempotency-key writes a second row (distinct mutation)', async () => {
     const payload = {
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       station_id: 'saute',
       cook_id: 'alice',
       signoff_type: 'self',
@@ -248,7 +248,7 @@ describe('POST /api/signoff — idempotency replay', () => {
     await signoff.POST(
       postReq(
         'http://localhost/api/signoff',
-        { shift_date: todayISO(), station_id: 'saute', cook_id: 'alice', signoff_type: 'self' },
+        { shift_date: serviceDate(), station_id: 'saute', cook_id: 'alice', signoff_type: 'self' },
         { idempotencyKey: KEY },
       ),
     );
@@ -257,7 +257,7 @@ describe('POST /api/signoff — idempotency replay', () => {
     const r2 = await signoff.POST(
       postReq(
         'http://localhost/api/signoff',
-        { shift_date: todayISO(), station_id: 'saute', cook_id: 'bob', signoff_type: 'pic' },
+        { shift_date: serviceDate(), station_id: 'saute', cook_id: 'bob', signoff_type: 'pic' },
         { idempotencyKey: KEY },
       ),
     );

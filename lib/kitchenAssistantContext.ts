@@ -1,4 +1,5 @@
-import { getDb, todayISO } from './db.ts';
+import { getDb } from './db.ts';
+import { serviceDate } from './serviceDate.ts';
 import {
   getStations,
   getLineCheckTemplate,
@@ -169,7 +170,7 @@ export async function buildGroundedContext(
   // The cook-tier path is the default. The route widens to manager-tier
   // only when `hasPinCookie(req)` returned true — see GH #247.
   const hasPin = opts.hasPin === true;
-  const date = todayISO();
+  const date = serviceDate();
   const db = getDb();
   const sources: ContextSource[] = [];
   const qLower = (userQuestion || '').toLowerCase().trim();

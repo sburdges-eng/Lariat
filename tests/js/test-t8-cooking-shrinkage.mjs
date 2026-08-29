@@ -31,6 +31,7 @@ const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 // Dynamic imports so the resolver hook is active.
 const db = await import('../../lib/db.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 const route = await import('../../app/api/inventory/route.ts');
 const shrinkage = await import('../../lib/inventoryShrinkage.ts');
 
@@ -38,7 +39,6 @@ db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
 
 const { POST, GET } = route;
-const { todayISO } = db;
 const {
   applyShrinkage,
   resolveCookingShrinkage,
@@ -449,7 +449,7 @@ describe('GET /api/inventory', () => {
       qty: 8, unit: 'oz', source: 'toast',
     }));
     await POST(postReq({ item: 'cilantro', delta: '1 bunch', direction: 'waste' }));
-    const res = await GET(new Request(`http://localhost/api/inventory?date=${todayISO()}`));
+    const res = await GET(new Request(`http://localhost/api/inventory?date=${serviceDate()}`));
     assert.strictEqual(res.status, 200);
     const body = await res.json();
     assert.strictEqual(body.rows.length, 2);

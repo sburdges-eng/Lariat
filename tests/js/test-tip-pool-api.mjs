@@ -15,6 +15,7 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-tip-pool-api-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 delete process.env.LARIAT_PIN;
 const route = await import('../../app/api/tip-pool/route.js');
 
@@ -22,7 +23,6 @@ db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
 
 const { POST, GET } = route;
-const { todayISO } = db;
 
 after(() => {
   db.setDbPathForTest(null);
@@ -61,7 +61,7 @@ describe('POST /api/tip-pool — PIN gate', () => {
     process.env.LARIAT_PIN = '1234';
     try {
       const res = await POST(postReq({
-        shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'alice',
+        shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'alice',
         kind: 'tip_pool', amount_cents: 5000,
       }, { cookie: null }));
       assert.strictEqual(res.status, 403);
@@ -77,7 +77,7 @@ describe('POST /api/tip-pool — PIN gate', () => {
 describe('POST /api/tip-pool — happy path', () => {
   it('persists a tip_pool line and emits audit', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'alice',
+      shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'alice',
       role: 'server', kind: 'tip_pool', amount_cents: 5000, note: 'Friday close',
     }));
     assert.strictEqual(res.status, 200);
@@ -93,11 +93,11 @@ describe('POST /api/tip-pool — happy path', () => {
 
   it('persists service_charge and direct_tip kinds', async () => {
     await POST(postReq({
-      shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'alice',
+      shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'alice',
       kind: 'service_charge', amount_cents: 1500,
     }));
     await POST(postReq({
-      shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'bob',
+      shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'bob',
       kind: 'direct_tip', amount_cents: 800,
     }));
     assert.strictEqual(countDist(), 2);
@@ -109,7 +109,7 @@ describe('POST /api/tip-pool — happy path', () => {
 describe('POST /api/tip-pool — validation', () => {
   it('422 when amount_cents is a float', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'alice',
+      shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'alice',
       kind: 'tip_pool', amount_cents: 12.5,
     }));
     assert.strictEqual(res.status, 422);
@@ -121,7 +121,7 @@ describe('POST /api/tip-pool — validation', () => {
 
   it('422 when amount_cents is a string number', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'alice',
+      shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'alice',
       kind: 'tip_pool', amount_cents: '5000',
     }));
     assert.strictEqual(res.status, 422);
@@ -129,7 +129,7 @@ describe('POST /api/tip-pool — validation', () => {
 
   it('400 on unknown kind', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'alice',
+      shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'alice',
       kind: 'bonus', amount_cents: 1000,
     }));
     assert.strictEqual(res.status, 400);
@@ -137,7 +137,7 @@ describe('POST /api/tip-pool — validation', () => {
 
   it('400 on missing pool_ref', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(), cook_id: 'alice',
+      shift_date: serviceDate(), cook_id: 'alice',
       kind: 'tip_pool', amount_cents: 1000,
     }));
     assert.strictEqual(res.status, 400);
@@ -145,7 +145,7 @@ describe('POST /api/tip-pool — validation', () => {
 
   it('400 on missing cook_id', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(), pool_ref: 'POOL-1',
+      shift_date: serviceDate(), pool_ref: 'POOL-1',
       kind: 'tip_pool', amount_cents: 1000,
     }));
     assert.strictEqual(res.status, 400);
@@ -153,7 +153,7 @@ describe('POST /api/tip-pool — validation', () => {
 
   it('400 on negative amount_cents', async () => {
     const res = await POST(postReq({
-      shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'alice',
+      shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'alice',
       kind: 'tip_pool', amount_cents: -100,
     }));
     assert.strictEqual(res.status, 400);
@@ -177,7 +177,7 @@ describe('POST /api/tip-pool — pool eligibility', () => {
       VALUES ('default', 'morgan', 'manager', '2025-01-01', NULL)
     `).run();
     const res = await POST(postReq({
-      shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'morgan',
+      shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'morgan',
       kind: 'tip_pool', amount_cents: 5000,
     }));
     assert.strictEqual(res.status, 422);
@@ -194,7 +194,7 @@ describe('POST /api/tip-pool — pool eligibility', () => {
       VALUES ('default', 'morgan', 'manager', '2025-01-01', NULL)
     `).run();
     const res = await POST(postReq({
-      shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'morgan',
+      shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'morgan',
       kind: 'service_charge', amount_cents: 5000,
     }));
     assert.strictEqual(res.status, 200);
@@ -207,7 +207,7 @@ describe('POST /api/tip-pool — pool eligibility', () => {
       VALUES ('default', 'morgan', 'manager', '2024-01-01', '2025-12-31')
     `).run();
     const res = await POST(postReq({
-      shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'morgan',
+      shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'morgan',
       kind: 'tip_pool', amount_cents: 5000,
     }));
     assert.strictEqual(res.status, 200);
@@ -228,8 +228,8 @@ describe('GET /api/tip-pool', () => {
   });
 
   it('returns rows + summary for the queried date', async () => {
-    await POST(postReq({ shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'alice', kind: 'tip_pool', amount_cents: 5000 }));
-    await POST(postReq({ shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'bob', kind: 'tip_pool', amount_cents: 3000 }));
+    await POST(postReq({ shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'alice', kind: 'tip_pool', amount_cents: 5000 }));
+    await POST(postReq({ shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'bob', kind: 'tip_pool', amount_cents: 3000 }));
     const res = await GET(getReq());
     const body = await res.json();
     assert.strictEqual(body.rows.length, 2);
@@ -238,8 +238,8 @@ describe('GET /api/tip-pool', () => {
   });
 
   it('honors ?pool_ref filter', async () => {
-    await POST(postReq({ shift_date: todayISO(), pool_ref: 'POOL-A', cook_id: 'alice', kind: 'tip_pool', amount_cents: 5000 }));
-    await POST(postReq({ shift_date: todayISO(), pool_ref: 'POOL-B', cook_id: 'bob', kind: 'tip_pool', amount_cents: 3000 }));
+    await POST(postReq({ shift_date: serviceDate(), pool_ref: 'POOL-A', cook_id: 'alice', kind: 'tip_pool', amount_cents: 5000 }));
+    await POST(postReq({ shift_date: serviceDate(), pool_ref: 'POOL-B', cook_id: 'bob', kind: 'tip_pool', amount_cents: 3000 }));
     const res = await GET(getReq('?pool_ref=POOL-A'));
     const body = await res.json();
     assert.strictEqual(body.rows.length, 1);
@@ -253,7 +253,7 @@ describe('POST /api/tip-pool — idempotency', () => {
   it('replayed key returns same response, no duplicate row', async () => {
     const headers = { 'idempotency-key': 'tip-pool-test-key-aaaaaaaaaaaaa1' };
     const body = {
-      shift_date: todayISO(), pool_ref: 'POOL-1', cook_id: 'alice',
+      shift_date: serviceDate(), pool_ref: 'POOL-1', cook_id: 'alice',
       kind: 'tip_pool', amount_cents: 5000,
     };
     const r1 = await POST(postReq(body, headers));

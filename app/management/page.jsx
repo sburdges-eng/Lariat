@@ -14,6 +14,7 @@ import Link from 'next/link';
 
 import { getDb, todayISO } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
+import { serviceDate } from '../../lib/serviceDate';
 import { readLastCostingIngest } from '../../lib/costingBenchmarks.mjs';
 import { computeDishCoverage } from '../../lib/dishCostBridge';
 import { readLatestDishCoverageSnapshot } from '../../lib/dishCoverageSnapshots';
@@ -215,7 +216,8 @@ function readComplianceUnverified() {
  */
 function readCleaningToday(db, locationId) {
   try {
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    // cleaning_log.shift_date follows the service day (wave 1 triad).
+    const today = serviceDate();
     const row = /** @type {{ c: number } | undefined} */ (
       db.prepare(
         `SELECT COUNT(*) AS c FROM cleaning_log WHERE location_id = ? AND shift_date = ?`,
@@ -313,6 +315,8 @@ function readDepletionIssuesCount(db, locationId) {
  * @returns {{ expired: number, expiringSoon: number, total: number }}
  */
 function readCertWarnings(db, locationId) {
+  // expires_on is a calendar date on the cert, not a shift_date — keep UTC
+  // todayISO() so "days until expiry" tracks the reporting calendar.
   const today = todayISO();
   const rows = /** @type {{ expires_on: string }[]} */ (
     db.prepare(

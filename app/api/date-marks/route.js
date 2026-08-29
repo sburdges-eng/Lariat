@@ -7,7 +7,8 @@
 // @ts-check
 // Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
 // only, no behavior change.
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import {
   computeDiscardOn,
@@ -183,7 +184,7 @@ export async function GET(req) {
   try {
     const url = new URL(req.url);
     const location_id = locationFromRequest(req) || DEFAULT_LOCATION_ID;
-    const today = url.searchParams.get('today') || todayISO();
+    const today = url.searchParams.get('today') || serviceDate();
 
     const db = getDb();
     const active = /** @type {DateMarkRow[]} */ (db.prepare(`

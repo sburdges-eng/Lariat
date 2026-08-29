@@ -37,6 +37,9 @@ export async function GET(req) {
     }
 
     const dateParam = url.searchParams.get('date');
+    // Rolling reporting window end — calendar/UTC day, not the service day.
+    // Operator analytics aggregates across days; a 02:00 boundary would skew
+    // the window relative to the date picker and export ranges.
     const today =
       typeof dateParam === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
         ? dateParam

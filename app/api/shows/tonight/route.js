@@ -1,7 +1,8 @@
 // @ts-check
 // Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
 // only, no behavior change.
-import { getDb, todayISO } from '../../../../lib/db';
+import { getDb } from '../../../../lib/db';
+import { serviceDate } from '../../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID } from '../../../../lib/location';
 import { requirePin } from '../../../../lib/pin';
 import {
@@ -40,7 +41,7 @@ export async function GET(req) {
   try {
     const u = new URL(req.url);
     const loc = u.searchParams.get('location') || DEFAULT_LOCATION_ID;
-    const date = u.searchParams.get('date') || todayISO();
+    const date = u.searchParams.get('date') || serviceDate();
 
     const db = getDb();
 

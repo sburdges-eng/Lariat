@@ -7,7 +7,8 @@
 // PATCH /api/tphc   → mark a batch as discarded / consumed
 // GET   /api/tphc   → active batches + scan (ok / warning / expired)
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import {
   DEFAULT_LOCATION_ID,
   locationFromBody,
@@ -83,7 +84,7 @@ async function tphcPostHandler(req) {
     const station_id = clip(body.station_id, 64);
     const cook_id = clip(body.cook_id, 64);
     const location_id = locationFromBody(body);
-    const shift_date = clip(body.shift_date, 10) || todayISO();
+    const shift_date = clip(body.shift_date, 10) || serviceDate();
     // validateTphcCreate confirmed started_at is a non-empty ISO string,
     // so clip() cannot have returned null here.
     const cutoff_at = computeCutoffAt(/** @type {string} */ (started_at), kind);

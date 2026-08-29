@@ -58,6 +58,7 @@ const ORIGINAL_PIN = process.env.LARIAT_PIN;
 process.env.LARIAT_PIN = '4242';
 
 const db = await import('../../lib/db.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
@@ -72,7 +73,6 @@ const dateMarksRoute = await import('../../app/api/date-marks/route.js');
 const sickWorkerRoute = await import('../../app/api/sick-worker/route.js');
 const signoffRoute = await import('../../app/api/signoff/route.ts');
 
-const { todayISO } = db;
 
 after(() => {
   db.setDbPathForTest(null);
@@ -139,7 +139,7 @@ describe('PATCH /api/breaks — TOCTOU race on ended_at guard', () => {
       INSERT INTO shift_breaks
         (shift_date, location_id, cook_id, kind, started_at, ended_at, duration_min, waived)
       VALUES (?, 'default', ?, 'meal', ?, NULL, NULL, 0)
-    `).run(todayISO(), 'alice', '2026-04-23T10:00:00.000Z');
+    `).run(serviceDate(), 'alice', '2026-04-23T10:00:00.000Z');
     openBreakId = Number(info.lastInsertRowid);
   });
 
@@ -226,7 +226,7 @@ describe('PATCH /api/cooling — TOCTOU race on stage1→stage2 transition', () 
               '2026-04-23T10:00:00.000Z', 140,
               '2026-04-23T11:30:00.000Z', 68,
               'in_progress', 'alice')
-    `).run(todayISO());
+    `).run(serviceDate());
     coolingId = Number(info.lastInsertRowid);
   });
 
@@ -375,7 +375,7 @@ describe('PATCH /api/sick-worker — TOCTOU race on return_at guard', () => {
       VALUES (?, 'default', 'bob', 'alice',
               'vomiting', NULL, 'excluded', '2026-04-21T09:00:00.000Z',
               NULL, NULL, NULL)
-    `).run(todayISO());
+    `).run(serviceDate());
     sickId = Number(info.lastInsertRowid);
   });
 
@@ -449,7 +449,7 @@ describe('PATCH /api/sick-worker — TOCTOU race on return_at guard', () => {
 // that's what we're pinning against.
 
 describe('POST /api/signoff — TOCTOU race on unnoted-fails guard', () => {
-  const shift = todayISO();
+  const shift = serviceDate();
   const station = 'hot_line';
   const cook = 'alice';
 

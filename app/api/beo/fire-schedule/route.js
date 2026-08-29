@@ -26,7 +26,8 @@
 // Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
 // only, no behavior change.
 import { json } from '../../../../lib/routeHelpers';
-import { getDb, todayISO } from '../../../../lib/db';
+import { getDb } from '../../../../lib/db';
+import { serviceDate } from '../../../../lib/serviceDate';
 import { resolveSchedule } from '../../../../lib/beoFireSchedule';
 
 export const dynamic = 'force-dynamic';
@@ -68,12 +69,12 @@ export async function GET(req) {
             ORDER BY c.fire_at, c.id`,
         )
         .all(location, eventId));
-      // Echo the event's own date; fall back to the query param or today.
+      // Echo the event's own date; fall back to the query param or service day.
       date = (courses.length > 0 ? courses[0]?.event_date : null) ||
         url.searchParams.get('date') ||
-        todayISO();
+        serviceDate();
     } else {
-      date = url.searchParams.get('date') || todayISO();
+      date = url.searchParams.get('date') || serviceDate();
       courses = /** @type {FsCourseRow[]} */ (db
         .prepare(
           `SELECT c.id, c.event_id, c.course_label, c.fire_at, c.station_id,

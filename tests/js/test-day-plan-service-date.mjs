@@ -12,10 +12,10 @@
  * and closing at 01:30 sits on one date.
  * Spec: docs/superpowers/specs/2026-08-06-service-date-design.md
  *
- * Note this is a stricter bar than the venue *calendar* date. `serviceDateISO()`
- * in lib/boh fixes the timezone but rolls at midnight, so it still hands a cook
- * closing at 01:00 the next day's plan — a two-hour window instead of six. The
- * boundary cases below fail against it, which is the point.
+ * Note this used to be a stricter bar than the venue *calendar* date —
+ * `serviceDateISO()` in lib/boh fixed the timezone but rolled at midnight.
+ * Wave 5 now delegates that helper to `serviceDate()`, so the line book
+ * shares the 02:00 boundary with every other board.
  *
  * Run: node --experimental-strip-types --test tests/js/test-day-plan-service-date.mjs
  */
@@ -65,7 +65,6 @@ describe('the day plan files against the service date', () => {
     assert.equal(serviceDate(open), '2026-08-06');
     assert.equal(serviceDate(afterMidnight), '2026-08-06', 'past midnight, same shift');
     assert.equal(serviceDate(lastCall), '2026-08-06', 'last minute of the service day');
-    // The midnight-boundary helper in lib/boh would already say the 7th here.
     assert.notEqual(serviceDate(afterMidnight), utcISO(afterMidnight));
   });
 

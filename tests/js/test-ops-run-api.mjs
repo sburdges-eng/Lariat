@@ -529,7 +529,7 @@ describe('dynamic steps track their source board', () => {
 describe('command alerts for day plan', () => {
   it('does not invent alerts before the plan is materialized', () => {
     // Seed one review so performance-reviews-none stays quiet — isolate day-plan.
-    const today = db.todayISO();
+    const today = serviceDate();
     testDb
       .prepare(
         `INSERT INTO performance_reviews
@@ -564,7 +564,7 @@ describe('command alerts for day plan', () => {
   });
 
   it('surfaces day-plan-open after materialize', async () => {
-    const today = db.todayISO();
+    const today = serviceDate();
     testDb
       .prepare(
         `INSERT INTO performance_reviews

@@ -1,6 +1,7 @@
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
 import { getStations } from '../../../lib/data';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { serviceDate } from '../../../lib/serviceDate';
 import InventoryNav from '../_nav';
 import WasteLogClient from './WasteLogClient';
 
@@ -24,7 +25,7 @@ export default async function WastePage({ searchParams }) {
     return Number.isFinite(n) && n > 0 && n <= 90 ? Math.floor(n) : 7;
   })();
   const since = startOfRange(days - 1);
-  const today = todayISO();
+  const today = serviceDate();
   const db = getDb();
 
   const recent = db

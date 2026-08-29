@@ -208,4 +208,23 @@ describe('augustChecklistForDate', () => {
 
     assert.equal(augustChecklistForDate('2026-07-01', 'Wed').length, 0);
   });
+
+  it('emits Aug 23 makeup monthly only when the Aug 16 target is incomplete', async () => {
+    const { augustChecklistForDate } = await import('../../lib/augustChecklists2026.ts');
+    const makeupOpen = augustChecklistForDate('2026-08-23', 'Sun', {
+      monthlyTargetComplete: false,
+    });
+    assert.ok(
+      makeupOpen.some((i) => i.cadence === 'monthly'),
+      'makeup fires when Aug 16 monthly work is still open',
+    );
+
+    const makeupDone = augustChecklistForDate('2026-08-23', 'Sun', {
+      monthlyTargetComplete: true,
+    });
+    assert.ok(
+      !makeupDone.some((i) => i.cadence === 'monthly'),
+      'makeup stays off when Aug 16 monthly work is finished',
+    );
+  });
 });

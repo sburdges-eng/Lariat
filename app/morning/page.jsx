@@ -1,9 +1,9 @@
 // @ts-check
 import Link from 'next/link';
-import { todayISO } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { buildMorningDigest } from '../../lib/morningDigest';
 import { buildMorningDigestQuery } from '../../lib/morningDigestLinks';
+import { serviceDate } from '../../lib/serviceDate';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,7 +62,7 @@ function Section({ title, sub, href, children }) {
 export default async function MorningPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const loc = typeof sp.location === 'string' && sp.location.trim() ? sp.location.trim() : DEFAULT_LOCATION_ID;
-  const today = todayISO();
+  const today = serviceDate();
   const date = typeof sp.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : today;
   const q = buildMorningDigestQuery({ locationId: loc, date, today });
   const digest = buildMorningDigest(loc, date);

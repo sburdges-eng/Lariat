@@ -23,13 +23,13 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-tphc-api-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 const route = await import('../../app/api/tphc/route.js');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
 
 const { POST, PATCH, GET } = route;
-const { todayISO } = db;
 
 // Fixed reference instants so cutoff math can be asserted exactly.
 // Using Z suffix ensures the route's clip() doesn't trim offset.
@@ -130,14 +130,14 @@ describe('POST /api/tphc — happy paths', () => {
     assert.strictEqual(row.station_id, 'hot_hold_1');
   });
 
-  it('shift_date defaults to todayISO() when omitted', async () => {
+  it('shift_date defaults to the service day when omitted', async () => {
     await POST(postReq({
       item: 'queso',
       started_at: T0,
       kind: 'hot_time_only',
     }));
     const row = testDb.prepare('SELECT * FROM tphc_entries').get();
-    assert.strictEqual(row.shift_date, todayISO());
+    assert.strictEqual(row.shift_date, serviceDate());
   });
 
   it('shift_date honors explicit value when provided', async () => {

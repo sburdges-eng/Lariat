@@ -26,6 +26,7 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-calib-api-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 const route = await import('../../app/api/thermometer-calibrations/route.js');
 const tempLogRoute = await import('../../app/api/temp-log/route.js');
 
@@ -34,7 +35,6 @@ const testDb = db.getDb();
 
 const { POST, GET } = route;
 const { POST: POST_TEMP } = tempLogRoute;
-const { todayISO } = db;
 
 after(() => {
   db.setDbPathForTest(null);
@@ -477,7 +477,7 @@ describe('POST /api/temp-log with probe_id surfaces calibration_warning', () => 
     await POST(postReq({ thermometer_id: 'probe-1', method: 'ice_point', reading_f: 32 }));
     const res = await POST_TEMP(
       postTempReq({
-        shift_date: todayISO(),
+        shift_date: serviceDate(),
         point_id: 'walk_in_cooler',
         reading_f: 38,
         probe_id: 'probe-1',
@@ -494,7 +494,7 @@ describe('POST /api/temp-log with probe_id surfaces calibration_warning', () => 
   it('warning when probe has no calibration (unknown) — write still succeeds', async () => {
     const res = await POST_TEMP(
       postTempReq({
-        shift_date: todayISO(),
+        shift_date: serviceDate(),
         point_id: 'walk_in_cooler',
         reading_f: 38,
         probe_id: 'probe-new',
@@ -514,7 +514,7 @@ describe('POST /api/temp-log with probe_id surfaces calibration_warning', () => 
     await POST(postReq({ thermometer_id: 'probe-bad', method: 'ice_point', reading_f: 37 }));
     const res = await POST_TEMP(
       postTempReq({
-        shift_date: todayISO(),
+        shift_date: serviceDate(),
         point_id: 'walk_in_cooler',
         reading_f: 38,
         probe_id: 'probe-bad',
@@ -528,7 +528,7 @@ describe('POST /api/temp-log with probe_id surfaces calibration_warning', () => 
   it('omitting probe_id leaves calibration_warning null (no lookup)', async () => {
     const res = await POST_TEMP(
       postTempReq({
-        shift_date: todayISO(),
+        shift_date: serviceDate(),
         point_id: 'walk_in_cooler',
         reading_f: 38,
       }),
@@ -541,7 +541,7 @@ describe('POST /api/temp-log with probe_id surfaces calibration_warning', () => 
   it('audit row carries "calibration_warning:<probe>" when warning fires', async () => {
     const res = await POST_TEMP(
       postTempReq({
-        shift_date: todayISO(),
+        shift_date: serviceDate(),
         point_id: 'walk_in_cooler',
         reading_f: 38,
         probe_id: 'probe-new',

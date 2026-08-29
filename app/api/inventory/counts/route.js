@@ -1,7 +1,8 @@
 // @ts-check
 // Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
 // only, no behavior change.
-import { getDb, todayISO } from '../../../../lib/db';
+import { getDb } from '../../../../lib/db';
+import { serviceDate } from '../../../../lib/serviceDate';
 import { locationFromBody, locationFromRequest } from '../../../../lib/location';
 import { postAuditEvent } from '../../../../lib/auditEvents';
 import { withIdempotency } from '../../../../lib/idempotency';
@@ -48,7 +49,7 @@ async function inventoryCountsPostHandler(req) {
     const loc = locationFromBody(body);
     const label = clip(body.label, 100);
     const cookId = clip(body.cook_id, 64);
-    const countDate = clip(body.count_date, 32) || todayISO();
+    const countDate = clip(body.count_date, 32) || serviceDate();
     const db = getDb();
 
     const newId = db.transaction(() => {

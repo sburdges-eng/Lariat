@@ -138,13 +138,92 @@ describe('every migrated surface keeps both sides on the same clock', () => {
     'app/api/tip-pool/route.js', 'app/labor/tip-pool/page.jsx',
   ];
 
+  // Split or one-sided surfaces — write/read/page still must agree.
+  const WAVE_2 = [
+    'app/api/beo/route.js', 'app/api/beo/fire-schedule/route.js',
+    'app/api/date-marks/route.js', 'app/food-safety/date-marks/page.jsx',
+    'app/api/shows/tonight/route.js', 'app/shows/tonight/page.jsx',
+    'app/api/temp-log/route.js', 'app/food-safety/temp-log/page.jsx',
+  ];
+
+  // Write-only surfaces — no paired read default to keep in step.
+  const WAVE_3 = [
+    'app/api/pest/route.ts',
+    'app/api/sds/route.ts',
+    'app/api/sick-worker/route.js',
+    'app/api/thermometer-calibrations/route.js',
+    'app/api/tphc/route.js',
+    'app/api/inventory/counts/route.js',
+  ];
+
+  // Kitchen assistant alone — many write stamps + matching context reads.
+  const WAVE_4 = [
+    'app/api/kitchen-assistant/route.js',
+    'lib/kitchenAssistantContext.ts',
+  ];
+
+  // Display defaults and bare calls — boards whose "today" must match
+  // what the write side stamped. Deliberately skipped (calendar/reporting):
+  // analytics/operators, floor reservations, management cert-expiry math
+  // (cleaning_log seed on management was migrated; file still uses todayISO
+  // for certs so it stays off this list).
+  const WAVE_5 = [
+    'app/api/lari/predictions/route.js',
+    'app/api/command/summary/route.js', 'app/api/command/alerts/route.js', 'app/command/page.jsx',
+    'app/api/morning/route.js', 'app/morning/page.jsx',
+    'app/api/stations/route.js', 'app/stations/[id]/page.jsx',
+    'app/food-safety/page.jsx',
+    'app/api/food-safety/haccp-plan/route.js', 'app/food-safety/haccp-plan/page.jsx',
+    'app/api/preshift-notes/route.ts',
+    'app/api/prep-tasks/route.js', 'app/prep/page.jsx',
+    'app/page.jsx',
+    'app/v2/today/page.jsx',
+    'app/labor/page.jsx',
+    'app/inventory/log/page.jsx', 'app/inventory/waste/page.jsx',
+    'app/api/inventory/route.ts',
+    'app/api/corrective-actions/route.js',
+    'lib/boh/index.ts',
+  ];
+
+  const MIGRATED = [...WAVE_1, ...WAVE_2];
+
   it('no migrated file still calls todayISO()', () => {
-    const stragglers = WAVE_1.filter((f) => fs.readFileSync(f, 'utf8').includes('todayISO'));
+    const stragglers = MIGRATED.filter((f) => fs.readFileSync(f, 'utf8').includes('todayISO'));
     assert.deepEqual(stragglers, [], 'these were migrated but still reference todayISO');
   });
 
   it('every migrated file actually uses serviceDate()', () => {
-    const missing = WAVE_1.filter((f) => !fs.readFileSync(f, 'utf8').includes('serviceDate'));
+    const missing = MIGRATED.filter((f) => !fs.readFileSync(f, 'utf8').includes('serviceDate'));
+    assert.deepEqual(missing, [], 'these are listed as migrated but never call serviceDate');
+  });
+
+  it('wave 3 write-only files no longer call todayISO()', () => {
+    const stragglers = WAVE_3.filter((f) => fs.readFileSync(f, 'utf8').includes('todayISO'));
+    assert.deepEqual(stragglers, [], 'these were migrated but still reference todayISO');
+  });
+
+  it('wave 3 write-only files actually use serviceDate()', () => {
+    const missing = WAVE_3.filter((f) => !fs.readFileSync(f, 'utf8').includes('serviceDate'));
+    assert.deepEqual(missing, [], 'these are listed as migrated but never call serviceDate');
+  });
+
+  it('wave 4 kitchen-assistant files no longer call todayISO()', () => {
+    const stragglers = WAVE_4.filter((f) => fs.readFileSync(f, 'utf8').includes('todayISO'));
+    assert.deepEqual(stragglers, [], 'these were migrated but still reference todayISO');
+  });
+
+  it('wave 4 kitchen-assistant files actually use serviceDate()', () => {
+    const missing = WAVE_4.filter((f) => !fs.readFileSync(f, 'utf8').includes('serviceDate'));
+    assert.deepEqual(missing, [], 'these are listed as migrated but never call serviceDate');
+  });
+
+  it('wave 5 display defaults no longer call todayISO()', () => {
+    const stragglers = WAVE_5.filter((f) => fs.readFileSync(f, 'utf8').includes('todayISO'));
+    assert.deepEqual(stragglers, [], 'these were migrated but still reference todayISO');
+  });
+
+  it('wave 5 display defaults actually use serviceDate()', () => {
+    const missing = WAVE_5.filter((f) => !fs.readFileSync(f, 'utf8').includes('serviceDate'));
     assert.deepEqual(missing, [], 'these are listed as migrated but never call serviceDate');
   });
 });
