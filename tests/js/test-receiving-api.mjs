@@ -1058,3 +1058,55 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     assert.strictEqual(patchBody.receiving.master_id, 'promise_tomato_case');
   });
 });
+
+describe('receiving fires the compute engine', () => {
+  // app/api/receiving/route.js:527 fires triggerComputeEngine in a
+  // fire-and-forget setImmediate. It is the ONLY automatic compute refresh in
+  // the running app — the sole other call site, app/api/compute/status/route.js,
+  // needs a human to press something.
+  //
+  // Nothing pinned it. Deleting that block during a route-thinning refactor
+  // would leave recipe_costs, margin_snapshots and accounting_variance frozen
+  // after every delivery — a vendor price shock never reaching the
+  // menu-engineering quadrant — with all five of the section-15 receiving
+  // commands still green. The counterpart is pinned the same way in
+  // tests/js/test-compute-status-route.mjs, so the shape is proven.
+
+  // One flush is enough in principle (better-sqlite3 is synchronous, so the
+  // row is committed once the callback runs); two is what the compute-status
+  // suite uses, and costs nothing.
+  async function flushDeferred() {
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+  }
+
+  it('writes an accounting_variance row after a delivery lands', async () => {
+    testDb.exec('DELETE FROM accounting_variance;');
+
+    const res = await POST(postReq({
+      shift_date: serviceDate(),
+      vendor: 'Shamrock',
+      invoice_ref: 'INV-COMPUTE-1',
+      category: 'refrigerated',
+      item: 'chicken breast 40lb CS',
+      reading_f: 38,
+      package_ok: true,
+      cook_id: 'alice',
+    }));
+    assert.strictEqual(res.status, 200);
+
+    // Drain the deferred work BEFORE the suite's after hook calls
+    // setDbPathForTest(null) — a late callback would otherwise land on the
+    // shared data/lariat.db.
+    await flushDeferred();
+
+    const row = testDb
+      .prepare('SELECT COUNT(*) AS c FROM accounting_variance WHERE location_id = ?')
+      .get('default');
+    assert.ok(
+      row.c > 0,
+      'a delivery must refresh the compute engine — without it every costing ' +
+        'surface stays frozen at the last manual run',
+    );
+  });
+});

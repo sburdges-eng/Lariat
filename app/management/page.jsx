@@ -8,22 +8,29 @@
 //
 // PIN-gated by middleware.js (/management is in SENSITIVE_PREFIXES).
 
-import fs from 'node:fs';
-import path from 'node:path';
 import Link from 'next/link';
 
-import { getDb, todayISO } from '../../lib/db';
+import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
-import { serviceDate } from '../../lib/serviceDate';
 import { readLastCostingIngest } from '../../lib/costingBenchmarks.mjs';
 import { computeDishCoverage } from '../../lib/dishCostBridge';
 import { readLatestDishCoverageSnapshot } from '../../lib/dishCoverageSnapshots';
 import { readLatestAccountingVariance } from '../../lib/computeEngine/index';
-import { listDepletionExceptions } from '../../lib/depletionExceptions';
-import { listPriceShocks } from '../../lib/vendorPricesRepo';
 import { formatDollars } from '../../lib/formatMoney';
 
 import RollupTile from './_components/RollupTile';
+// The per-tile readers live in a sibling module so the contract test can
+// import the same code this page runs, instead of mirroring its SQL.
+import {
+  readCertWarnings,
+  readCleaningToday,
+  readComplianceUnverified,
+  readDepletionIssuesCount,
+  readPackSizeChangesUnacked,
+  readPerformanceReviewsCount,
+  readPriceShockSummary,
+  readReceivingMatchesCount,
+} from './reads.ts';
 
 /** @typedef {import('better-sqlite3').Database} DB */
 /** @typedef {Record<string, string | string[] | undefined>} PageSearchParams */
@@ -158,188 +165,15 @@ function formatSnapshotAt(value) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/**
- * Count unacknowledged pack-size changes. O(1) — replaces the prior
- * `computeUnmapped()` call that scanned every bom_lines row on each page
- * load. `pack_size_changes` has no `location_id` column (intentional —
- * vendor SKUs are global per ingest), so the location parameter is
- * accepted for symmetry but not bound. Guarded for legacy DBs that
- * predate the table.
- * @param {DB} db
- * @returns {number | null}
- */
-function readPackSizeChangesUnacked(db) {
-  try {
-    const row = /** @type {{ c: number } | undefined} */ (
-      db
-        .prepare('SELECT COUNT(*) AS c FROM pack_size_changes WHERE acknowledged = 0')
-        .get()
-    );
-    return row?.c ?? 0;
-  } catch {
-    return null;
-  }
-}
 
 // ── Per-tile readers (each isolates failure so one bad signal can't blank the page) ──
 
-/**
- * Count `verification.status === 'unverified'` rows in the curated rules JSONL.
- * @returns {{ unverified: number | null, total: number | null, missing: boolean }}
- */
-function readComplianceUnverified() {
-  const file = path.join(process.cwd(), 'data', 'normalized', 'compliance_rules.jsonl');
-  try {
-    if (!fs.existsSync(file)) return { unverified: null, total: null, missing: true };
-    const txt = fs.readFileSync(file, 'utf8');
-    let unverified = 0;
-    let total = 0;
-    for (const line of txt.split(/\r?\n/)) {
-      if (!line.trim()) continue;
-      total++;
-      try {
-        const row = JSON.parse(line);
-        if (row?.verification?.status === 'unverified') unverified++;
-      } catch { /* skip malformed line */ }
-    }
-    return { unverified, total, missing: false };
-  } catch {
-    return { unverified: null, total: null, missing: true };
-  }
-}
 
-/**
- * Today's cleaning_log row count for the current location. Inline read — not new business logic.
- * @param {DB} db
- * @param {string} locationId
- * @returns {{ count: number | null, today: string | null }}
- */
-function readCleaningToday(db, locationId) {
-  try {
-    // cleaning_log.shift_date follows the service day (wave 1 triad).
-    const today = serviceDate();
-    const row = /** @type {{ c: number } | undefined} */ (
-      db.prepare(
-        `SELECT COUNT(*) AS c FROM cleaning_log WHERE location_id = ? AND shift_date = ?`,
-      ).get(locationId, today)
-    );
-    return { count: row?.c ?? 0, today };
-  } catch {
-    return { count: null, today: null };
-  }
-}
 
-/**
- * Total performance reviews on file for the current location.
- * @param {DB} db
- * @param {string} locationId
- * @returns {number | null}
- */
-function readPerformanceReviewsCount(db, locationId) {
-  try {
-    const row = /** @type {{ c: number } | undefined} */ (
-      db.prepare(
-        `SELECT COUNT(*) AS c FROM performance_reviews WHERE location_id = ?`,
-      ).get(locationId)
-    );
-    return row?.c ?? 0;
-  } catch {
-    return null;
-  }
-}
 
-/**
- * Accepted receiving rows with quantity that still need a master ingredient.
- * @param {DB} db
- * @param {string} locationId
- * @returns {number | null}
- */
-function readReceivingMatchesCount(db, locationId) {
-  try {
-    const row = /** @type {{ c: number } | undefined} */ (
-      db.prepare(
-        `SELECT COUNT(*) AS c
-           FROM receiving_log r
-          WHERE r.location_id = ?
-            AND r.status IN ('accepted', 'accepted_with_note')
-            AND r.received_qty IS NOT NULL
-            AND r.received_qty > 0
-            AND r.received_unit IS NOT NULL
-            AND TRIM(r.received_unit) <> ''
-            AND r.match_status IN ('unmatched', 'ambiguous')`,
-      ).get(locationId)
-    );
-    return row?.c ?? 0;
-  } catch {
-    return null;
-  }
-}
 
-/**
- * Vendor SKUs with a 5%+ move in the same 7-day window as /costing/price-shocks.
- * @param {DB} db
- * @param {string} locationId
- * @returns {{ total: number, up: number, down: number }}
- */
-function readPriceShockSummary(db, locationId) {
-  const shocks = listPriceShocks(db, {
-    location_id: locationId,
-    windowDays: 7,
-    minPctMove: 5,
-    limit: 100,
-  });
-  return {
-    total: shocks.length,
-    up: shocks.filter((s) => s.direction === 'up').length,
-    down: shocks.filter((s) => s.direction === 'down').length,
-  };
-}
 
-/**
- * Current unresolved depletion exception count for the current location.
- * @param {DB} db
- * @param {string} locationId
- * @returns {number}
- */
-function readDepletionIssuesCount(db, locationId) {
-  return listDepletionExceptions(db, {
-    location_id: locationId,
-    limit: 100,
-  }).length;
-}
 
-/**
- * Active certs that are expired or expiring within 30 days.
- * @param {DB} db
- * @param {string} locationId
- * @returns {{ expired: number, expiringSoon: number, total: number }}
- */
-function readCertWarnings(db, locationId) {
-  // expires_on is a calendar date on the cert, not a shift_date — keep UTC
-  // todayISO() so "days until expiry" tracks the reporting calendar.
-  const today = todayISO();
-  const rows = /** @type {{ expires_on: string }[]} */ (
-    db.prepare(
-      `SELECT expires_on
-         FROM staff_certifications
-        WHERE location_id = ?
-          AND active = 1
-          AND expires_on IS NOT NULL`,
-    ).all(locationId)
-  );
-
-  const todayMs = new Date(today + 'T00:00:00Z').getTime();
-  let expired = 0;
-  let expiringSoon = 0;
-  for (const r of rows) {
-    const expMs = new Date(r.expires_on + 'T00:00:00Z').getTime();
-    if (Number.isNaN(expMs)) continue;
-    const days = Math.floor((expMs - todayMs) / 86400000);
-    if (days < 0) expired++;
-    else if (days <= 30) expiringSoon++;
-  }
-  return { expired, expiringSoon, total: expired + expiringSoon };
-}
 
 /**
  * @template T

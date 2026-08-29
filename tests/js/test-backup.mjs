@@ -104,6 +104,44 @@ describe('runBackup', () => {
       manifest.sick_note_key_fingerprint,
       crypto.createHash('sha256').update(Buffer.alloc(32, 7)).digest('hex').slice(0, 16),
     );
+
+    // ...and now assert it, rather than only stating it above.
+    //
+    // The invariant holds today only because scripts/backup.mjs copies
+    // exactly uploads/ and audit/ by literal path. docs/OPERATIONS.md
+    // simultaneously documents that restoring to a new Mac needs a manual key
+    // copy, which is standing pressure toward a "just back up keys/ too"
+    // change — one that would ship green against the fingerprint assertions
+    // alone, and would put the decryption key in the same archive as the PHI
+    // it protects.
+    //
+    // Walk the real tree, not manifest.files: the manifest is derived from the
+    // same walk that produces the checksums, so a key copied in afterwards
+    // would be invisible to it.
+    const walk = (dir, out = []) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(full, out);
+        else out.push(full);
+      }
+      return out;
+    };
+    const inBackup = walk(dest).map((f) => path.relative(dest, f));
+
+    assert.ok(
+      inBackup.some((f) => f.includes('sick-notes')),
+      'sanity: the sick-note PHI itself IS in the backup, so absence below is meaningful',
+    );
+    assert.deepEqual(
+      inBackup.filter((f) => path.basename(f) === 'sick-note-media.json'),
+      [],
+      'the sick-note media key must never be copied into the backup',
+    );
+    assert.deepEqual(
+      inBackup.filter((f) => f.split(path.sep).includes('keys')),
+      [],
+      'nothing under keys/ belongs in a backup — P0-6',
+    );
   });
 
   it('fails loudly instead of reporting success when the DB is missing', async () => {
