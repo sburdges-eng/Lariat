@@ -7,7 +7,7 @@
 import { json } from '../../../../lib/routeHelpers';
 import { getDb } from '../../../../lib/db';
 import { requirePin } from '../../../../lib/pin';
-import { locationFromBody, locationFromRequest } from '../../../../lib/location';
+import { locationIdFromEnv } from '../../../../lib/location';
 import {
   createManagerPinUser,
   disableManagerPinUser,
@@ -19,12 +19,23 @@ import { withIdempotency } from '../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+// Venue resolution is `locationIdFromEnv()` on every handler here, matching
+// the login path exactly: app/api/auth/pin/route.ts and lib/pin.ts both read
+// the environment, and so does the native twin
+// (LariatNative/Sources/LariatDB/ManagerPinRepository.swift).
+//
+// This CRUD used to read the URL/body instead, both falling back to 'default',
+// while the board sent neither. On any install with LARIAT_LOCATION_ID set to
+// something else, every PIN a GM added was written where login would never
+// look — "invalid pin", with nothing on screen explaining why. An install
+// serves one venue; that assumption was already baked into the login path.
+
 /** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
   try {
-    const location = locationFromRequest(req);
+    const location = locationIdFromEnv();
     const users = listManagerPinUsers({ locationId: location, includeDisabled: true });
     return json({ users }, { status: 200 });
   } catch (err) {
@@ -52,7 +63,7 @@ async function managerPinsPostHandler(req) {
   }
 
   try {
-    const location = locationFromBody(body);
+    const location = locationIdFromEnv();
     const user = getDb().transaction(() => {
       const created = createManagerPinUser({
         name: body?.name,
@@ -88,7 +99,7 @@ async function managerPinsPatchHandler(req) {
   }
 
   try {
-    const location = locationFromBody(body);
+    const location = locationIdFromEnv();
     const user = getDb().transaction(() => {
       const updated = updateManagerPinUser({
         id: body?.id,
@@ -126,7 +137,7 @@ async function managerPinsDeleteHandler(req) {
   }
 
   try {
-    const location = locationFromBody(body);
+    const location = locationIdFromEnv();
     const user = getDb().transaction(() => {
       const disabled = disableManagerPinUser(body?.id, location);
       audit('update', disabled, location);

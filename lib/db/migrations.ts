@@ -745,6 +745,36 @@ export function migrateLegacyColumns(db: DB): void {
   }
 }
 
+/**
+ * Move manager PIN users stranded under 'default' to the venue this install
+ * actually serves.
+ *
+ * app/api/auth/manager-pins used to resolve the venue from the URL/body, both
+ * falling back to 'default', while login has always resolved it from the
+ * environment. On an install with LARIAT_LOCATION_ID set to anything else,
+ * every PIN a GM added landed somewhere login would never look.
+ *
+ * Repointing the CRUD alone would leave those rows orphaned and empty the
+ * board mid-service, so the rows move with it. Idempotent: after the first
+ * run there are no 'default' rows left to move, and on a single-venue install
+ * (env unset, or literally 'default') the WHERE clause matches its own target
+ * and the guard below skips it entirely.
+ */
+export function repairManagerPinLocation(db: DB, envLocationId: string): void {
+  if (!envLocationId || envLocationId === 'default') return;
+  const stranded = db
+    .prepare(`SELECT COUNT(*) AS c FROM manager_pin_users WHERE location_id = 'default'`)
+    .get() as { c: number };
+  if (stranded.c === 0) return;
+  db.prepare(`UPDATE manager_pin_users SET location_id = ? WHERE location_id = 'default'`)
+    .run(envLocationId);
+   
+  console.warn(
+    `[lariat] moved ${stranded.c} manager PIN user(s) from 'default' to '${envLocationId}' — ` +
+      'they were written by the pre-fix admin CRUD and login could not see them.',
+  );
+}
+
 export function seedDefaultLocation(db: DB): void {
   const n = db.prepare(`SELECT COUNT(*) as c FROM locations WHERE id = 'default'`).get() as { c: number };
   if (n.c === 0) {
