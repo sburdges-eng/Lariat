@@ -904,7 +904,9 @@ export const NAV_ITEMS = /** @type {NavItemBase[]} */ ([
     sub: 'OFF allergen check',
     group: 'Books',
     terms: 'allergen allergens off open food facts gtin barcode peanut gluten dairy egg soy nut milk wheat',
-    locAware: f,
+    // The house-recipe attestation panel on this page is venue-scoped, so a
+    // deep link must carry the venue it was captured for.
+    locAware: t,
     surface: { sidebar: f, palette: t, shelf: t },
     shelf: { b: 'Allergens', sub: 'check' },
   },
