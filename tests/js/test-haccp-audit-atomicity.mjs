@@ -36,12 +36,12 @@ const ORIGINAL_PIN = process.env.LARIAT_PIN;
 process.env.LARIAT_PIN = '4242';
 
 const db = await import('../../lib/db.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 const auditEvents = await import('../../lib/auditEvents.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
 
-const { todayISO } = db;
 const { postAuditEvent } = auditEvents;
 
 // Routes — imported lazily so that setDbPathForTest has already run
@@ -165,7 +165,7 @@ describe('db.transaction — rollback on audit-inner failure', () => {
           (shift_date, location_id, point_id, reading_f,
            required_min_f, required_max_f, corrective_action, cook_id, probe_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(todayISO(), 'default', 'walk_in_cooler', 38, null, 41, null, 'alice', null);
+      `).run(serviceDate(), 'default', 'walk_in_cooler', 38, null, 41, null, 'alice', null);
       // Insert looked fine. Now fail as postAuditEvent might.
       throw new Error('synthetic audit failure');
     });
@@ -185,7 +185,7 @@ describe('db.transaction — rollback on audit-inner failure', () => {
       const beforeTemp = countRows('temp_log');
 
       const res = await tempLog.POST(postReq('http://localhost/api/temp-log', {
-        shift_date: todayISO(),
+        shift_date: serviceDate(),
         point_id: 'walk_in_cooler',
         reading_f: 38,
         cook_id: 'alice',
@@ -208,7 +208,7 @@ describe('db.transaction — rollback on audit-inner failure', () => {
 describe('HACCP routes — insert + audit commit together (happy path)', () => {
   it('POST /api/temp-log commits both temp_log and audit_events', async () => {
     const res = await tempLog.POST(postReq('http://localhost/api/temp-log', {
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       point_id: 'walk_in_cooler',
       reading_f: 38,
       cook_id: 'alice',
@@ -222,7 +222,7 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
   it('POST /api/temp-log emits NO warn (audit is inside the transaction)', async () => {
     const { captured } = await captureWarnsAsync(async () => {
       await tempLog.POST(postReq('http://localhost/api/temp-log', {
-        shift_date: todayISO(),
+        shift_date: serviceDate(),
         point_id: 'walk_in_cooler',
         reading_f: 38,
         cook_id: 'alice',
@@ -234,7 +234,7 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
 
   it('POST /api/receiving commits both receiving_log and audit_events', async () => {
     const res = await receiving.POST(postReq('http://localhost/api/receiving', {
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       vendor: 'Shamrock',
       invoice_ref: 'INV-1001',
       category: 'refrigerated',
@@ -264,7 +264,7 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
 
   it('POST /api/cooling commits both cooling_log and audit_events', async () => {
     const res = await cooling.POST(postReq('http://localhost/api/cooling', {
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       location_id: 'default',
       item: 'chili',
       station_id: 'cold_line',
@@ -280,7 +280,7 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
 
   it('POST /api/sanitizer commits both sanitizer_checks and audit_events', async () => {
     const res = await sanitizer.POST(postReq('http://localhost/api/sanitizer', {
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       location_id: 'default',
       station_id: 'dish_3comp',
       point_label: 'bar-3comp',
@@ -299,7 +299,7 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
     const res = await dateMarks.POST(postReq('http://localhost/api/date-marks', {
       location_id: 'default',
       item: 'cooked rice',
-      prepared_on: todayISO(),
+      prepared_on: serviceDate(),
       cook_id: 'alice',
     }));
     assert.strictEqual(res.status, 200);
@@ -309,7 +309,7 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
 
   it('POST /api/sick-worker commits both sick_worker_reports and audit_events', async () => {
     const res = await sickWorker.POST(postReq('http://localhost/api/sick-worker', {
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       location_id: 'default',
       cook_id: 'bob',
       reported_by_pic_id: 'alice',
@@ -324,7 +324,7 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
 
   it('POST /api/breaks commits both shift_breaks and audit_events', async () => {
     const res = await breaks.POST(postReq('http://localhost/api/breaks', {
-      shift_date: todayISO(),
+      shift_date: serviceDate(),
       location_id: 'default',
       cook_id: 'alice',
       kind: 'meal',
@@ -359,7 +359,7 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
 
 describe('POST /api/temp-log — idempotency replay', () => {
   const samePayload = () => ({
-    shift_date: todayISO(),
+    shift_date: serviceDate(),
     point_id: 'walk_in_cooler',
     reading_f: 38,
     cook_id: 'alice',
@@ -422,7 +422,7 @@ describe('POST /api/temp-log — idempotency replay', () => {
 
 describe('POST /api/receiving — idempotency replay', () => {
   const samePayload = () => ({
-    shift_date: todayISO(),
+    shift_date: serviceDate(),
     vendor: 'Shamrock',
     invoice_ref: 'INV-1001',
     category: 'refrigerated',
