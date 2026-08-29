@@ -385,3 +385,60 @@ describe('PATCH /api/date-marks — error contract', () => {
     assert.strictEqual(countAuditAction('date_marks', 'update'), 1);
   });
 });
+
+describe('PATCH /api/date-marks — cross-location IDOR guard', () => {
+  // date_marks is the 7-day §3-501.17 discard clock. Every sibling PATCH
+  // already refuses a mark belonging to another site by guessing its
+  // numeric id — tphc:174-180, cooling:191, breaks:177, eighty-six/resolve:72
+  // — and each carries the same 404-not-403 rationale. This one selected
+  // by bare id, checked existence and already-discarded, then UPDATEd by
+  // bare id.
+
+  function seedMarkAt(locationId) {
+    testDb
+      .prepare(
+        `INSERT INTO date_marks (location_id, item, prepared_on, discard_on, cook_id)
+         VALUES (?, 'pork green chile', '2026-08-20', '2026-08-27', 'cook-1')`,
+      )
+      .run(locationId);
+    return testDb.prepare('SELECT id FROM date_marks ORDER BY id DESC LIMIT 1').get().id;
+  }
+
+  it('refuses to discard a mark belonging to another site, as a 404', async () => {
+    const id = seedMarkAt('west');
+
+    const res = await PATCH(
+      patchReq({ id, discard_reason: 'expired', cook_id: 'cook-2', location_id: 'default' }),
+    );
+
+    assert.strictEqual(res.status, 404, 'a mark at another site must not be reachable by id');
+    const body = await res.json();
+    assert.doesNotMatch(
+      JSON.stringify(body),
+      /west|pork green chile/,
+      'a 404 must not leak that the mark exists elsewhere',
+    );
+
+    const row = testDb.prepare('SELECT discarded_at FROM date_marks WHERE id=?').get(id);
+    assert.strictEqual(row.discarded_at, null, 'the row is untouched');
+  });
+
+  it('still discards a mark at the caller\'s own site', async () => {
+    const id = seedMarkAt('west');
+    const res = await PATCH(
+      patchReq({ id, discard_reason: 'expired', cook_id: 'cook-2', location_id: 'west' }),
+    );
+    assert.strictEqual(res.status, 200);
+    const row = testDb.prepare('SELECT discarded_at FROM date_marks WHERE id=?').get(id);
+    assert.notStrictEqual(row.discarded_at, null);
+  });
+
+  it('still discards on a single-venue install that sends no location at all', async () => {
+    // The board historically sent no location_id. locationFromBodyOrRequest
+    // falls back to 'default', which is what a single-venue install stores,
+    // so the guard must not break the only deployment that exists today.
+    const id = seedMarkAt('default');
+    const res = await PATCH(patchReq({ id, discard_reason: 'quality', cook_id: 'cook-3' }));
+    assert.strictEqual(res.status, 200);
+  });
+});

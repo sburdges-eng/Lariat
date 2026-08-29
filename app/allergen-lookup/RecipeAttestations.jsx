@@ -17,6 +17,7 @@
 // the fail-loud posture of the product cards above.
 
 import { useEffect, useState } from 'react';
+import { useLocation } from '../_components/useLocation';
 
 /**
  * @typedef {Object} AttestationMeta
@@ -116,6 +117,11 @@ function RecipeAllergenChip({ tag }) {
 }
 
 export default function RecipeAttestations() {
+  // An attestation is a named, PIN-bound manager signoff with an audit row.
+  // Without this it was read and written unscoped, so two venues on one
+  // install pooled their signoffs — site B verifying a dish marked it
+  // verified for site A, whose kitchen may plate it differently.
+  const { locationId, locQuery } = useLocation();
   const [rows, setRows] = useState(/** @type {RecipeStatus[] | null} */ (null));
   const [loadError, setLoadError] = useState(/** @type {string | null} */ (null));
   const [filter, setFilter] = useState('');
@@ -127,7 +133,7 @@ export default function RecipeAttestations() {
 
   useEffect(() => {
     let alive = true;
-    fetch('/api/allergens/attestations')
+    fetch(`/api/allergens/attestations${locQuery}`)
       .then(async (res) => {
         if (!alive) return;
         const body = await res.json().catch(() => null);
@@ -143,7 +149,7 @@ export default function RecipeAttestations() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [locQuery]);
 
   /** @param {RecipeStatus} recipe */
   async function submitAttestation(recipe) {
@@ -159,6 +165,7 @@ export default function RecipeAttestations() {
           allergens: recipe.heuristic_allergens,
           attested_by: attestBy,
           note: attestNote || undefined,
+          location_id: locationId,
         }),
       });
     } catch (err) {

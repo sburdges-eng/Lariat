@@ -249,3 +249,69 @@ describe('/api/auth/manager-pins management API', { concurrency: false }, () => 
     assert.equal(managerPins.findActiveManagerByPin('2222', 'default'), null);
   });
 });
+
+describe('manager PINs land where login looks for them', { concurrency: false }, () => {
+  // The admin CRUD resolved location from the URL/body (locationFromRequest /
+  // locationFromBody, both falling back to 'default'); login resolves from the
+  // environment (app/api/auth/pin/route.ts + lib/pin.ts, all locationIdFromEnv).
+  // The board (app/management/pins/page.jsx) sends neither.
+  //
+  // So on any install with LARIAT_LOCATION_ID set to something other than
+  // 'default', every PIN a GM added was written where login would never look:
+  // "invalid pin", with nothing on screen explaining why. The native twin
+  // (ManagerPinRepository.swift) already resolves the env, so on a shared
+  // database the two surfaces disagreed.
+
+  const ORIGINAL_LOC = process.env.LARIAT_LOCATION_ID;
+  after(() => {
+    if (ORIGINAL_LOC === undefined) delete process.env.LARIAT_LOCATION_ID;
+    else process.env.LARIAT_LOCATION_ID = ORIGINAL_LOC;
+  });
+
+  it('a PIN created on the board is accepted by login on a non-default install', async () => {
+    process.env.LARIAT_LOCATION_ID = 'west';
+    try {
+      const created = await managerPinRoute.POST(
+        jsonReq('/api/auth/manager-pins', { name: 'Sous', pin: '3141', role: 'manager' }),
+      );
+      assert.equal(created.status, 200);
+
+      // Written under the venue login actually reads.
+      assert.notEqual(managerPins.findActiveManagerByPin('3141', 'west'), null,
+        'the PIN must be stored under the env location');
+      assert.equal(managerPins.findActiveManagerByPin('3141', 'default'), null,
+        "and not under 'default', where login would never look");
+
+      const res = await pinRoute.POST(jsonReq('/api/auth/pin', { pin: '3141' }, { cookie: null }));
+      assert.equal(res.status, 200, 'the GM must be able to log in with the PIN they just made');
+    } finally {
+      delete process.env.LARIAT_LOCATION_ID;
+    }
+  });
+
+  it('the board lists the users it just created on a non-default install', async () => {
+    process.env.LARIAT_LOCATION_ID = 'west';
+    try {
+      await managerPinRoute.POST(
+        jsonReq('/api/auth/manager-pins', { name: 'GM', pin: '2718', role: 'manager' }),
+      );
+      const listed = await managerPinRoute.GET(
+        new Request('http://localhost/api/auth/manager-pins', { headers: { cookie: MASTER_COOKIE } }),
+      );
+      const body = await listed.json();
+      assert.equal(body.users.length, 1, 'a board that lists nothing it just wrote is the bug');
+      assert.equal(body.users[0].name, 'GM');
+    } finally {
+      delete process.env.LARIAT_LOCATION_ID;
+    }
+  });
+
+  it('is unchanged on a single-venue install', async () => {
+    delete process.env.LARIAT_LOCATION_ID;
+    const created = await managerPinRoute.POST(
+      jsonReq('/api/auth/manager-pins', { name: 'Chef', pin: '1618', role: 'manager' }),
+    );
+    assert.equal(created.status, 200);
+    assert.notEqual(managerPins.findActiveManagerByPin('1618', 'default'), null);
+  });
+});

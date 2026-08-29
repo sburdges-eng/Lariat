@@ -9,7 +9,13 @@
 import type { Database as DB } from 'better-sqlite3';
 import { clearSchemaCache } from '../../schemaCache.ts';
 import { assertCriticalSchemas } from '../assertions.ts';
-import { ensureIndexes, migrateLegacyColumns, seedDefaultLocation } from '../migrations.ts';
+import {
+  ensureIndexes,
+  migrateLegacyColumns,
+  repairManagerPinLocation,
+  seedDefaultLocation,
+} from '../migrations.ts';
+import { locationIdFromEnv } from '../../location.ts';
 import { initEntitySchema } from './entity.ts';
 import { initFoodSafetyLaborSchema } from './safety.ts';
 import { initManagementSchema } from './management.ts';
@@ -42,6 +48,7 @@ export function initSchema(db: DB): void {
   migrateLegacyColumns(db);
   assertCriticalSchemas(db);
   seedDefaultLocation(db);
+  repairManagerPinLocation(db, locationIdFromEnv());
   ensureIndexes(db);
 
   initPhase4Schema(db);
