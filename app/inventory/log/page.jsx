@@ -1,6 +1,7 @@
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
 import { getStations } from '../../../lib/data';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { serviceDate } from '../../../lib/serviceDate';
 import InventoryBoard from '../InventoryBoard';
 import InventoryNav from '../_nav';
 
@@ -13,7 +14,7 @@ export default async function InventoryLogPage({ searchParams }) {
     typeof sp?.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const date = todayISO();
+  const date = serviceDate();
   const db = getDb();
   const updates = db
     .prepare(`SELECT * FROM inventory_updates WHERE shift_date=? AND location_id=? ORDER BY id DESC`)

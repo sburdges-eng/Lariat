@@ -10,9 +10,9 @@
 // No PIN gate: like /api/corrective-actions, this is an informational
 // food-safety read — the document exists to be handed to an inspector.
 
-import { todayISO } from '../../../../lib/db';
 import { locationFromRequest } from '../../../../lib/location';
 import { buildHaccpPlan } from '../../../../lib/haccpPlan';
+import { serviceDate } from '../../../../lib/serviceDate';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +23,7 @@ export async function GET(req) {
   try {
     const url = new URL(req.url);
     const dateRaw = url.searchParams.get('date');
-    const date = dateRaw && ISO_DATE.test(dateRaw) ? dateRaw : todayISO();
+    const date = dateRaw && ISO_DATE.test(dateRaw) ? dateRaw : serviceDate();
     const location_id = locationFromRequest(req);
 
     const plan = buildHaccpPlan(location_id, date);

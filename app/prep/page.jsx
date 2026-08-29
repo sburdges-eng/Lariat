@@ -8,9 +8,10 @@
 // today and clicks. This keeps the source of truth in the prep board
 // (not derived) so the line cook's view matches the manager's view.
 
-import { getDb, todayISO } from '../../lib/db';
+import { getDb } from '../../lib/db';
 import { getStations } from '../../lib/data';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
+import { serviceDate } from '../../lib/serviceDate';
 import PrepBoard from './PrepBoard';
 
 /**
@@ -68,7 +69,7 @@ export default async function PrepPage({ searchParams }) {
     typeof sp.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const date = todayISO();
+  const date = serviceDate();
   const db = getDb();
 
   const tasks = /** @type {PrepTaskRow[]} */ (

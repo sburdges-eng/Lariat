@@ -438,9 +438,10 @@ describe('boh service date', () => {
     assert.equal(serviceDateISO(evening), '2026-01-26');
   });
 
-  it('rolls at local midnight', () => {
-    assert.equal(serviceDateISO(new Date('2026-07-27T05:59:00.000Z')), '2026-07-26');
-    assert.equal(serviceDateISO(new Date('2026-07-27T06:01:00.000Z')), '2026-07-27');
+  it('rolls at 02:00 local, not midnight', () => {
+    // 01:59 MDT July 27 is still service day July 26; 02:01 is the 27th.
+    assert.equal(serviceDateISO(new Date('2026-07-27T07:59:00.000Z')), '2026-07-26');
+    assert.equal(serviceDateISO(new Date('2026-07-27T08:01:00.000Z')), '2026-07-27');
   });
 
   it('zero-pads so keys sort', () => {

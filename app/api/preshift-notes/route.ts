@@ -1,4 +1,4 @@
-import { getDb, todayISO, getPreshiftNote, todayServiceLabel } from '../../../lib/db';
+import { getDb, getPreshiftNote, todayServiceLabel } from '../../../lib/db';
 import {
   DEFAULT_LOCATION_ID,
   locationFromBody,
@@ -6,6 +6,7 @@ import {
 } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
+import { serviceDate } from '../../../lib/serviceDate';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,7 @@ function cleanService(s: unknown): string | null {
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const location_id = locationFromRequest(req as any) || DEFAULT_LOCATION_ID;
-  const shift_date = url.searchParams.get('date') || todayISO();
+  const shift_date = url.searchParams.get('date') || serviceDate();
 
   // If client didn't pass ?service=…, resolve today's label from service_hours.
   let service_label: string | null;
@@ -60,7 +61,7 @@ async function preshiftNotesPostHandler(req: Request) {
 
     const shift_date = typeof body.shift_date === 'string' && body.shift_date.trim()
       ? body.shift_date.trim().slice(0, 32)
-      : todayISO();
+      : serviceDate();
     const location_id = locationFromBody(body);
     const service_label = 'service_label' in body
       ? cleanService(body.service_label)

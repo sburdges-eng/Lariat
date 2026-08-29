@@ -7,9 +7,9 @@
 // browser's "Save as PDF" — no PDF library, no external service. The
 // "Print / Save as PDF" button is hidden in print output via .no-print.
 
-import { todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { buildHaccpPlan } from '../../../lib/haccpPlan';
+import { serviceDate } from '../../../lib/serviceDate';
 
 /** @typedef {Record<string, string | string[] | undefined>} PageSearchParams */
 
@@ -65,7 +65,7 @@ export default async function HaccpPlanPage({ searchParams }) {
     typeof sp.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const today = todayISO();
+  const today = serviceDate();
   const date =
     typeof sp.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : today;
 

@@ -12,6 +12,10 @@ import { getDb, todayISO } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import FloorPlan from './FloorPlan.jsx';
 
+// Floor reservations filter on reservation_at (guest booking datetime), not
+// shift_date. Keep calendar UTC todayISO() — a party booked for "Aug 7 lunch"
+// must still show when the service day has not yet rolled to the 7th.
+
 /**
  * dining_tables row shape as selected by this page (see CREATE TABLE in
  * lib/db.ts). Matches the columns read/written by the sibling API routes

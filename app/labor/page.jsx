@@ -7,10 +7,11 @@
 // (red = action required, amber = soon, green = clean).
 
 import Link from 'next/link';
-import { getDb, todayISO } from '../../lib/db';
+import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { classifyReview } from '../../lib/performanceReviews';
 import { formatMoney } from '../../lib/formatMoney';
+import { serviceDate } from '../../lib/serviceDate';
 
 /** @typedef {Pick<import('../../lib/db.ts').ShiftBreak, 'kind' | 'ended_at' | 'waived'>} BreakRow */
 
@@ -217,7 +218,7 @@ export default async function LaborHub({ searchParams }) {
     typeof sp?.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const today = todayISO();
+  const today = serviceDate();
   const year = new Date().getFullYear();
   const s = summarize(loc, today, year);
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';

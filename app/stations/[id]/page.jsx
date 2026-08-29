@@ -2,8 +2,9 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getStation, getLineCheckTemplate, getSetups } from '../../../lib/data';
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { serviceDate } from '../../../lib/serviceDate';
 import StationChecklist from './StationChecklist';
 
 export const dynamic = 'force-dynamic';
@@ -72,7 +73,7 @@ export default async function StationPage({ params, searchParams }) {
     typeof sp.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const date = todayISO();
+  const date = serviceDate();
   const items = station.line_check_key ? getLineCheckTemplate(station.line_check_key) : [];
   const setups = getSetups();
   const setupSteps = /** @type {string[]} */ (station.setup_key ? (setups[station.setup_key] || []) : []);

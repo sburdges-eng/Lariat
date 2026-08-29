@@ -1,5 +1,6 @@
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
+import { serviceDate } from '../../../lib/serviceDate';
 import {
   resolveCookingShrinkage,
   formatDepletionDelta,
@@ -79,7 +80,7 @@ function isToastSource(src: unknown): boolean {
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const date = url.searchParams.get('date') || todayISO();
+    const date = url.searchParams.get('date') || serviceDate();
     const loc = locationFromRequest(req);
     const db = getDb();
     const rows = db
@@ -158,7 +159,7 @@ async function inventoryPostHandler(req: Request) {
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
-          clip(body.shift_date, 32) || todayISO(),
+          clip(body.shift_date, 32) || serviceDate(),
           clip(body.station_id, 64),
           item,
           delta,

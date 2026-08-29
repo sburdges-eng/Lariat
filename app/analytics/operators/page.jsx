@@ -110,6 +110,7 @@ export default async function OperatorAnalyticsPage({ searchParams }) {
     Number.isInteger(windowRaw) && isAllowedWindow(windowRaw)
       ? windowRaw
       : DEFAULT_OPERATOR_ANALYTICS_WINDOW;
+  // Reporting window end — calendar/UTC day (see API route comment).
   const today = todayISO();
   const analytics = buildOperatorAnalytics(loc, today, windowDays);
 

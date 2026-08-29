@@ -1,9 +1,9 @@
 // @ts-check
 // Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
 // only, no behavior change.
-import { todayISO } from '../../../../lib/db';
 import { locationFromRequest } from '../../../../lib/location';
 import { summarize, alertsFor } from '../../../../lib/commandCenter';
+import { serviceDate } from '../../../../lib/serviceDate';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +14,7 @@ export async function GET(req) {
     const dateParam = url.searchParams.get('date');
     const today = (typeof dateParam === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateParam))
       ? dateParam
-      : todayISO();
+      : serviceDate();
     const loc = locationFromRequest(req);
     const summary = summarize(loc, today);
     const alerts = alertsFor(summary);

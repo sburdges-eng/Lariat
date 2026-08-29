@@ -21,9 +21,10 @@
 // @ts-check
 // Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
 // only, no behavior change.
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
 import { locationFromRequest } from '../../../lib/location';
 import { mergeCorrectiveActions } from '../../../lib/correctiveActions';
+import { serviceDate } from '../../../lib/serviceDate';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +35,7 @@ export async function GET(req) {
   try {
     const url = new URL(req.url);
     const dateRaw = url.searchParams.get('date');
-    const date = dateRaw && ISO_DATE.test(dateRaw) ? dateRaw : todayISO();
+    const date = dateRaw && ISO_DATE.test(dateRaw) ? dateRaw : serviceDate();
     const station_id = (url.searchParams.get('station_id') || '').trim() || null;
     const location_id = locationFromRequest(req);
 

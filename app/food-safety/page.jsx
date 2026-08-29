@@ -8,13 +8,14 @@
 // before service.
 
 import Link from 'next/link';
-import { getDb, todayISO } from '../../lib/db';
+import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { scanOpenBatches } from '../../lib/cooling';
 import { scanExpiringBatches } from '../../lib/dateMarks';
 import { classifyReadings } from '../../lib/tempLog';
 import { classifyProbes, DEFAULT_FREQUENCY_DAYS } from '../../lib/calibrations';
 import { scanActiveTphc } from '../../lib/tphc';
+import { serviceDate } from '../../lib/serviceDate';
 
 export const dynamic = 'force-dynamic';
 
@@ -286,7 +287,7 @@ export default async function FoodSafetyHub({ searchParams }) {
     typeof sp?.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const today = todayISO();
+  const today = serviceDate();
   const s = summarize(loc, today);
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 

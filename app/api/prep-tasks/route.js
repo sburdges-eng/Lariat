@@ -1,10 +1,11 @@
 // @ts-check
 // Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
 // only, no behavior change.
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
+import { serviceDate } from '../../../lib/serviceDate';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +44,7 @@ export async function GET(req) {
   try {
     const url = new URL(req.url);
     const loc = locationFromRequest(req);
-    const shiftDate = clip(url.searchParams.get('date'), 32) || todayISO();
+    const shiftDate = clip(url.searchParams.get('date'), 32) || serviceDate();
     const stationId = clip(url.searchParams.get('station_id'), 80);
     const status = clip(url.searchParams.get('status'), 32);
     const where = ['location_id = ?', 'shift_date = ?'];
@@ -84,7 +85,7 @@ async function prepTaskPostHandler(req) {
   try {
     const body = await req.json().catch(() => ({}));
     const loc = locationFromBody(body);
-    const shiftDate = clip(body.shift_date, 32) || todayISO();
+    const shiftDate = clip(body.shift_date, 32) || serviceDate();
     const stationId = clip(body.station_id, 80);
     const task = clip(body.task, 300);
     if (!task) {

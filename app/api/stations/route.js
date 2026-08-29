@@ -2,8 +2,9 @@
 // Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
 // only, no behavior change.
 import { getStations, getLineCheckTemplate } from '../../../lib/data';
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { serviceDate } from '../../../lib/serviceDate';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req) {
   const url = new URL(req.url);
   const loc = url.searchParams.get('location')?.trim() || DEFAULT_LOCATION_ID;
-  const date = todayISO();
+  const date = serviceDate();
 
   const db = getDb();
   const stations = getStations();
