@@ -6,7 +6,7 @@ final class TempPinVerifierTests: XCTestCase {
     func testPinNotRequiredForTodayWhenEnvSet() {
         let v = TempPinVerifier()
         XCTAssertFalse(
-            v.pinRequiredForBackDate(shiftDate: ShiftDate.todayISO(), env: ["LARIAT_PIN": "1234"])
+            v.pinRequiredForBackDate(shiftDate: ShiftDate.serviceDate(), env: ["LARIAT_PIN": "1234"])
         )
     }
 

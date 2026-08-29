@@ -106,7 +106,7 @@ final class EightySixViewModel {
                     reason: reason.rawValue,
                     quantity: quantity.isEmpty ? nil : quantity,
                     cookId: cookStore.cookId,
-                    shiftDate: ShiftDate.todayISO()
+                    shiftDate: ShiftDate.serviceDate()
                 ),
                 context: context
             )

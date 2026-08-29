@@ -26,7 +26,7 @@ public struct InventoryUpdateRepository: Sendable {
         date: String? = nil,
         locationId: String = LocationScope.resolve()
     ) async throws -> [InventoryUpdateRow] {
-        let day = clip(date, max: 32) ?? ShiftDate.todayISO()
+        let day = clip(date, max: 32) ?? ShiftDate.serviceDate()
         return try await readDB.pool.read { db in
             try InventoryUpdateRow.fetchAll(db, sql: """
               SELECT id, shift_date, station_id, item, delta, direction, note, cook_id, created_at
@@ -113,7 +113,7 @@ public struct InventoryUpdateRepository: Sendable {
                 (shift_date, station_id, item, delta, direction, note, cook_id, location_id)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
               """, arguments: [
-                clip(input.shiftDate, max: 32) ?? ShiftDate.todayISO(),
+                clip(input.shiftDate, max: 32) ?? ShiftDate.serviceDate(),
                 clip(input.stationId, max: 64), item, delta, direction, persistedNote,
                 context.actorCookId, locationId,
             ])

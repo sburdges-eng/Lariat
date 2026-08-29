@@ -25,7 +25,7 @@ import Observation
         // ValueObservation can't see cross-process writes, so BoardPoller
         // re-queries every 3 s (mirrors ManagementRollupViewModel).
         poller.start(interval: .seconds(3)) { [weak self] in
-            let today = Self.todayISO()
+            let today = ShiftDate.serviceDate()
 
             // Fetch CommandBundle, price shocks, and margin moves concurrently.
             async let bundleResult = commandRepo.fetch(today: today)
@@ -79,19 +79,6 @@ import Observation
 
     func stop() { poller.stop() }
 
-    // Web parity: lib/db.ts `todayISO()` uses `new Date().toISOString().slice(0,10)`,
-    // which is UTC. We match that by fixing the formatter's timezone to UTC.
-    private static let isoDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone(identifier: "UTC")
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
-    private static func todayISO() -> String {
-        isoDateFormatter.string(from: Date())
-    }
 }
 
 // MARK: - Root view

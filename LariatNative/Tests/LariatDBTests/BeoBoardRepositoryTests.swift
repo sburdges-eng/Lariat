@@ -139,7 +139,7 @@ final class BeoBoardRepositoryTests: XCTestCase {
     func testCreateEventDefaultsDateToTodayAndStatusToPlanned() throws {
         let id = try repo.createEvent(BeoEventInput(title: "Bare"), locationId: "default", context: ctx)
         let row = try XCTUnwrap(fixture.row("SELECT event_date, status FROM beo_events WHERE id = ?", [id]))
-        XCTAssertEqual(row["event_date"], ShiftDate.todayISO())
+        XCTAssertEqual(row["event_date"], ShiftDate.serviceDate())
         XCTAssertEqual(row["status"], "planned")
     }
 

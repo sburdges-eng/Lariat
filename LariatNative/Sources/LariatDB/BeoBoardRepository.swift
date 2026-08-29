@@ -102,7 +102,7 @@ public struct BeoBoardRepository {
                   """,
                 arguments: [
                     title,
-                    Self.clip(input.eventDate, max: 32) ?? ShiftDate.todayISO(),
+                    Self.clip(input.eventDate, max: 32) ?? ShiftDate.serviceDate(),
                     Self.clip(input.eventTime, max: 32),
                     Self.clip(input.contactName, max: 120),
                     input.guestCount,

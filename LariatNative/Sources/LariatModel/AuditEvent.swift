@@ -72,14 +72,14 @@ public struct RegulatedWriteContext: Sendable {
             actorCookId: pinUser.map { String($0.id) },
             actorSource: nativeMacActorSource,
             locationId: pinUser?.locationId ?? "default",
-            shiftDate: ShiftDate.todayISO()
+            shiftDate: ShiftDate.serviceDate()
         )
     }
 
     public static func nativeCook(
         cookId: String?,
         locationId: String = LocationScope.resolve(),
-        shiftDate: String = ShiftDate.todayISO()
+        shiftDate: String = ShiftDate.serviceDate()
     ) -> RegulatedWriteContext {
         RegulatedWriteContext(
             actorCookId: cookId,

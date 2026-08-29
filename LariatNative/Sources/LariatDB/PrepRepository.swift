@@ -26,7 +26,7 @@ public struct PrepRepository: Sendable {
     // MARK: - load (app/prep/page.jsx read + PrepBoard.jsx grouping)
 
     public func load(
-        date: String = ShiftDate.todayISO(),
+        date: String = ShiftDate.serviceDate(),
         locationId: String = LocationScope.resolve(),
         stations: [KitchenStation]
     ) async throws -> PrepBoardSnapshot {

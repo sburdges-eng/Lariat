@@ -14,7 +14,7 @@ public struct LineCheckRepository: Sendable {
     }
 
     public func loadStationList(
-        date: String = ShiftDate.todayISO(),
+        date: String = ShiftDate.serviceDate(),
         locationId: String = LocationScope.resolve()
     ) async throws -> [StationListRow] {
         let candidates = catalog.stations.filter { !catalog.lineCheckItems(for: $0).isEmpty }
@@ -41,7 +41,7 @@ public struct LineCheckRepository: Sendable {
 
     public func loadChecklist(
         stationId: String,
-        date: String = ShiftDate.todayISO(),
+        date: String = ShiftDate.serviceDate(),
         locationId: String = LocationScope.resolve()
     ) async throws -> StationChecklistSnapshot {
         guard let station = catalog.stations.first(where: { $0.id == stationId }) else {

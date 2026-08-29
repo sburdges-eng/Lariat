@@ -49,7 +49,7 @@ final class InventoryLogViewModel {
 
     func refresh() async {
         do {
-            rows = try await repo.listUpdates(date: ShiftDate.todayISO(), locationId: locationId)
+            rows = try await repo.listUpdates(date: ShiftDate.serviceDate(), locationId: locationId)
             fetchError = nil
         } catch {
             fetchError = "Could not load inventory log"

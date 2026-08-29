@@ -25,6 +25,9 @@
 
 import type { Database } from 'better-sqlite3';
 import { postAuditEvent } from './auditEvents.ts';
+// shift_date on these audit rows is omitted on purpose — postAuditEvent
+// defaults to serviceDate(), the 02:00–02:00 venue day. Do not pass a UTC
+// slice here; that was the original ledger bug.
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -173,7 +176,6 @@ export function createBoxOfficeLine(
       actor_cook_id: input.actor_cook_id ?? null,
       actor_source: 'box_office',
       location_id: input.location_id,
-      shift_date: new Date().toISOString().slice(0, 10),
       payload: {
         show_id: input.show_id,
         source: input.source,
@@ -234,7 +236,6 @@ export function markScanned(
       actor_cook_id: actor_cook_id ?? null,
       actor_source: 'box_office',
       location_id,
-      shift_date: new Date().toISOString().slice(0, 10),
       payload: {
         op: 'mark_scanned',
         show_id: row.show_id,
@@ -371,7 +372,6 @@ export function bulkUpsertFromDice(
           actor_cook_id: l.actor_cook_id ?? null,
           actor_source: 'dice_ingest',
           location_id: l.location_id,
-          shift_date: new Date().toISOString().slice(0, 10),
           payload: {
             show_id: l.show_id,
             source: 'dice',
@@ -398,7 +398,6 @@ export function bulkUpsertFromDice(
             actor_cook_id: l.actor_cook_id ?? null,
             actor_source: 'dice_ingest',
             location_id: l.location_id,
-            shift_date: new Date().toISOString().slice(0, 10),
             payload: {
               op: 'dice_revision',
               show_id: l.show_id,

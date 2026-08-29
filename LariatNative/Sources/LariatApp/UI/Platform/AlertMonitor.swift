@@ -99,7 +99,7 @@ final class AlertMonitor {
 
     private func tick(db: LariatDatabase, writeDb: LariatWriteDatabase?) async {
         let locationId = LocationScope.resolve()
-        let today = Self.todayISO()
+        let today = ShiftDate.serviceDate()
         let commandRepo = CommandRepository(database: db, locationId: locationId)
 
         async let bundleResult = commandRepo.fetch(today: today)
@@ -138,17 +138,4 @@ final class AlertMonitor {
         }
     }
 
-    // Web parity: lib/db.ts `todayISO()` uses `new Date().toISOString().slice(0,10)`,
-    // which is UTC — same fix as CommandViewModel.todayISO().
-    private static let isoDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone(identifier: "UTC")
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
-    private static func todayISO() -> String {
-        isoDateFormatter.string(from: Date())
-    }
 }

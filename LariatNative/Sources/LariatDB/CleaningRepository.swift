@@ -12,7 +12,7 @@ public struct CleaningRepository: Sendable {
     }
 
     public func load(
-        date: String = ShiftDate.todayISO(),
+        date: String = ShiftDate.serviceDate(),
         locationId: String = LocationScope.resolve()
     ) async throws -> CleaningBoardSnapshot {
         try await readDB.pool.read { db in

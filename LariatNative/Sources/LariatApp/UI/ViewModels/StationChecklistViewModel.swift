@@ -82,7 +82,7 @@ final class StationChecklistViewModel {
         do {
             _ = try repo.postEntry(
                 LineCheckPostInput(
-                    shiftDate: ShiftDate.todayISO(),
+                    shiftDate: ShiftDate.serviceDate(),
                     stationId: stationId,
                     item: item,
                     status: status,

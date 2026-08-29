@@ -79,7 +79,7 @@ public struct TodayBoardRepository {
         self.locationId = locationId
     }
 
-    public func load(shiftDate: String = todayISO()) async throws -> TodayBoardSnapshot {
+    public func load(shiftDate: String = ShiftDate.serviceDate()) async throws -> TodayBoardSnapshot {
         let raw = try await fetchRaw(shiftDate: shiftDate)
         return assemble(raw: raw, shiftDate: shiftDate)
     }

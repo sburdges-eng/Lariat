@@ -172,7 +172,7 @@ final class ManagerPinsViewModel {
                     actorCookId: nil,
                     actorSource: RegulatedWriteContext.nativeMacActorSource,
                     locationId: locationId,
-                    shiftDate: ShiftDate.todayISO()
+                    shiftDate: ShiftDate.serviceDate()
                 )
             )
             newName = ""

@@ -57,7 +57,7 @@ final class TipPoolViewModel {
 
     var writeDatabase: LariatWriteDatabase { writeDB }
     var pinOk: Bool { pinStore.activeUser != nil }
-    var today: String { ShiftDate.todayISO() }
+    var today: String { ShiftDate.serviceDate() }
 
     func start() {
         poller.start(interval: .seconds(5)) { [weak self] in

@@ -81,7 +81,7 @@ final class PrepViewModel {
             _ = try repo.create(
                 input: PrepTaskCreateInput(
                     task: trimmed,
-                    shiftDate: ShiftDate.todayISO(),
+                    shiftDate: ShiftDate.serviceDate(),
                     stationId: stationId.isEmpty ? nil : stationId,
                     qty: qty.isEmpty ? nil : qty,
                     notes: notes.isEmpty ? nil : notes,

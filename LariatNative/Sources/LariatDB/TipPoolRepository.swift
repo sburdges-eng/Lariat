@@ -109,7 +109,7 @@ public struct TipPoolRepository: Sendable {
     public func add(input: TipDistributionInput, context: RegulatedWriteContext) throws -> TipPoolWriteResult {
         // Clip text fields (parity with the route's `clip`): trim → null-if-empty
         // → prefix. shift_date defaults to today when absent.
-        let shiftDate = clip(input.shiftDate, max: 32) ?? ShiftDate.todayISO()
+        let shiftDate = clip(input.shiftDate, max: 32) ?? ShiftDate.serviceDate()
         let poolRef = clip(input.poolRef, max: 120)
         let cookId = clip(input.cookId, max: 64)
         let role = clip(input.role, max: 64)

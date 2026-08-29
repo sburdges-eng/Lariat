@@ -25,7 +25,7 @@ public struct TphcRepository: Sendable {
     /// plus recently-discarded rows for the day. Mirrors the web GET query:
     /// `WHERE location_id=? AND discarded_at IS NULL ORDER BY cutoff_at ASC, id ASC`.
     public func load(
-        date: String = ShiftDate.todayISO(),
+        date: String = ShiftDate.serviceDate(),
         locationId: String = LocationScope.resolve(),
         now: String = TphcRepository.nowISO(),
         includeRecent: Bool = true

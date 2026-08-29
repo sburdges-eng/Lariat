@@ -51,7 +51,7 @@ public struct LariPredictionsRepository {
     public func feed(
         surface: String = "beo",
         locationId: String = LocationScope.resolve(),
-        date: String = ShiftDate.todayISO(),
+        date: String = ShiftDate.serviceDate(),
         showId: Int64? = nil,
         nowIso: String = LariConversationMemoryCompute.isoString()
     ) throws -> Feed {

@@ -1,5 +1,6 @@
 'use client';
 import React, { useCallback, useEffect, useState } from 'react';
+import { serviceDate } from '../../lib/serviceDate.ts';
 
 const STAR_TIERS = [
   { val: 1, label: '★ Good' },
@@ -140,15 +141,15 @@ export default function GoldStarBoard() {
         setSubmitError(data?.error || 'Did not save. Check it and try again.');
         return;
       }
-      const todayISO = new Date().toISOString().slice(0, 10);
+      const awarded = serviceDate();
       setRecognitions(prev => [
         {
           id: data.id,
           name: selectedCook,
           reason: trimmed,
           stars: starCount,
-          awardedDate: todayISO,
-          date: formatAwardedDate(todayISO),
+          awardedDate: awarded,
+          date: formatAwardedDate(awarded),
         },
         ...prev,
       ]);

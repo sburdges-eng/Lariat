@@ -14,7 +14,7 @@ public struct EightySixRepository: Sendable {
     }
 
     public func load(
-        date: String = ShiftDate.todayISO(),
+        date: String = ShiftDate.serviceDate(),
         locationId: String = LocationScope.resolve()
     ) async throws -> EightySixBoardSnapshot {
         try await readDB.pool.read { db in

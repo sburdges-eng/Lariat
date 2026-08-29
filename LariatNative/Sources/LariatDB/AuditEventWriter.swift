@@ -33,7 +33,7 @@ public enum AuditEventWriter {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
       arguments: [
-        input.shiftDate ?? ShiftDate.todayISO(),
+        input.shiftDate ?? ShiftDate.serviceDate(),
         input.locationId ?? "default",
         input.actorCookId,
         input.actorSource,

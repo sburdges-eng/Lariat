@@ -238,7 +238,7 @@ final class SickWorkerViewModel {
                     action: action.rawValue,
                     startedAt: Self.isoFormatter.string(from: Date()),
                     note: reportNote.isEmpty ? nil : reportNote,
-                    shiftDate: snapshot.map { _ in ShiftDate.todayISO() }
+                    shiftDate: snapshot.map { _ in ShiftDate.serviceDate() }
                 ),
                 context: context
             )

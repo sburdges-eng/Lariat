@@ -24,7 +24,7 @@ import Observation
     func load() {
         loadTask?.cancel()
         let repo = HaccpPlanRepository(database: database)
-        let today = ShiftDate.todayISO()
+        let today = ShiftDate.serviceDate()
         loadTask = Task { [weak self] in
             do {
                 let p = try await repo.buildPlan(today: today)
