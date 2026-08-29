@@ -133,8 +133,15 @@ complete in this tool environment — flag them for Sean to run manually.
 
 ## 4. Verification — evidence before claims
 
-- Full web gate: `npm run verify` (typecheck + 13 suites + `next build`), under `npx node@24`.
-- Full native gate: `swift build && swift test` from `LariatNative/`.
+- Full web gate: `npm run verify` — typecheck, lint, **30 test steps covering 378
+  `tests/js` suites**, then `next build`, under `npx node@24`. (It said "13 suites";
+  it has not been 13 for a long time.) It is **not hermetic**: `version.json` is
+  gitignored and generated, and CI runs `npm run version:stamp` before the suites
+  because `test-discover-route` asserts the stamped version. `verify` does not, so on
+  a fresh checkout it fails there — run `npm run version:stamp` first.
+- Full native gate: `swift build` from `LariatNative/`, plus the `native-ci` run on the
+  pushed branch. **`swift test` cannot run on this machine** — CLT-only, no XCTest (§2).
+  Never report the native gate green off a local run.
 - Lint: `npm run lint` / `npm run lint:changed`.
 - Coverage: `npm run coverage` (add `-- --check` to enforce floors). **Never quote the headline
   percentage as codebase coverage** — Node only instruments files it loads, so untested files are
