@@ -168,6 +168,7 @@ describe('every migrated surface keeps both sides on the same clock', () => {
   // (cleaning_log seed on management was migrated; file still uses todayISO
   // for certs so it stays off this list).
   const WAVE_5 = [
+    'app/api/lari/predictions/route.js',
     'app/api/command/summary/route.js', 'app/api/command/alerts/route.js', 'app/command/page.jsx',
     'app/api/morning/route.js', 'app/morning/page.jsx',
     'app/api/stations/route.js', 'app/stations/[id]/page.jsx',
