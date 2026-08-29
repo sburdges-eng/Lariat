@@ -18,7 +18,7 @@ import {
   scaleRecipe,
 } from '../../../lib/recipeCalculator';
 import { validateReceivingReading, dbStatusFor } from '../../../lib/receiving';
-import { validateTempReading, getTempPoint } from '../../../lib/tempLog';
+import { validateTempReading, classifyReading, getTempPoint } from '../../../lib/tempLog';
 import { normalizeUnit } from '../../../lib/unitConvert.mjs';
 import {
   isImperativeCommand,
@@ -470,6 +470,12 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           'give_gold_star',
           'haccp_receive',
           'generate_prep',
+          // `scale_recipe` is deliberately NOT here. It writes to
+          // line_check_entries, but under station 'scaled:<slug>' which no
+          // board reads, and gating it would mean a cook has to find a manager
+          // to scale a recipe mid-service. Owner's call, 2026-08-29: leave it
+          // open. If the unattested write is the concern, the fix is to stop
+          // writing and just return the scaled list — not a PIN.
         ];
         if (pinRequired.includes(payload.action) && !hasPin) {
           actionMsg = 'Action blocked — manager PIN required. Show a manager and ask them to confirm.';
@@ -552,15 +558,42 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
             ? payload.reading_f
             : NaN;
 
+          // `classifyReading` answers "did this point pass?".
+          // `validateTempReading` answers "may this record be accepted?".
+          // Those are different questions, and this branch used to ask the
+          // second and store the answer in the first one's column:
+          // validateTempReading returns ok for an OUT-OF-RANGE reading as
+          // soon as any note is present (lib/tempLog.ts — "out of range but
+          // cook wrote a corrective action — accept the log"), so a 55°F
+          // walk-in logged through Lari was stamped 'pass' and rendered
+          // green on the board.
+          let refusal = null;
           if (payload.temp_point_id && Number.isFinite(readingF)) {
             const pt = getTempPoint(String(payload.temp_point_id));
             if (pt) {
-              const val = validateTempReading(pt, readingF, note);
-              if (!val.ok) {
-                status = 'fail';
-                note = val.reason;
-              } else {
+              const klass = classifyReading(pt, readingF);
+              if (klass === 'ok') {
                 status = 'pass';
+              } else if (klass === 'out_of_range') {
+                // Recorded, but never as a pass.
+                status = 'fail';
+                const val = validateTempReading(pt, readingF, note);
+                if (!val.ok) {
+                  // Out of range with no corrective note.
+                  // app/api/temp-log/route.js answers this with a 422 and
+                  // writes nothing. Do the same rather than storing the
+                  // validator's own complaint in `note`: that sentence
+                  // reached inspectors through /api/corrective-actions and
+                  // the printed HACCP plan as the "action taken", and it
+                  // also satisfied the non-empty-note check /api/signoff
+                  // uses to decide a shift may close.
+                  refusal = `${val.reason}. Tell me what you did about it and I will log it.`;
+                }
+              } else {
+                // 'invalid' — outside the absolute range, so the probe is
+                // the more likely story than the walk-in.
+                status = 'fail';
+                refusal = `${readingF}°F does not look like a real reading — check the probe, then tell me again.`;
               }
             } else {
               status = 'na';
@@ -573,6 +606,11 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           const createdAt = new Date().toISOString();
           let auditEventId = null;
           let entityId = null;
+          if (refusal) {
+          actionMsg = `Line check not logged — ${refusal}`;
+          actionError = true;
+          actionExecuted = true;
+          } else {
           db.transaction(() => {
             const info = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
               .run(locationId, serviceDate(), stationClip, itemClip, status, note, createdAt);
@@ -587,6 +625,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           actionExecuted = true;
           undo = buildKitchenAssistantUndoMeta({ auditEventId, entity: 'line_check_entries', entityId, label: actionMsg, createdAt });
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HACCP Line Check: ${payload.item} (${status}) ⚠️\n`);
+          }
         } else if (payload.action === 'maintenance' && payload.equipment) {
           const equipName = clip(payload.equipment, MAX_ITEM);
           // Wrap in % wildcards for partial matching, consistent with the
@@ -858,7 +897,11 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
                 reading_f: Number.isFinite(readingF) ? readingF : undefined,
                 package_ok: typeof payload.package_ok === 'boolean' ? payload.package_ok : undefined,
               });
-              status = dbStatusFor(val.status) === 'rejected' ? 'fail' : 'pass';
+              // 'accept_with_note' is the drift band — a compliance-aware
+              // "yes, with paperwork" (lib/receiving.ts). Collapsing it into
+              // 'pass' filed a 44°F delivery against a 41°F limit as a clean
+              // receipt. Only 'accepted' is a pass.
+              status = dbStatusFor(val.status) === 'accepted' ? 'pass' : 'fail';
               if (val.reason) {
                 note = `[${val.reason}] ${note || ''}`;
               }
@@ -958,6 +1001,24 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           actionMsg = `Generated ${payload.tasks.length} dynamic prep tasks for ${payload.station}${calcSuffix}.`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Dynamic Prep List for ${payload.station} (${payload.tasks.length} items, calc=${calcReplacements}) ⚠️\n`);
+        } else {
+          // Nothing matched. Either the model emitted an action name that is
+          // not in the schema — the likely failure of a local fine-tune, see
+          // lib/ollama.ts — or a known action arrived without the companion
+          // field its branch requires. Both used to fall off the end of this
+          // chain silently: no write, `actionExecuted` false, and the model's
+          // own prose ("Done.") handed back to the cook without the ACTION
+          // EXECUTED prefix, reading exactly like a success.
+          //
+          // Read actions (semantic_search, code_search, db_query) are matched
+          // in the earlier chain and never reach here.
+          actionMsg =
+            'Action blocked — I did not understand that command, so nothing was logged. Say it again, or use the board.';
+          actionError = true;
+          actionExecuted = true;
+          console.error(
+            `Kitchen assistant: unmatched action ${JSON.stringify(clip(String(payload.action ?? ''), 64) || '(none)')}`,
+          );
         }
       } catch (e) {
         // Pre-2026-05-08 this catch swallowed handler exceptions

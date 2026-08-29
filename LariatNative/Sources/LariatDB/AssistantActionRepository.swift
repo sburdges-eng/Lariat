@@ -85,9 +85,15 @@ public struct AssistantActionRepository {
         case "generate_prep" where payload.isTruthy("station") && payload["tasks"]?.arrayValue != nil:
             return try await generatePrep(payload, locationId: locationId, shiftDate: shiftDate)
         default:
-            // No branch matched (unknown action or missing guard field) — the
-            // web leaves actionExecuted=false and the stripped prose stands.
-            return .unhandled
+            // No branch matched: either an action name outside the schema (the
+            // likely failure of a local fine-tune) or a known action missing
+            // the companion field its case requires. This used to return
+            // .unhandled, mirroring a web bug where the model's own prose
+            // ("Done.") went back to the cook with no ACTION EXECUTED prefix,
+            // reading exactly like a success. Both halves now say so.
+            return .handled(
+                "Action blocked — I did not understand that command, so nothing was logged. Say it again, or use the board."
+            )
         }
     }
 
@@ -217,21 +223,43 @@ public struct AssistantActionRepository {
         // trip the validate-temp branch (route parity, hardening test).
         let readingF = payload["reading_f"]?.strictFiniteNumber
 
+        // `classifyReading` answers "did this point pass?".
+        // `validateTempReading` answers "may this record be accepted?".
+        // This used to ask the second and store the answer in the first one's
+        // column: validateTempReading returns ok for an OUT-OF-RANGE reading
+        // as soon as any note is present, so a 55°F walk-in was stamped
+        // "pass". Mirrors app/api/kitchen-assistant/route.js.
+        var refusal: String? = nil
         if payload.isTruthy("temp_point_id"), let reading = readingF {
             if let pt = TempLogCompute.getTempPoint(payload["temp_point_id"]?.jsTemplate ?? "") {
-                let val = TempLogCompute.validateTempReading(
-                    point: pt, readingF: reading, correctiveAction: note
-                )
-                if !val.ok {
-                    status = "fail"
-                    note = val.reason
-                } else {
+                switch TempLogCompute.classifyReading(pt, reading) {
+                case .ok:
                     status = "pass"
+                case .outOfRange:
+                    // Recorded, but never as a pass.
+                    status = "fail"
+                    let val = TempLogCompute.validateTempReading(
+                        point: pt, readingF: reading, correctiveAction: note
+                    )
+                    if !val.ok {
+                        // No corrective note. The web temp-log route answers
+                        // this with a 422 and writes nothing. Storing the
+                        // validator's own complaint in `note` put it in front
+                        // of an inspector as the "action taken".
+                        refusal = "\(val.reason ?? "Out of range"). Tell me what you did about it and I will log it."
+                    }
+                case .invalid:
+                    status = "fail"
+                    refusal = "\(JsValueFormat.numberString(reading))°F does not look like a real reading — check the probe, then tell me again."
                 }
             } else {
                 status = "na"
                 note = "[Unvalidated Temp: \(JsValueFormat.numberString(reading))°F] \(note ?? "")"
             }
+        }
+
+        if let refusal {
+            return .handled("Line check not logged — \(refusal)")
         }
 
         let stationClip = payload.clip("station", 64)
@@ -620,7 +648,10 @@ public struct AssistantActionRepository {
                 readingF: readingF,
                 packageOk: packageOk
             ))
-            let status = ReceivingCompute.dbStatus(for: val.status) == .rejected ? "fail" : "pass"
+            // 'accept_with_note' is the drift band — a compliance-aware "yes,
+            // with paperwork". Collapsing it into "pass" filed a 44°F delivery
+            // against a 41°F limit as a clean receipt. Only .accepted is a pass.
+            let status = ReceivingCompute.dbStatus(for: val.status) == .accepted ? "pass" : "fail"
             if let reason = val.reason, !reason.isEmpty {
                 return (status, "[\(reason)] \(note ?? "")")
             }
