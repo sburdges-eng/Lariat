@@ -34,6 +34,7 @@ const { getDb, setDbPathForTest } = await import('../../lib/db.ts');
 const { readLatestAccountingVariance } = await import('../../lib/computeEngine/index.ts');
 const { listDepletionExceptions } = await import('../../lib/depletionExceptions.ts');
 const { listPriceShocks } = await import('../../lib/vendorPricesRepo.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 
 setDbPathForTest(':memory:');
 const db = getDb();
@@ -57,85 +58,34 @@ beforeEach(() => {
   `);
 });
 
-// ── Page-style readers (mirror app/management/page.jsx) ─────────────────
-// These match the page's inline reads exactly. If the page changes its
-// SQL, this test will fall out of sync — that's the intent. The test
-// is the contract.
+// ── The page's own readers, imported — not mirrored ─────────────────────
+//
+// This block used to define *LikePage copies of the page's SQL under a
+// comment claiming "the test is the contract". A copy is a mirror, not a
+// contract, and this one had already rotted: the cleaning reader here
+// computed a UTC date while app/management/page.jsx had moved to
+// serviceDate(), and the suite stayed green because the fixture below
+// inserted rows using the same stale expression. A refactor dropping
+// `AND location_id = ?` from the page would also have kept this green.
+//
+// The readers now live in app/management/reads.ts, which the page imports
+// too, so this exercises the code that actually runs.
+const {
+  readCleaningToday,
+  readPackSizeChangesUnacked,
+  readPriceShockSummary,
+  readDepletionIssuesCount,
+  readCertWarnings,
+  readReceivingMatchesCount,
+} = await import('../../app/management/reads.ts');
 
-function readCleaningTodayLikePage(db, locationId) {
-  const today = new Date().toISOString().slice(0, 10);
-  const row = db
-    .prepare(
-      `SELECT COUNT(*) AS c FROM cleaning_log WHERE location_id = ? AND shift_date = ?`,
-    )
-    .get(locationId, today);
-  return row?.c ?? 0;
-}
-
-function readPackSizeChangesUnackedLikePage(db) {
-  try {
-    const row = db
-      .prepare('SELECT COUNT(*) AS c FROM pack_size_changes WHERE acknowledged = 0')
-      .get();
-    return row?.c ?? 0;
-  } catch {
-    return null;
-  }
-}
-
-function readPriceShocksCountLikePage(db, locationId) {
-  return listPriceShocks(db, {
-    location_id: locationId,
-    windowDays: 7,
-    minPctMove: 5,
-    limit: 100,
-  }).length;
-}
-
-function readDepletionIssuesCountLikePage(db, locationId) {
-  return listDepletionExceptions(db, {
-    location_id: locationId,
-    limit: 100,
-  }).length;
-}
-
-function readCertWarningsLikePage(db, locationId) {
-  const today = new Date().toISOString().slice(0, 10);
-  const rows = db.prepare(
-    `SELECT expires_on
-       FROM staff_certifications
-      WHERE location_id = ?
-        AND active = 1
-        AND expires_on IS NOT NULL`,
-  ).all(locationId);
-
-  const todayMs = new Date(today + 'T00:00:00Z').getTime();
-  let expired = 0;
-  let expiringSoon = 0;
-  for (const r of rows) {
-    const expMs = new Date(r.expires_on + 'T00:00:00Z').getTime();
-    if (Number.isNaN(expMs)) continue;
-    const days = Math.floor((expMs - todayMs) / 86400000);
-    if (days < 0) expired++;
-    else if (days <= 30) expiringSoon++;
-  }
-  return { expired, expiringSoon, total: expired + expiringSoon };
-}
-
-function readReceivingMatchesCountLikePage(db, locationId) {
-  const row = db.prepare(
-    `SELECT COUNT(*) AS c
-       FROM receiving_log r
-      WHERE r.location_id = ?
-        AND r.status IN ('accepted', 'accepted_with_note')
-        AND r.received_qty IS NOT NULL
-        AND r.received_qty > 0
-        AND r.received_unit IS NOT NULL
-        AND TRIM(r.received_unit) <> ''
-        AND r.match_status IN ('unmatched', 'ambiguous')`,
-  ).get(locationId);
-  return row?.c ?? 0;
-}
+// Shape adapters only — no SQL, no dates, no filtering of their own.
+const cleaningCount = (db, loc) => readCleaningToday(db, loc).count;
+const packChangesUnacked = (db) => readPackSizeChangesUnacked(db);
+const priceShocksCount = (db, loc) => readPriceShockSummary(db, loc).total;
+const depletionIssuesCount = (db, loc) => readDepletionIssuesCount(db, loc);
+const certWarnings = (db, loc) => readCertWarnings(db, loc);
+const receivingMatchesCount = (db, loc) => readReceivingMatchesCount(db, loc);
 
 function isoDaysFromToday(delta) {
   const d = new Date();
@@ -172,18 +122,18 @@ describe('management rollup — empty state', () => {
   });
 
   it('cleaning_log count is 0 on a fresh DB', () => {
-    assert.strictEqual(readCleaningTodayLikePage(db, 'default'), 0);
+    assert.strictEqual(cleaningCount(db, 'default'), 0);
   });
 
   it('pack_size_changes count is 0 on a fresh DB', () => {
-    assert.strictEqual(readPackSizeChangesUnackedLikePage(db), 0);
+    assert.strictEqual(packChangesUnacked(db), 0);
   });
 
   it('new management alert counts are 0 on a fresh DB', () => {
-    assert.strictEqual(readPriceShocksCountLikePage(db, 'default'), 0);
-    assert.strictEqual(readDepletionIssuesCountLikePage(db, 'default'), 0);
-    assert.strictEqual(readReceivingMatchesCountLikePage(db, 'default'), 0);
-    assert.deepStrictEqual(readCertWarningsLikePage(db, 'default'), {
+    assert.strictEqual(priceShocksCount(db, 'default'), 0);
+    assert.strictEqual(depletionIssuesCount(db, 'default'), 0);
+    assert.strictEqual(receivingMatchesCount(db, 'default'), 0);
+    assert.deepStrictEqual(certWarnings(db, 'default'), {
       expired: 0,
       expiringSoon: 0,
       total: 0,
@@ -210,7 +160,10 @@ describe('management rollup — tile wiring', () => {
 
 describe('management rollup — location scoping', () => {
   beforeEach(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    // serviceDate(), not a UTC slice: readCleaningToday asks for the service
+    // day, and from 18:00 Mountain a UTC slice names tomorrow — the fixture
+    // would file rows the reader never looks at.
+    const today = serviceDate();
     // Two sites with cleaning entries today.
     db.prepare(
       `INSERT INTO cleaning_log (shift_date, location_id, area, task, completed_at)
@@ -239,15 +192,15 @@ describe('management rollup — location scoping', () => {
   });
 
   it("'default' site sees only its own cleaning rows", () => {
-    assert.strictEqual(readCleaningTodayLikePage(db, 'default'), 2);
+    assert.strictEqual(cleaningCount(db, 'default'), 2);
   });
 
   it("'other' site sees only its own cleaning rows", () => {
-    assert.strictEqual(readCleaningTodayLikePage(db, 'other'), 1);
+    assert.strictEqual(cleaningCount(db, 'other'), 1);
   });
 
   it("a site that doesn't exist returns 0", () => {
-    assert.strictEqual(readCleaningTodayLikePage(db, 'ghost'), 0);
+    assert.strictEqual(cleaningCount(db, 'ghost'), 0);
   });
 
   it("'default' site sees its own variance row, not 'other'", () => {
@@ -300,7 +253,7 @@ describe('management rollup — new alert counts', () => {
       daysAgo: 0,
     });
 
-    assert.strictEqual(readPriceShocksCountLikePage(db, 'default'), 1);
+    assert.strictEqual(priceShocksCount(db, 'default'), 1);
   });
 
   it('counts unresolved depletion issues from existing sales mappings', () => {
@@ -311,7 +264,7 @@ describe('management rollup — new alert counts', () => {
               ('2026-W17', 'Unmapped Burger', 1, 14, 'toast', 'default')`,
     ).run();
 
-    assert.strictEqual(readDepletionIssuesCountLikePage(db, 'default'), 2);
+    assert.strictEqual(depletionIssuesCount(db, 'default'), 2);
   });
 
   it('counts active certs expired or expiring in 30 days', () => {
@@ -330,7 +283,7 @@ describe('management rollup — new alert counts', () => {
       isoDaysFromToday(-10),
     );
 
-    assert.deepStrictEqual(readCertWarningsLikePage(db, 'default'), {
+    assert.deepStrictEqual(certWarnings(db, 'default'), {
       expired: 1,
       expiringSoon: 1,
       total: 2,
@@ -357,7 +310,7 @@ describe('management rollup — new alert counts', () => {
           'accepted', 4, 'case', 'unmatched')`,
     ).run();
 
-    assert.strictEqual(readReceivingMatchesCountLikePage(db, 'default'), 2);
+    assert.strictEqual(receivingMatchesCount(db, 'default'), 2);
   });
 });
 
@@ -412,8 +365,8 @@ describe('management rollup — new alert location scoping', () => {
       daysAgo: 0,
     });
 
-    assert.strictEqual(readPriceShocksCountLikePage(db, 'default'), 1);
-    assert.strictEqual(readPriceShocksCountLikePage(db, 'other'), 2);
+    assert.strictEqual(priceShocksCount(db, 'default'), 1);
+    assert.strictEqual(priceShocksCount(db, 'other'), 2);
   });
 
   it('scopes depletion issues by location', () => {
@@ -424,8 +377,8 @@ describe('management rollup — new alert location scoping', () => {
               ('2026-W17', 'Satellite Bowl', 1, 13, 'toast', 'other')`,
     ).run();
 
-    assert.strictEqual(readDepletionIssuesCountLikePage(db, 'default'), 1);
-    assert.strictEqual(readDepletionIssuesCountLikePage(db, 'other'), 2);
+    assert.strictEqual(depletionIssuesCount(db, 'default'), 1);
+    assert.strictEqual(depletionIssuesCount(db, 'other'), 2);
   });
 
   it('scopes cert warnings by location', () => {
@@ -442,12 +395,12 @@ describe('management rollup — new alert location scoping', () => {
       isoDaysFromToday(10),
     );
 
-    assert.deepStrictEqual(readCertWarningsLikePage(db, 'default'), {
+    assert.deepStrictEqual(certWarnings(db, 'default'), {
       expired: 0,
       expiringSoon: 1,
       total: 1,
     });
-    assert.deepStrictEqual(readCertWarningsLikePage(db, 'other'), {
+    assert.deepStrictEqual(certWarnings(db, 'other'), {
       expired: 1,
       expiringSoon: 1,
       total: 2,
@@ -468,8 +421,8 @@ describe('management rollup — new alert location scoping', () => {
           'accepted_with_note', 6, 'gal', 'ambiguous')`,
     ).run();
 
-    assert.strictEqual(readReceivingMatchesCountLikePage(db, 'default'), 1);
-    assert.strictEqual(readReceivingMatchesCountLikePage(db, 'other'), 2);
+    assert.strictEqual(receivingMatchesCount(db, 'default'), 1);
+    assert.strictEqual(receivingMatchesCount(db, 'other'), 2);
   });
 });
 
@@ -488,17 +441,17 @@ describe('management rollup — pack-size count is O(1) and ack-aware', () => {
        VALUES ('shamrock', 'C', '1cs', '2cs', 1)`,
     ).run();
 
-    assert.strictEqual(readPackSizeChangesUnackedLikePage(db), 2);
+    assert.strictEqual(packChangesUnacked(db), 2);
 
     // Acknowledge one of the two outstanding — count should drop to 1.
     db.prepare(`UPDATE pack_size_changes SET acknowledged = 1 WHERE sku = 'A'`).run();
-    assert.strictEqual(readPackSizeChangesUnackedLikePage(db), 1);
+    assert.strictEqual(packChangesUnacked(db), 1);
   });
 
   it('returns null when the pack_size_changes table is missing (legacy DB)', () => {
     // Drop the table to simulate a pre-migration DB.
     db.exec('DROP TABLE pack_size_changes');
-    assert.strictEqual(readPackSizeChangesUnackedLikePage(db), null);
+    assert.strictEqual(packChangesUnacked(db), null);
 
     // Recreate so other tests' beforeEach DELETE doesn't crash.
     db.exec(`
