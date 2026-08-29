@@ -66,7 +66,11 @@ const sw = /** @type {ServiceWorkerScope} */ (/** @type {unknown} */ (self));
 
 const CACHE_NAME = 'lariat-api-v1';
 const PAGE_CACHE = 'lariat-pages-v1';
-const ASSET_CACHE = 'lariat-assets-v1';
+// v2: v1 holds line-book chunks that carried the manager sheets. The
+// activate sweep only deletes caches outside OWNED_CACHES, so renaming
+// this is what evicts the already-leaked bytes from devices that have
+// opened /boh.
+const ASSET_CACHE = 'lariat-assets-v2';
 const DB_NAME = 'lariat-sw';
 const DB_VERSION = 1;
 const STORE_NAME = 'mutation-queue';
