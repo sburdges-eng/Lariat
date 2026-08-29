@@ -1,2119 +1,1060 @@
 #!/usr/bin/env node
-
 // Integration tests for /api/receiving.
-
 //
-
 // Mirrors test-temp-log-api.mjs: spin up a temp SQLite DB, import the
-
 // route in-process, assert on the Response objects. Covers the audit
-
 // row emission, 422 behavior, and the GET summary shape.
-
 //
-
 // Run: node --test tests/js/test-receiving-api.mjs
 
-
-
 import { describe, it, before, after, beforeEach } from 'node:test';
-
 import assert from 'node:assert/strict';
-
 import { register } from 'node:module';
-
 import fs from 'node:fs';
-
 import os from 'node:os';
-
 import path from 'node:path';
-
-
 
 register(new URL('./resolver.mjs', import.meta.url));
 
-
-
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-receiving-api-'));
-
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
-
-
 // Redirect the resolved data dir into the scratch dir BEFORE lib/db.ts loads
-
 // (it captures DB_PATH = resolveDataDir()/lariat.db at import). A receiving
-
 // route's import graph opens the *default* DB_PATH once via getDb() before the
-
 // test's setDbPathForTest override is set; without this redirect that stray
-
 // open would create + initSchema the real repo data/lariat.db. With it, the
-
 // stray open lands in the temp dir and is cleaned up with it.
-
 const ORIGINAL_DATA_DIR = process.env.LARIAT_DATA_DIR;
-
 process.env.LARIAT_DATA_DIR = TMP_DIR;
 
-
-
 const ORIGINAL_PIN = process.env.LARIAT_PIN;
-
 const ORIGINAL_PIN_SECRET = process.env.LARIAT_PIN_SECRET;
-
 delete process.env.LARIAT_PIN;
-
 delete process.env.LARIAT_PIN_SECRET;
 
-
-
 const db = await import('../../lib/db.ts');
-
 const { serviceDate } = await import('../../lib/serviceDate.ts');
-
 const route = await import('../../app/api/receiving/route.js');
-
 const matchesRoute = await import('../../app/api/receiving/matches/route.js');
-
 const matchByIdRoute = await import('../../app/api/receiving/matches/[id]/route.js');
 
-
-
 db.setDbPathForTest(TMP_DB);
-
 const testDb = db.getDb();
 
-
-
 const { POST, GET } = route;
-
 const { GET: GET_MATCHES } = matchesRoute;
-
 const { PATCH: PATCH_MATCH } = matchByIdRoute;
 
-
-
 after(() => {
-
   db.setDbPathForTest(null);
-
   if (ORIGINAL_DATA_DIR === undefined) delete process.env.LARIAT_DATA_DIR;
-
   else process.env.LARIAT_DATA_DIR = ORIGINAL_DATA_DIR;
-
   if (ORIGINAL_PIN === undefined) delete process.env.LARIAT_PIN;
-
   else process.env.LARIAT_PIN = ORIGINAL_PIN;
-
   if (ORIGINAL_PIN_SECRET === undefined) delete process.env.LARIAT_PIN_SECRET;
-
   else process.env.LARIAT_PIN_SECRET = ORIGINAL_PIN_SECRET;
-
   try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
-
 });
-
-
 
 beforeEach(() => {
-
   // Order matters: inventory_updates.receiving_log_id is a FK into
-
   // receiving_log; clearing the parent first would trip the constraint.
-
   testDb.exec('DELETE FROM sync_feed; DELETE FROM inventory_updates; DELETE FROM receiving_log; DELETE FROM audit_events; DELETE FROM ingredient_masters;');
-
 });
 
-
-
 function postReq(body) {
-
   return new Request('http://localhost/api/receiving', {
-
     method: 'POST',
-
     headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
-
     body: JSON.stringify(body),
-
   });
-
 }
-
-
 
 function getReq(qs = '') {
-
   return new Request(`http://localhost/api/receiving${qs}`, { headers: { cookie: 'lariat_pin_ok=1' } });
-
 }
-
-
 
 function matchGetReq(qs = '') {
-
   return new Request(`http://localhost/api/receiving/matches${qs}`, { headers: { cookie: 'lariat_pin_ok=1' } });
-
 }
-
-
 
 function patchMatchReq(id, body) {
-
   return new Request(`http://localhost/api/receiving/matches/${id}`, {
-
     method: 'PATCH',
-
     headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
-
     body: JSON.stringify(body),
-
   });
-
 }
-
-
 
 function countReceiving() {
-
   return testDb.prepare('SELECT COUNT(*) AS c FROM receiving_log').get().c;
-
 }
-
-
 
 function countInventoryUpdates() {
-
   return testDb.prepare('SELECT COUNT(*) AS c FROM inventory_updates').get().c;
-
 }
-
-
 
 function countAudit(entity) {
-
   return testDb
-
     .prepare('SELECT COUNT(*) AS c FROM audit_events WHERE entity = ?')
-
     .get(entity).c;
-
 }
-
-
 
 function syncRows() {
-
   return testDb
-
     .prepare(`SELECT table_name, op_kind, row_pk, row_json FROM sync_feed ORDER BY id ASC`)
-
     .all();
-
 }
-
-
 
 function seedIngredientMaster(masterId, canonicalName = 'Chicken Breast') {
-
   testDb
-
     .prepare(
-
       `INSERT INTO ingredient_masters
-
          (master_id, canonical_name, category, preferred_vendor, last_reviewed)
-
        VALUES (?, ?, 'protein', 'shamrock', '2026-05-30')`,
-
     )
-
     .run(masterId, canonicalName);
-
 }
-
-
 
 function seedVendorPrice({ vendor, sku, ingredient, masterId, location = 'default' }) {
-
   testDb
-
     .prepare(
-
       `INSERT INTO vendor_prices
-
          (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, master_id, location_id)
-
        VALUES (?, ?, ?, 1, 'case', 10, 10, ?, ?)`,
-
     )
-
     .run(ingredient, vendor, sku, masterId, location);
-
 }
-
-
 
 // ── POST — happy path ────────────────────────────────────────────
 
-
-
 describe('POST /api/receiving — happy path', () => {
-
   it('accepts an in-spec refrigerated delivery', async () => {
-
     const res = await POST(postReq({
-
       shift_date: serviceDate(),
-
       vendor: 'Shamrock',
-
       invoice_ref: 'INV-1001',
-
       category: 'refrigerated',
-
       item: 'chicken breast 40lb CS',
-
       reading_f: 38,
-
       package_ok: true,
-
       cook_id: 'alice',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     const body = await res.json();
-
     assert.strictEqual(body.ok, true);
-
     assert.strictEqual(body.decision.status, 'ok');
-
     assert.strictEqual(body.entry.status, 'accepted');
-
     assert.strictEqual(body.entry.reading_f, 38);
-
     assert.strictEqual(body.entry.package_ok, 1);
-
     assert.strictEqual(countReceiving(), 1);
-
   });
-
-
 
   it('accepts a dry-goods delivery with no reading', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Sysco',
-
       category: 'dry_goods',
-
       item: 'canned tomatoes #10',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     assert.strictEqual(countReceiving(), 1);
-
   });
-
-
 
   it('persists expiration_date and invoice_ref', async () => {
-
     await POST(postReq({
-
       vendor: 'Shamrock',
-
       invoice_ref: 'INV-2002',
-
       category: 'shell_eggs',
-
       item: '15dz flat',
-
       reading_f: 42,
-
       expiration_date: '2099-05-15',
-
     }));
-
     const row = testDb.prepare('SELECT * FROM receiving_log').get();
-
     assert.strictEqual(row.invoice_ref, 'INV-2002');
-
     assert.strictEqual(row.expiration_date, '2099-05-15');
-
   });
-
-
 
   it('accepts invoice_no as alias for invoice_ref', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'sysco',
-
       category: 'refrigerated',
-
       item: 'Milk 2%',
-
       reading_f: 40,
-
       package_ok: true,
-
       invoice_no: 'INV-9999',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     const row = testDb.prepare('SELECT invoice_ref FROM receiving_log ORDER BY id DESC LIMIT 1').get();
-
     assert.strictEqual(row.invoice_ref, 'INV-9999');
-
   });
-
 });
-
-
 
 // ── POST — validation / 400 path ─────────────────────────────────
 
-
-
 describe('POST /api/receiving — validation', () => {
-
   it('400 when vendor is missing', async () => {
-
     const res = await POST(postReq({
-
       category: 'refrigerated',
-
       reading_f: 38,
-
     }));
-
     assert.strictEqual(res.status, 400);
-
     assert.strictEqual(countReceiving(), 0);
-
   });
-
-
 
   it('400 when category is unknown', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'specialty_bakery',
-
       reading_f: 38,
-
     }));
-
     assert.strictEqual(res.status, 400);
-
     const body = await res.json();
-
     assert.match(body.error, /unknown category/);
-
     assert.ok(Array.isArray(body.categories));
-
   });
-
-
 
   it('400 on malformed expiration_date (not YYYY-MM-DD)', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 38,
-
       expiration_date: '05/15/2026',
-
     }));
-
     assert.strictEqual(res.status, 400);
-
   });
-
-
 
   it('400 on non-numeric reading_f', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 'cold',
-
     }));
-
     assert.strictEqual(res.status, 400);
-
   });
-
-
 
   it('400 on over-long corrective_action', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 38,
-
       corrective_action: 'x'.repeat(600),
-
     }));
-
     assert.strictEqual(res.status, 400);
-
   });
-
 });
-
-
 
 // ── POST — 422 (needs corrective note) ───────────────────────────
 
-
-
 describe('POST /api/receiving — 422 without corrective_action', () => {
-
   it('refrigerated @ 43°F without note → 422; no row, no audit', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 43,
-
       package_ok: true,
-
     }));
-
     assert.strictEqual(res.status, 422);
-
     const body = await res.json();
-
     // Drift-band path keeps the legacy `needs_corrective_action: true`
-
     // contract — this is the "add a fix note to accept" case.
-
     assert.strictEqual(body.needs_corrective_action, true);
-
     // Drift-band path must NOT carry the rejection-note flag — those
-
     // are wire-distinct codes (see needs_rejection_note tests below).
-
     assert.notStrictEqual(body.needs_rejection_note, true);
-
     assert.strictEqual(body.status, 'accept_with_note');
-
     assert.match(body.citation, /§/);
-
     assert.strictEqual(countReceiving(), 0);
-
     assert.strictEqual(countAudit('receiving_log'), 0);
-
   });
-
-
 
   it('refrigerated @ 43°F WITH a note is accepted_with_note (saved + audited)', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 43,
-
       package_ok: true,
-
       corrective_action: 'moved to reach-in, re-checked at 39°F',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     assert.strictEqual(countReceiving(), 1);
-
     assert.strictEqual(countAudit('receiving_log'), 1);
-
     const row = testDb.prepare('SELECT * FROM receiving_log').get();
-
     assert.strictEqual(row.status, 'accepted_with_note');
-
     assert.match(row.rejection_reason, /reach-in/);
-
   });
-
-
 
   it('refrigerated @ 50°F without note → 422 (rejected, not acceptable without a note)', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 50,
-
       package_ok: true,
-
     }));
-
     assert.strictEqual(res.status, 422);
-
     const body = await res.json();
-
     assert.strictEqual(body.status, 'rejected');
-
     // Rejection-without-note must surface `needs_rejection_note: true`
-
     // — the semantic is "document why you refused this delivery", not
-
     // "add a fix note to accept it". Wire-distinct from drift-band.
-
     assert.strictEqual(body.needs_rejection_note, true);
-
     assert.notStrictEqual(body.needs_corrective_action, true);
-
     assert.match(body.citation, /§/);
-
     assert.strictEqual(countReceiving(), 0);
-
     assert.strictEqual(countAudit('receiving_log'), 0);
-
   });
-
-
 
   it('refrigerated @ 50°F WITH a rejection reason is saved as rejected (+ audit)', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 50,
-
       package_ok: true,
-
       corrective_action: 'driver confirmed reefer alarm; full invoice credit',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     const row = testDb.prepare('SELECT * FROM receiving_log').get();
-
     assert.strictEqual(row.status, 'rejected');
-
     assert.strictEqual(countAudit('receiving_log'), 1);
-
   });
-
-
 
   it('package_ok=false without a note → 422; with a note → rejected', async () => {
-
     const resA = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 38,
-
       package_ok: false,
-
     }));
-
     assert.strictEqual(resA.status, 422);
-
     const bodyA = await resA.json();
-
     // Package integrity rejection is a refusal, not a drift fix —
-
     // surfaces needs_rejection_note, NOT needs_corrective_action.
-
     assert.strictEqual(bodyA.status, 'rejected');
-
     assert.strictEqual(bodyA.needs_rejection_note, true);
-
     assert.notStrictEqual(bodyA.needs_corrective_action, true);
-
     assert.strictEqual(countReceiving(), 0);
 
-
-
     const resB = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 38,
-
       package_ok: false,
-
       corrective_action: 'pallet leak, vendor callback SHAMROCK-CB-771',
-
     }));
-
     assert.strictEqual(resB.status, 200);
-
     const row = testDb.prepare('SELECT * FROM receiving_log').get();
-
     assert.strictEqual(row.status, 'rejected');
-
     assert.strictEqual(row.package_ok, 0);
-
   });
-
 });
-
-
 
 // ── POST — audit trail ───────────────────────────────────────────
 
-
-
 describe('POST /api/receiving — audit rows', () => {
-
   it('one audit row per accepted delivery', async () => {
-
     await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 38,
-
       cook_id: 'alice',
-
     }));
-
     assert.strictEqual(countAudit('receiving_log'), 1);
-
     const audit = testDb
-
       .prepare('SELECT * FROM audit_events WHERE entity=?')
-
       .get('receiving_log');
-
     assert.strictEqual(audit.entity, 'receiving_log');
-
     assert.strictEqual(audit.action, 'insert');
-
     assert.strictEqual(audit.actor_cook_id, 'alice');
-
     assert.strictEqual(audit.actor_source, 'cook_ui');
-
     assert.strictEqual(audit.note, null); // ok status → null note
-
     assert.ok(audit.payload_json);
-
   });
-
-
 
   it('audit note carries "<status>:<category>" for non-ok decisions', async () => {
-
     await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 43,
-
       package_ok: true,
-
       corrective_action: 'moved to reach-in',
-
     }));
-
     const audit = testDb
-
       .prepare('SELECT * FROM audit_events WHERE entity=?')
-
       .get('receiving_log');
-
     assert.strictEqual(audit.note, 'accept_with_note:refrigerated');
-
   });
-
-
 
   it('no audit row is written when POST is rejected', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 43,
-
       package_ok: true,
-
     }));
-
     assert.strictEqual(res.status, 422);
-
     assert.strictEqual(countAudit('receiving_log'), 0);
-
   });
-
 });
-
-
 
 // ── GET — summary + vendor grouping ──────────────────────────────
 
-
-
 describe('GET /api/receiving', () => {
-
   it('empty day returns a full gray summary', async () => {
-
     const res = await GET(getReq());
-
     assert.strictEqual(res.status, 200);
-
     const body = await res.json();
-
     assert.ok(Array.isArray(body.summary));
-
     assert.ok(body.summary.length >= 6);
-
     for (const s of body.summary) {
-
       assert.strictEqual(s.status, 'gray');
-
     }
-
     assert.strictEqual(body.totals.accepted, 0);
-
     assert.strictEqual(body.totals.rejected, 0);
-
     assert.strictEqual(body.totals.accepted_with_note, 0);
-
   });
-
-
 
   it('groups entries by vendor with per-vendor counts', async () => {
-
     await POST(postReq({ vendor: 'Shamrock', category: 'refrigerated', reading_f: 38 }));
-
     await POST(postReq({ vendor: 'Shamrock', category: 'frozen', reading_f: -10 }));
-
     await POST(postReq({ vendor: 'Sysco', category: 'dry_goods', item: 'canned tomatoes' }));
-
     const res = await GET(getReq());
-
     const body = await res.json();
-
     assert.strictEqual(body.vendors.length, 2);
-
     const shamrock = body.vendors.find((v) => v.vendor === 'Shamrock');
-
     const sysco = body.vendors.find((v) => v.vendor === 'Sysco');
-
     assert.strictEqual(shamrock.entries.length, 2);
-
     assert.strictEqual(shamrock.counts.accepted, 2);
-
     assert.strictEqual(sysco.entries.length, 1);
-
   });
-
-
 
   it('summary turns a category yellow after an accept-with-note write', async () => {
-
     await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 43,
-
       package_ok: true,
-
       corrective_action: 'pulled down in reach-in',
-
     }));
-
     const res = await GET(getReq());
-
     const body = await res.json();
-
     const t = body.summary.find((x) => x.category === 'refrigerated');
-
     assert.strictEqual(t.status, 'yellow');
-
     assert.strictEqual(t.accepted_with_note, 1);
-
   });
-
-
 
   it('summary turns a category red after a rejected write', async () => {
-
     await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       reading_f: 50,
-
       package_ok: true,
-
       corrective_action: 'full credit issued',
-
     }));
-
     const res = await GET(getReq());
-
     const body = await res.json();
-
     const t = body.summary.find((x) => x.category === 'refrigerated');
-
     assert.strictEqual(t.status, 'red');
-
     assert.strictEqual(t.rejected, 1);
-
   });
-
-
 
   it('?summary=0 drops the summary payload but keeps entries + vendors', async () => {
-
     await POST(postReq({ vendor: 'Shamrock', category: 'refrigerated', reading_f: 38 }));
-
     const res = await GET(getReq('?summary=0'));
-
     const body = await res.json();
-
     assert.strictEqual(body.summary, null);
-
     assert.strictEqual(body.entries.length, 1);
-
     assert.strictEqual(body.vendors.length, 1);
-
   });
-
-
 
   it('honors location_id filter', async () => {
-
     await POST(postReq({ vendor: 'Shamrock', category: 'refrigerated', reading_f: 38, location_id: 'downtown' }));
-
     await POST(postReq({ vendor: 'Shamrock', category: 'refrigerated', reading_f: 38 }));
-
     const res = await GET(getReq('?location=downtown'));
-
     const body = await res.json();
-
     assert.strictEqual(body.entries.length, 1);
-
     assert.strictEqual(body.entries[0].location_id, 'downtown');
-
   });
-
 });
 
-
-
 // ── POST — closed-loop inventory receiving ───────────────────────
-
 //
-
 // Phase 3 closed-loop receiving: an accepted delivery with received_qty
-
 // + received_unit credits inventory in the same transaction as the
-
 // receiving_log INSERT only when it resolves to a stable master. Rejected,
-
 // unmatched, ambiguous, and qty/unit-incomplete deliveries stay queued
-
 // without moving on-hand. Transactional rollback guarantees we never leave
-
 // a delivery row without its companion inventory row when the credit was due.
 
-
-
 describe('POST /api/receiving — closed-loop inventory crediting', () => {
-
   it('matched happy path: accepted + qty + unit writes BOTH rows + 2 audits', async () => {
-
     seedIngredientMaster('chicken_breast_40lb_cs', 'Chicken Breast 40lb CS');
-
     seedVendorPrice({
-
       vendor: 'Shamrock',
-
       sku: 'CHX-40',
-
       ingredient: 'chicken breast 40lb CS',
-
       masterId: 'chicken_breast_40lb_cs',
-
     });
 
-
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       item: 'chicken breast 40lb CS',
-
       reading_f: 38,
-
       package_ok: true,
-
       received_qty: 40,
-
       received_unit: 'lb',
-
       cook_id: 'alice',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     const body = await res.json();
-
     assert.strictEqual(body.ok, true);
-
     assert.strictEqual(body.match.status, 'matched');
-
     assert.strictEqual(body.match.master_id, 'chicken_breast_40lb_cs');
 
-
-
     assert.strictEqual(countReceiving(), 1);
-
     assert.strictEqual(countInventoryUpdates(), 1);
-
     assert.strictEqual(countAudit('receiving_log'), 1);
-
     assert.strictEqual(countAudit('inventory_updates'), 1);
 
-
-
     const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
-
     assert.strictEqual(recvRow.received_qty, 40);
-
     assert.strictEqual(recvRow.received_unit, 'lb');
 
-
-
     const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
-
     assert.strictEqual(invRow.item, 'chicken breast 40lb CS');
-
     assert.strictEqual(invRow.master_id, 'chicken_breast_40lb_cs');
-
     assert.strictEqual(invRow.delta, '40 lb');
-
     assert.strictEqual(invRow.direction, 'in');
-
     assert.strictEqual(invRow.cook_id, 'alice');
-
     assert.match(invRow.note, /closed-loop receiving from receiving_log #\d+/);
-
     assert.strictEqual(invRow.receiving_log_id, recvRow.id);
-
-
 
     const invAudit = testDb
-
       .prepare('SELECT * FROM audit_events WHERE entity=?')
-
       .get('inventory_updates');
-
     assert.strictEqual(invAudit.action, 'insert');
-
     assert.strictEqual(invAudit.actor_source, 'receiving_closed_loop');
-
     assert.strictEqual(invAudit.actor_cook_id, 'alice');
-
     assert.match(invAudit.note, /receiving_log:\d+/);
-
     assert.ok(invAudit.payload_json);
 
-
-
     const feed = syncRows();
-
     assert.deepStrictEqual(
-
       feed.map((row) => row.table_name),
-
       ['receiving_log', 'inventory_updates'],
-
       'closed-loop receiving must publish both source rows for replay',
-
     );
-
     assert.deepStrictEqual(feed.map((row) => row.op_kind), ['insert', 'insert']);
-
     assert.strictEqual(feed[0].row_pk, String(recvRow.id));
-
     assert.strictEqual(feed[1].row_pk, String(invRow.id));
-
     const recvPayload = JSON.parse(feed[0].row_json);
-
     assert.strictEqual(recvPayload.vendor_sku, null);
-
     assert.strictEqual(recvPayload.master_id, 'chicken_breast_40lb_cs');
-
     assert.strictEqual(recvPayload.match_status, 'matched');
-
     assert.strictEqual(recvPayload.match_reason, 'exact_vendor_item');
-
     const invPayload = JSON.parse(feed[1].row_json);
-
     assert.strictEqual(invPayload.item, 'chicken breast 40lb CS');
-
     assert.strictEqual(invPayload.master_id, 'chicken_breast_40lb_cs');
-
     assert.strictEqual(invPayload.delta, '40 lb');
-
     assert.strictEqual(invPayload.direction, 'in');
-
     assert.strictEqual(invPayload.receiving_log_id, recvRow.id);
-
   });
-
-
 
   it('unmatched accepted delivery queues without inventory credit until manager resolution', async () => {
-
     seedIngredientMaster('heirloom_tomato_case', 'Heirloom Tomato Case');
 
-
-
     const res = await POST(postReq({
-
       vendor: 'Local Farms',
-
       category: 'produce',
-
       item: 'heirloom tomato case',
-
       package_ok: true,
-
       received_qty: 2,
-
       received_unit: 'case',
-
       cook_id: 'maria',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     const body = await res.json();
-
     assert.strictEqual(body.match.status, 'unmatched');
-
     assert.strictEqual(body.match.master_id, null);
-
     assert.strictEqual(countReceiving(), 1);
-
     assert.strictEqual(countInventoryUpdates(), 0);
-
     assert.strictEqual(countAudit('inventory_updates'), 0);
 
-
-
     const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
-
     assert.strictEqual(recvRow.match_status, 'unmatched');
-
     assert.strictEqual(recvRow.master_id, null);
-
     const feedBeforeResolution = syncRows();
-
     assert.strictEqual(feedBeforeResolution.length, 1);
-
     const recvPayload = JSON.parse(feedBeforeResolution[0].row_json);
-
     assert.strictEqual(recvPayload.master_id, null);
-
     assert.strictEqual(recvPayload.match_status, 'unmatched');
-
     assert.strictEqual(recvPayload.match_reason, 'no_vendor_price_match');
 
-
-
     const queueRes = await GET_MATCHES(matchGetReq());
-
     assert.strictEqual(queueRes.status, 200);
-
     const queue = await queueRes.json();
-
     assert.strictEqual(queue.total, 1);
-
     assert.strictEqual(queue.matches[0].id, recvRow.id);
-
     assert.strictEqual(queue.matches[0].match_status, 'unmatched');
 
-
-
     const patchRes = await PATCH_MATCH(
-
       patchMatchReq(recvRow.id, {
-
         master_id: 'heirloom_tomato_case',
-
         cook_id: 'manager-alex',
-
       }),
-
       { params: { id: String(recvRow.id) } },
-
     );
-
     assert.strictEqual(patchRes.status, 200);
-
     const patchBody = await patchRes.json();
-
     assert.strictEqual(patchBody.ok, true);
-
     assert.strictEqual(patchBody.receiving.master_id, 'heirloom_tomato_case');
-
     assert.strictEqual(patchBody.inventory_update.master_id, 'heirloom_tomato_case');
 
-
-
     assert.strictEqual(countInventoryUpdates(), 1);
-
     assert.strictEqual(countAudit('inventory_updates'), 1);
-
     const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
-
     assert.strictEqual(invRow.item, 'heirloom tomato case');
-
     assert.strictEqual(invRow.delta, '2 case');
-
     assert.strictEqual(invRow.receiving_log_id, recvRow.id);
-
   });
-
-
 
   it('ambiguous vendor match queues without crediting inventory until manager resolution', async () => {
-
     seedIngredientMaster('shamrock_heirloom_tomato', 'Shamrock Heirloom Tomato');
-
     seedIngredientMaster('local_heirloom_tomato', 'Local Heirloom Tomato');
-
     seedVendorPrice({
-
       vendor: 'Shamrock',
-
       sku: 'TOM-CASE',
-
       ingredient: 'heirloom tomato case',
-
       masterId: 'shamrock_heirloom_tomato',
-
     });
-
     seedVendorPrice({
-
       vendor: 'Shamrock',
-
       sku: 'TOM-CASE',
-
       ingredient: 'local heirloom tomato case',
-
       masterId: 'local_heirloom_tomato',
-
     });
-
-
 
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       vendor_sku: 'TOM-CASE',
-
       category: 'produce',
-
       item: 'heirloom tomato case',
-
       package_ok: true,
-
       received_qty: 2,
-
       received_unit: 'case',
-
       cook_id: 'maria',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     const body = await res.json();
-
     assert.strictEqual(body.match.status, 'ambiguous');
-
     assert.strictEqual(body.match.master_id, null);
-
     assert.strictEqual(body.match.reason, 'multiple_vendor_sku_matches');
-
     assert.strictEqual(countReceiving(), 1);
-
     assert.strictEqual(countInventoryUpdates(), 0);
 
-
-
     const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
-
     assert.strictEqual(recvRow.match_status, 'ambiguous');
-
     assert.strictEqual(recvRow.master_id, null);
-
     const feedBeforeResolution = syncRows();
-
     assert.strictEqual(feedBeforeResolution.length, 1);
-
     const recvPayload = JSON.parse(feedBeforeResolution[0].row_json);
-
     assert.strictEqual(recvPayload.vendor_sku, 'TOM-CASE');
-
     assert.strictEqual(recvPayload.master_id, null);
-
     assert.strictEqual(recvPayload.match_status, 'ambiguous');
-
     assert.strictEqual(recvPayload.match_reason, 'multiple_vendor_sku_matches');
 
-
-
     const queueRes = await GET_MATCHES(matchGetReq());
-
     assert.strictEqual(queueRes.status, 200);
-
     const queue = await queueRes.json();
-
     assert.strictEqual(queue.total, 1);
-
     assert.strictEqual(queue.matches[0].id, recvRow.id);
-
     assert.strictEqual(queue.matches[0].match_status, 'ambiguous');
 
-
-
     const patchRes = await PATCH_MATCH(
-
       patchMatchReq(recvRow.id, {
-
         master_id: 'local_heirloom_tomato',
-
         cook_id: 'manager-alex',
-
       }),
-
       { params: { id: String(recvRow.id) } },
-
     );
-
     assert.strictEqual(patchRes.status, 200);
-
     const patchBody = await patchRes.json();
-
     assert.strictEqual(patchBody.ok, true);
-
     assert.strictEqual(patchBody.receiving.master_id, 'local_heirloom_tomato');
-
     assert.strictEqual(patchBody.inventory_update.master_id, 'local_heirloom_tomato');
 
-
-
     assert.strictEqual(countInventoryUpdates(), 1);
-
     const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
-
     assert.strictEqual(invRow.item, 'heirloom tomato case');
-
     assert.strictEqual(invRow.delta, '2 case');
-
     assert.strictEqual(invRow.receiving_log_id, recvRow.id);
-
   });
-
-
 
   it('manager resolution updates existing credited stock without duplicating inventory', async () => {
-
     seedIngredientMaster('legacy_tomato_case', 'Legacy Tomato Case');
-
     seedIngredientMaster('heirloom_tomato_case', 'Heirloom Tomato Case');
-
     seedVendorPrice({
-
       vendor: 'Local Farms',
-
       sku: 'TOM-LEGACY',
-
       ingredient: 'heirloom tomato case',
-
       masterId: 'legacy_tomato_case',
-
     });
 
-
-
     const res = await POST(postReq({
-
       vendor: 'Local Farms',
-
       category: 'produce',
-
       item: 'heirloom tomato case',
-
       package_ok: true,
-
       received_qty: 2,
-
       received_unit: 'case',
-
       cook_id: 'maria',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     assert.strictEqual(countInventoryUpdates(), 1);
-
     const recvBefore = testDb.prepare('SELECT * FROM receiving_log').get();
-
     const invBefore = testDb.prepare('SELECT * FROM inventory_updates').get();
-
     assert.strictEqual(recvBefore.master_id, 'legacy_tomato_case');
-
     assert.strictEqual(invBefore.master_id, 'legacy_tomato_case');
 
-
-
     const patchRes = await PATCH_MATCH(
-
       patchMatchReq(recvBefore.id, {
-
         master_id: 'heirloom_tomato_case',
-
         cook_id: 'manager-alex',
-
       }),
-
       { params: { id: String(recvBefore.id) } },
-
     );
-
     assert.strictEqual(patchRes.status, 200);
-
     const patchBody = await patchRes.json();
-
     assert.strictEqual(patchBody.ok, true);
-
     assert.strictEqual(patchBody.receiving.master_id, 'heirloom_tomato_case');
-
     assert.strictEqual(patchBody.inventory_update.master_id, 'heirloom_tomato_case');
 
-
-
     assert.strictEqual(countInventoryUpdates(), 1);
-
     const recvAfter = testDb.prepare('SELECT * FROM receiving_log').get();
-
     const invAfter = testDb.prepare('SELECT * FROM inventory_updates').get();
-
     assert.strictEqual(recvAfter.match_status, 'matched');
-
     assert.strictEqual(recvAfter.match_reason, 'manager_selected');
-
     assert.strictEqual(recvAfter.master_id, 'heirloom_tomato_case');
-
     assert.strictEqual(invAfter.master_id, 'heirloom_tomato_case');
-
     assert.strictEqual(invAfter.id, invBefore.id);
 
-
-
     assert.strictEqual(countAudit('receiving_log'), 2);
-
     assert.strictEqual(countAudit('inventory_updates'), 2);
-
   });
-
-
 
   it('accepted_with_note + qty + unit also credits inventory', async () => {
-
     seedIngredientMaster('milk_2_gal', 'Milk 2% Gallon');
-
     seedVendorPrice({
-
       vendor: 'Shamrock',
-
       sku: 'MILK-2',
-
       ingredient: 'milk 2% gal',
-
       masterId: 'milk_2_gal',
-
     });
 
-
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       item: 'milk 2% gal',
-
       reading_f: 43,
-
       package_ok: true,
-
       corrective_action: 'pulled down in reach-in, verified 39°F 20min later',
-
       received_qty: 6,
-
       received_unit: 'gal',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     assert.strictEqual(countReceiving(), 1);
-
     assert.strictEqual(countInventoryUpdates(), 1);
-
     const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
-
     assert.strictEqual(invRow.master_id, 'milk_2_gal');
-
     assert.strictEqual(invRow.delta, '6 gal');
-
   });
-
-
 
   it('rejected delivery with qty + unit does NOT credit inventory', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       item: 'milk 2%',
-
       reading_f: 50,
-
       package_ok: true,
-
       corrective_action: 'reefer alarm — full credit issued',
-
       received_qty: 6,
-
       received_unit: 'gal',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     assert.strictEqual(countReceiving(), 1);
-
     const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
-
     assert.strictEqual(recvRow.status, 'rejected');
-
     // Even though qty+unit were captured, rejected goods don't move on-hand.
-
     assert.strictEqual(countInventoryUpdates(), 0);
-
     assert.strictEqual(countAudit('inventory_updates'), 0);
-
     // The receiving_log audit row is still emitted as usual.
-
     assert.strictEqual(countAudit('receiving_log'), 1);
-
   });
-
-
 
   it('accepted without qty/unit: graceful skip — receiving lands, no inventory write', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       item: 'chicken breast 40lb CS',
-
       reading_f: 38,
-
       package_ok: true,
-
       // no received_qty, no received_unit
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     assert.strictEqual(countReceiving(), 1);
-
     assert.strictEqual(countInventoryUpdates(), 0);
-
     assert.strictEqual(countAudit('inventory_updates'), 0);
-
   });
-
-
 
   it('accepted with qty but no unit: 400 (both required when one is provided)', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       item: 'chicken breast',
-
       reading_f: 38,
-
       package_ok: true,
-
       received_qty: 40,
-
       // received_unit deliberately missing
-
     }));
-
     assert.strictEqual(res.status, 400);
-
     assert.strictEqual(countReceiving(), 0);
-
     assert.strictEqual(countInventoryUpdates(), 0);
-
   });
-
-
 
   it('accepted with item missing: graceful skip (no item key to debit later)', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'dry_goods',
-
       // item omitted — closed loop has no debit target
-
       received_qty: 10,
-
       received_unit: 'case',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     assert.strictEqual(countReceiving(), 1);
-
     assert.strictEqual(countInventoryUpdates(), 0);
-
   });
-
-
 
   it('validator rejects negative qty as 400', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       item: 'chicken breast',
-
       reading_f: 38,
-
       package_ok: true,
-
       received_qty: -5,
-
       received_unit: 'lb',
-
     }));
-
     assert.strictEqual(res.status, 400);
-
     const body = await res.json();
-
     assert.match(body.error, /received_qty/);
-
     assert.strictEqual(countReceiving(), 0);
-
     assert.strictEqual(countInventoryUpdates(), 0);
-
   });
-
-
 
   it('validator rejects zero qty as 400', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       item: 'chicken breast',
-
       reading_f: 38,
-
       package_ok: true,
-
       received_qty: 0,
-
       received_unit: 'lb',
-
     }));
-
     assert.strictEqual(res.status, 400);
-
     assert.strictEqual(countReceiving(), 0);
-
     assert.strictEqual(countInventoryUpdates(), 0);
-
   });
-
-
 
   it('transactional rollback: forced inventory_updates failure rolls back receiving + audit', async () => {
-
     seedIngredientMaster('forced_rollback_chicken_breast', 'Forced Rollback Chicken Breast');
-
     seedVendorPrice({
-
       vendor: 'Shamrock',
-
       sku: 'FORCED-ROLLBACK',
-
       ingredient: 'forced rollback chicken breast',
-
       masterId: 'forced_rollback_chicken_breast',
-
     });
-
-
 
     // Force exactly this closed-loop INSERT to fail without dropping a
-
     // shared table out from under other top-level suites in this file.
-
     // The route must then roll back the receiving_log INSERT + its
-
     // audit row — we should see ZERO new rows of any kind.
-
     testDb.exec(`
-
       CREATE TEMP TRIGGER fail_forced_receiving_inventory_insert
-
       BEFORE INSERT ON inventory_updates
-
       WHEN NEW.item = 'forced rollback chicken breast'
-
       BEGIN
-
         SELECT RAISE(ABORT, 'forced inventory update failure');
-
       END;
-
     `);
-
     try {
-
       const res = await POST(postReq({
-
         vendor: 'Shamrock',
-
         category: 'refrigerated',
-
         item: 'forced rollback chicken breast',
-
         reading_f: 38,
-
         package_ok: true,
-
         received_qty: 40,
-
         received_unit: 'lb',
-
       }));
-
       assert.strictEqual(res.status, 500);
-
       assert.strictEqual(countReceiving(), 0);
-
       assert.strictEqual(countAudit('receiving_log'), 0);
-
       assert.strictEqual(countAudit('inventory_updates'), 0);
-
     } finally {
-
       testDb.exec('DROP TRIGGER IF EXISTS fail_forced_receiving_inventory_insert');
-
     }
-
   });
-
-
 
   it('HACCP rejection priority: a rejected delivery 422s even with a malformed received_qty', async () => {
-
     // The cook's first concern is "are the goods coming inside or
-
     // not?". A malformed qty travels with the row but doesn't change
-
     // the rejection — 400ing on qty would mask the real failure
-
     // reason, and the cook would fix the qty, retry, and still get
-
     // 422. Reject (without note) wins; cook records the corrective
-
     // note and the qty stays whatever they typed.
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       item: 'milk 2%',
-
       reading_f: 38,
-
       package_ok: false,         // forces HACCP reject per §3-202.15
-
       received_qty: -5,          // also a malformed closed-loop value
-
       received_unit: 'gal',
-
     }));
-
     assert.strictEqual(res.status, 422);
-
     const body = await res.json();
-
     assert.strictEqual(body.status, 'rejected');
-
     assert.match(body.citation, /§3-202\.15/);
-
     // Rejection priority over malformed qty surfaces a refusal, not a
-
     // drift fix — needs_rejection_note, not needs_corrective_action.
-
     assert.strictEqual(body.needs_rejection_note, true);
-
     assert.notStrictEqual(body.needs_corrective_action, true);
-
     assert.strictEqual(countReceiving(), 0);
-
   });
-
-
 
   it('HACCP rejection priority: temp-rejected delivery with bad qty also 422s', async () => {
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       item: 'milk 2%',
-
       reading_f: 50,             // past drift band → reject
-
       package_ok: true,
-
       received_qty: 0,           // also a malformed closed-loop value
-
       received_unit: 'gal',
-
     }));
-
     assert.strictEqual(res.status, 422);
-
     const body = await res.json();
-
     assert.strictEqual(body.status, 'rejected');
-
     assert.strictEqual(countReceiving(), 0);
-
   });
-
-
 
   it('accept_with_note + bad qty still 400s (drift-band path lands a row, so qty must be valid)', async () => {
-
     // Accept-with-note actually writes to receiving_log AND credits
-
     // inventory if qty/unit are present, so a malformed qty on this
-
     // path has to block — it'd otherwise either persist a bad row or
-
     // silently drop the credit. The 400 keeps that contract intact.
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       item: 'milk 2%',
-
       reading_f: 43,             // drift band → accept_with_note
-
       package_ok: true,
-
       corrective_action: 'pulled down in reach-in',
-
       received_qty: -2,          // malformed
-
       received_unit: 'gal',
-
     }));
-
     assert.strictEqual(res.status, 400);
-
     assert.strictEqual(countReceiving(), 0);
-
   });
-
-
 
   it('partial UNIQUE index prevents double-credit on the same receiving_log row', async () => {
-
     seedIngredientMaster('chicken_breast_40lb_cs', 'Chicken Breast 40lb CS');
-
     seedVendorPrice({
-
       vendor: 'Shamrock',
-
       sku: 'CHX-40',
-
       ingredient: 'chicken breast 40lb CS',
-
       masterId: 'chicken_breast_40lb_cs',
-
     });
 
-
-
     // Document the at-most-once invariant. Each /api/receiving POST
-
     // creates a NEW receiving_log row with a NEW id, so true client
-
     // double-tap is a UI/network concern (see route.js) — the DB
-
     // constraint here protects the in-process invariant: ONE inventory
-
     // credit per source receiving_log row.
-
     const res = await POST(postReq({
-
       vendor: 'Shamrock',
-
       category: 'refrigerated',
-
       item: 'chicken breast 40lb CS',
-
       reading_f: 38,
-
       package_ok: true,
-
       received_qty: 40,
-
       received_unit: 'lb',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     assert.strictEqual(countInventoryUpdates(), 1);
 
-
-
     const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
-
     assert.throws(
-
       () => {
-
         testDb
-
           .prepare(
-
             `INSERT INTO inventory_updates
-
                (shift_date, location_id, item, delta, direction, note, cook_id, receiving_log_id)
-
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-
           )
-
           .run(
-
             recvRow.shift_date,
-
             recvRow.location_id,
-
             recvRow.item,
-
             '40 lb',
-
             'in',
-
             'duplicate credit attempt',
-
             null,
-
             recvRow.id,
-
           );
-
       },
-
       /UNIQUE constraint/,
-
       'partial unique index must reject a second credit for the same receiving_log_id',
-
     );
-
-
 
     // The original credit row is the only one — the failed second
-
     // INSERT did not leak through.
-
     assert.strictEqual(countInventoryUpdates(), 1);
-
   });
-
-
 
   it('Next promise-params: PATCH resolves id when params is a Promise', async () => {
-
     // Next 15+/16 passes params as a Promise. Without await, params?.id is
-
     // undefined and the handler 400s — typed around in the #490 wave.
-
     seedIngredientMaster('promise_tomato_case', 'Promise Tomato Case');
 
-
-
     const res = await POST(postReq({
-
       vendor: 'Local Farms',
-
       category: 'produce',
-
       item: 'promise tomato case',
-
       package_ok: true,
-
       received_qty: 1,
-
       received_unit: 'case',
-
       cook_id: 'maria',
-
     }));
-
     assert.strictEqual(res.status, 200);
-
     const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
-
     assert.strictEqual(recvRow.match_status, 'unmatched');
 
-
-
     const patchRes = await PATCH_MATCH(
-
       patchMatchReq(recvRow.id, {
-
         master_id: 'promise_tomato_case',
-
         cook_id: 'manager-alex',
-
       }),
-
       { params: Promise.resolve({ id: String(recvRow.id) }) },
-
     );
-
     assert.strictEqual(
-
       patchRes.status,
-
       200,
-
       `promise params must resolve (got ${patchRes.status})`,
-
     );
-
     const patchBody = await patchRes.json();
-
     assert.strictEqual(patchBody.ok, true);
-
     assert.strictEqual(patchBody.receiving.master_id, 'promise_tomato_case');
-
   });
-
 });
