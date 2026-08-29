@@ -85,8 +85,11 @@ export const AUGUST_WEEKLY_BY_DOW: Record<string, AugustChecklistItem[]> = {
   ],
 };
 
-/** Monthly deep clean — target Sun Aug 16, makeup Sun Aug 23. */
-export const AUGUST_MONTHLY_DATES = ['2026-08-16', '2026-08-23'] as const;
+/** Monthly deep clean — target Sun Aug 16; makeup Sun Aug 23 only if target incomplete. */
+export const AUGUST_MONTHLY_TARGET = '2026-08-16';
+export const AUGUST_MONTHLY_MAKEUP = '2026-08-23';
+/** @deprecated Prefer AUGUST_MONTHLY_TARGET / AUGUST_MONTHLY_MAKEUP + shouldEmitAugustMonthly. */
+export const AUGUST_MONTHLY_DATES = [AUGUST_MONTHLY_TARGET, AUGUST_MONTHLY_MAKEUP] as const;
 
 export const AUGUST_MONTHLY: AugustChecklistItem[] = [
   {
@@ -135,10 +138,26 @@ export function isAugust2026(isoDate: string): boolean {
   return typeof isoDate === 'string' && isoDate.startsWith('2026-08-');
 }
 
+/**
+ * Whether monthly deep-clean rows belong on this date.
+ *
+ * Target day always emits. Makeup day emits only when the target day's monthly
+ * work was not finished — otherwise both Sundays dump the same five jobs.
+ */
+export function shouldEmitAugustMonthly(
+  isoDate: string,
+  monthlyTargetComplete: boolean,
+): boolean {
+  if (isoDate === AUGUST_MONTHLY_TARGET) return true;
+  if (isoDate === AUGUST_MONTHLY_MAKEUP) return !monthlyTargetComplete;
+  return false;
+}
+
 /** Checklist rows that should appear on a given August shift date. */
 export function augustChecklistForDate(
   isoDate: string,
   weekdayShort: string,
+  opts: { monthlyTargetComplete?: boolean } = {},
 ): Array<AugustChecklistItem & { daypart: 'side_work' | 'maintenance'; cadence: 'daily' | 'weekly' | 'monthly' }> {
   if (!isAugust2026(isoDate)) return [];
 
@@ -158,7 +177,8 @@ export function augustChecklistForDate(
     out.push({ ...item, daypart: 'side_work', cadence: 'weekly' });
   }
 
-  if ((AUGUST_MONTHLY_DATES as readonly string[]).includes(isoDate)) {
+  const monthlyDone = opts.monthlyTargetComplete === true;
+  if (shouldEmitAugustMonthly(isoDate, monthlyDone)) {
     for (const item of AUGUST_MONTHLY) {
       out.push({
         ...item,

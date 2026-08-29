@@ -21,7 +21,11 @@ import {
   type OpsRunRollup,
   type OpsStepStatus,
 } from './opsRun.ts';
-import { augustChecklistForDate } from './augustChecklists2026.ts';
+import {
+  AUGUST_MONTHLY,
+  AUGUST_MONTHLY_TARGET,
+  augustChecklistForDate,
+} from './augustChecklists2026.ts';
 import { serviceDate, VENUE_TIME_ZONE } from './serviceDate.ts';
 
 export interface OpsRunStepRow {
@@ -669,6 +673,28 @@ function materializeBusyDay(
   });
 }
 
+/**
+ * True when every Aug-16 monthly deep-clean step exists and is done or skipped.
+ * Missing rows count as incomplete — makeup Sunday then still fires.
+ */
+function augustMonthlyTargetComplete(
+  db: DB,
+  locationId: string,
+  targetDate: string = AUGUST_MONTHLY_TARGET,
+): boolean {
+  const stepKeys = AUGUST_MONTHLY.map((item) => `${item.key}-${targetDate}`);
+  if (stepKeys.length === 0) return true;
+  const placeholders = stepKeys.map(() => '?').join(', ');
+  const rows = db
+    .prepare(
+      `SELECT step_key, status FROM ops_run_steps
+        WHERE location_id = ? AND shift_date = ? AND step_key IN (${placeholders})`,
+    )
+    .all(locationId, targetDate, ...stepKeys) as Array<{ step_key: string; status: string }>;
+  if (rows.length < stepKeys.length) return false;
+  return rows.every((r) => r.status === 'done' || r.status === 'skipped');
+}
+
 function materializeAugustChecklists(
   db: DB,
   insert: InsertFn,
@@ -676,7 +702,9 @@ function materializeAugustChecklists(
   shiftDate: string,
 ): void {
   const weekday = weekdayShortFromISO(shiftDate);
-  const items = augustChecklistForDate(shiftDate, weekday);
+  const items = augustChecklistForDate(shiftDate, weekday, {
+    monthlyTargetComplete: augustMonthlyTargetComplete(db, locationId),
+  });
   let sort = 400;
   for (const item of items) {
     upsertDynamicStep(db, insert, {
