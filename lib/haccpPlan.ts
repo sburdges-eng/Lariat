@@ -32,6 +32,10 @@ import {
   type CorrectiveActionEntry,
   type TempLogCorrectiveRow,
   type LineCheckCorrectiveRow,
+  type CoolingCorrectiveRow,
+  type SanitizerCorrectiveRow,
+  type ReceivingCorrectiveRow,
+  type PestCorrectiveRow,
 } from './correctiveActions.ts';
 import {
   classifyProbes,
@@ -294,8 +298,14 @@ export function buildHaccpPlan(locationId: string, today: string): HaccpPlan {
     active: m.records > 0,
   }));
 
-  // Corrective-action log — same two sources as /api/corrective-actions,
-  // widened from a single shift_date to the 30-day window.
+  // Corrective-action log — the same six sources as
+  // /api/corrective-actions, widened from a single shift_date to the
+  // 30-day window.
+  //
+  // This read used to cover temp_log and line_check_entries only, which
+  // is why the printed plan could count cooling breaches in the CCP table
+  // and then declare "No corrective actions recorded in the window" two
+  // sections below it. An inspector reads both on one sheet.
   const tempLogRows = db
     .prepare(
       `SELECT id, shift_date, point_id, corrective_action, cook_id, created_at
@@ -314,7 +324,49 @@ export function buildHaccpPlan(locationId: string, today: string): HaccpPlan {
         ORDER BY created_at DESC`,
     )
     .all(locationId, windowStart, today) as LineCheckCorrectiveRow[];
-  const correctiveEntries = mergeCorrectiveActions(tempLogRows, lineCheckRows);
+  const coolingCorrectiveRows = db
+    .prepare(
+      `SELECT id, shift_date, station_id, item, corrective_action, cook_id,
+              COALESCE(stage2_at, stage1_at, created_at) AS corrected_at
+         FROM cooling_log
+        WHERE location_id = ? AND shift_date >= ? AND shift_date <= ?
+          AND corrective_action IS NOT NULL AND TRIM(corrective_action) != ''
+        ORDER BY corrected_at DESC`,
+    )
+    .all(locationId, windowStart, today) as CoolingCorrectiveRow[];
+  const sanitizerCorrectiveRows = db
+    .prepare(
+      `SELECT id, shift_date, station_id, point_label, corrective_action, cook_id, created_at
+         FROM sanitizer_checks
+        WHERE location_id = ? AND shift_date >= ? AND shift_date <= ?
+          AND corrective_action IS NOT NULL AND TRIM(corrective_action) != ''
+        ORDER BY created_at DESC`,
+    )
+    .all(locationId, windowStart, today) as SanitizerCorrectiveRow[];
+  const receivingCorrectiveRows = db
+    .prepare(
+      `SELECT id, shift_date, vendor, item, category, rejection_reason, cook_id, created_at
+         FROM receiving_log
+        WHERE location_id = ? AND shift_date >= ? AND shift_date <= ?
+          AND rejection_reason IS NOT NULL AND TRIM(rejection_reason) != ''
+        ORDER BY created_at DESC`,
+    )
+    .all(locationId, windowStart, today) as ReceivingCorrectiveRow[];
+  const pestCorrectiveRows = db
+    .prepare(
+      `SELECT id, shift_date, entry_type, pest, corrective_action, cook_id, created_at
+         FROM pest_control_log
+        WHERE location_id = ? AND shift_date >= ? AND shift_date <= ?
+          AND corrective_action IS NOT NULL AND TRIM(corrective_action) != ''
+        ORDER BY created_at DESC`,
+    )
+    .all(locationId, windowStart, today) as PestCorrectiveRow[];
+  const correctiveEntries = mergeCorrectiveActions(tempLogRows, lineCheckRows, {
+    coolingRows: coolingCorrectiveRows,
+    sanitizerRows: sanitizerCorrectiveRows,
+    receivingRows: receivingCorrectiveRows,
+    pestRows: pestCorrectiveRows,
+  });
 
   // Calibration log (window) + current probe status board (all history).
   const calibrationRecords = db

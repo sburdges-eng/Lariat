@@ -94,6 +94,26 @@ public struct HaccpRuleModule: Sendable, Equatable, Identifiable {
 public enum HaccpCorrectiveSource: String, Sendable, Equatable {
     case tempLog = "temp_log"
     case lineCheck = "line_check"
+    case cooling = "cooling"
+    case sanitizer = "sanitizer"
+    case receiving = "receiving"
+    case pest = "pest"
+
+    /// What a cook or an inspector calls this source. Mirrors
+    /// `CORRECTIVE_SOURCE_LABEL` in lib/correctiveActions.ts. A label on the
+    /// enum, not a ternary in the view: HaccpPlanView printed
+    /// `e.source == .tempLog ? "Temp log" : "Line check"`, which would have
+    /// labelled every cooling and sanitizer fix "Line check".
+    public var label: String {
+        switch self {
+        case .tempLog: return "Temp log"
+        case .lineCheck: return "Line check"
+        case .cooling: return "Cooling"
+        case .sanitizer: return "Sanitizer"
+        case .receiving: return "Receiving"
+        case .pest: return "Pest"
+        }
+    }
 }
 
 /// One merged corrective-action entry. Mirrors `CorrectiveActionEntry`.
@@ -427,6 +447,138 @@ public struct HaccpProbeCalibrationRow: Codable, FetchableRecord, Sendable {
 
 // MARK: - Raw bundle (repository → compute)
 
+/// A `cooling_log` corrective row (non-empty corrective_action) in the window.
+public struct HaccpCoolingCorrectiveRow: Codable, FetchableRecord, Sendable {
+    public let id: Int64
+    public let shiftDate: String
+    public let stationId: String?
+    public let item: String
+    public let correctiveAction: String
+    public let cookId: String?
+    /// When the fix happened, not when the batch went in: the cook enters the
+    /// corrective action on closing the breach, hours after `created_at`. The
+    /// repository selects COALESCE(stage2_at, stage1_at, created_at).
+    public let correctedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case shiftDate = "shift_date"
+        case stationId = "station_id"
+        case item
+        case correctiveAction = "corrective_action"
+        case cookId = "cook_id"
+        case correctedAt = "corrected_at"
+    }
+
+    public init(id: Int64, shiftDate: String, stationId: String?, item: String, correctiveAction: String, cookId: String?, correctedAt: String) {
+        self.id = id
+        self.shiftDate = shiftDate
+        self.stationId = stationId
+        self.item = item
+        self.correctiveAction = correctiveAction
+        self.cookId = cookId
+        self.correctedAt = correctedAt
+    }
+}
+
+/// A `sanitizer_checks` corrective row (non-empty corrective_action) in the window.
+public struct HaccpSanitizerCorrectiveRow: Codable, FetchableRecord, Sendable {
+    public let id: Int64
+    public let shiftDate: String
+    public let stationId: String?
+    public let pointLabel: String
+    public let correctiveAction: String
+    public let cookId: String?
+    public let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case shiftDate = "shift_date"
+        case stationId = "station_id"
+        case pointLabel = "point_label"
+        case correctiveAction = "corrective_action"
+        case cookId = "cook_id"
+        case createdAt = "created_at"
+    }
+
+    public init(id: Int64, shiftDate: String, stationId: String?, pointLabel: String, correctiveAction: String, cookId: String?, createdAt: String) {
+        self.id = id
+        self.shiftDate = shiftDate
+        self.stationId = stationId
+        self.pointLabel = pointLabel
+        self.correctiveAction = correctiveAction
+        self.cookId = cookId
+        self.createdAt = createdAt
+    }
+}
+
+/// A `receiving_log` corrective row in the window. The column is named
+/// `rejection_reason` for the refusal it documents, but it holds the
+/// corrective text the route refused the write without.
+public struct HaccpReceivingCorrectiveRow: Codable, FetchableRecord, Sendable {
+    public let id: Int64
+    public let shiftDate: String
+    public let vendor: String
+    public let item: String?
+    public let category: String
+    public let rejectionReason: String
+    public let cookId: String?
+    public let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case shiftDate = "shift_date"
+        case vendor
+        case item
+        case category
+        case rejectionReason = "rejection_reason"
+        case cookId = "cook_id"
+        case createdAt = "created_at"
+    }
+
+    public init(id: Int64, shiftDate: String, vendor: String, item: String?, category: String, rejectionReason: String, cookId: String?, createdAt: String) {
+        self.id = id
+        self.shiftDate = shiftDate
+        self.vendor = vendor
+        self.item = item
+        self.category = category
+        self.rejectionReason = rejectionReason
+        self.cookId = cookId
+        self.createdAt = createdAt
+    }
+}
+
+/// A `pest_control_log` corrective row (non-empty corrective_action) in the window.
+public struct HaccpPestCorrectiveRow: Codable, FetchableRecord, Sendable {
+    public let id: Int64
+    public let shiftDate: String
+    public let entryType: String
+    public let pest: String?
+    public let correctiveAction: String
+    public let cookId: String?
+    public let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case shiftDate = "shift_date"
+        case entryType = "entry_type"
+        case pest
+        case correctiveAction = "corrective_action"
+        case cookId = "cook_id"
+        case createdAt = "created_at"
+    }
+
+    public init(id: Int64, shiftDate: String, entryType: String, pest: String?, correctiveAction: String, cookId: String?, createdAt: String) {
+        self.id = id
+        self.shiftDate = shiftDate
+        self.entryType = entryType
+        self.pest = pest
+        self.correctiveAction = correctiveAction
+        self.cookId = cookId
+        self.createdAt = createdAt
+    }
+}
+
 /// Everything HaccpPlanCompute needs to assemble a plan. The repository packs
 /// this from location-scoped SELECTs; the compute layer does the pure assembly.
 public struct HaccpPlanBundle: Sendable {
@@ -440,6 +592,10 @@ public struct HaccpPlanBundle: Sendable {
     public let lineCheckCorrective: [HaccpLineCheckCorrectiveRow]
     public let calibrationWindow: [HaccpCalibrationWindowRow]
     public let allCalibrations: [HaccpProbeCalibrationRow]
+    public let coolingCorrective: [HaccpCoolingCorrectiveRow]
+    public let sanitizerCorrective: [HaccpSanitizerCorrectiveRow]
+    public let receivingCorrective: [HaccpReceivingCorrectiveRow]
+    public let pestCorrective: [HaccpPestCorrectiveRow]
 
     public init(
         locationId: String,
@@ -450,7 +606,11 @@ public struct HaccpPlanBundle: Sendable {
         tempLogCorrective: [HaccpTempLogCorrectiveRow],
         lineCheckCorrective: [HaccpLineCheckCorrectiveRow],
         calibrationWindow: [HaccpCalibrationWindowRow],
-        allCalibrations: [HaccpProbeCalibrationRow]
+        allCalibrations: [HaccpProbeCalibrationRow],
+        coolingCorrective: [HaccpCoolingCorrectiveRow] = [],
+        sanitizerCorrective: [HaccpSanitizerCorrectiveRow] = [],
+        receivingCorrective: [HaccpReceivingCorrectiveRow] = [],
+        pestCorrective: [HaccpPestCorrectiveRow] = []
     ) {
         self.locationId = locationId
         self.tempCounts = tempCounts
@@ -461,5 +621,9 @@ public struct HaccpPlanBundle: Sendable {
         self.lineCheckCorrective = lineCheckCorrective
         self.calibrationWindow = calibrationWindow
         self.allCalibrations = allCalibrations
+        self.coolingCorrective = coolingCorrective
+        self.sanitizerCorrective = sanitizerCorrective
+        self.receivingCorrective = receivingCorrective
+        self.pestCorrective = pestCorrective
     }
 }

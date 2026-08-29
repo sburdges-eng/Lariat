@@ -177,7 +177,11 @@ public enum HaccpPlanCompute {
         // ── Corrective-action log (merge + sort newest-first) ──────────────
         let correctiveEntries = mergeCorrectiveActions(
             tempLogRows: bundle.tempLogCorrective,
-            lineCheckRows: bundle.lineCheckCorrective
+            lineCheckRows: bundle.lineCheckCorrective,
+            coolingRows: bundle.coolingCorrective,
+            sanitizerRows: bundle.sanitizerCorrective,
+            receivingRows: bundle.receivingCorrective,
+            pestRows: bundle.pestCorrective
         )
 
         // ── Calibration log (window) + probe status board (all history) ────
@@ -223,12 +227,18 @@ public enum HaccpPlanCompute {
 
     // ── mergeCorrectiveActions (port of lib/correctiveActions.ts) ──────────
 
-    /// Merge corrective-action rows from temp_log and line_check_entries into a
+    /// Merge corrective-action rows from every table that holds one into a
     /// single chronologically-sorted feed (newest first). Mirrors
     /// `mergeCorrectiveActions`: the caller pre-filters the source rows.
+    ///
+    /// The extra sources default to empty so existing callers are unchanged.
     public static func mergeCorrectiveActions(
         tempLogRows: [HaccpTempLogCorrectiveRow],
-        lineCheckRows: [HaccpLineCheckCorrectiveRow]
+        lineCheckRows: [HaccpLineCheckCorrectiveRow],
+        coolingRows: [HaccpCoolingCorrectiveRow] = [],
+        sanitizerRows: [HaccpSanitizerCorrectiveRow] = [],
+        receivingRows: [HaccpReceivingCorrectiveRow] = [],
+        pestRows: [HaccpPestCorrectiveRow] = []
     ) -> [HaccpCorrectiveEntry] {
         var out: [HaccpCorrectiveEntry] = []
         for r in tempLogRows {
@@ -252,6 +262,55 @@ public enum HaccpPlanCompute {
                 stationId: r.stationId,
                 subject: "\(r.stationId): \(r.item)",
                 note: r.note,
+                cookId: r.cookId,
+                createdAt: r.createdAt
+            ))
+        }
+        for r in coolingRows {
+            out.append(HaccpCorrectiveEntry(
+                source: .cooling,
+                entryId: r.id,
+                shiftDate: r.shiftDate,
+                stationId: r.stationId,
+                subject: r.item,
+                note: r.correctiveAction,
+                cookId: r.cookId,
+                createdAt: r.correctedAt
+            ))
+        }
+        for r in sanitizerRows {
+            out.append(HaccpCorrectiveEntry(
+                source: .sanitizer,
+                entryId: r.id,
+                shiftDate: r.shiftDate,
+                stationId: r.stationId,
+                subject: r.pointLabel,
+                note: r.correctiveAction,
+                cookId: r.cookId,
+                createdAt: r.createdAt
+            ))
+        }
+        for r in receivingRows {
+            out.append(HaccpCorrectiveEntry(
+                source: .receiving,
+                entryId: r.id,
+                shiftDate: r.shiftDate,
+                // receiving_log has no station column — a delivery lands at the door.
+                stationId: nil,
+                subject: "\(r.vendor): \(r.item ?? r.category)",
+                note: r.rejectionReason,
+                cookId: r.cookId,
+                createdAt: r.createdAt
+            ))
+        }
+        for r in pestRows {
+            out.append(HaccpCorrectiveEntry(
+                source: .pest,
+                entryId: r.id,
+                shiftDate: r.shiftDate,
+                stationId: nil,
+                subject: r.pest ?? r.entryType,
+                note: r.correctiveAction,
                 cookId: r.cookId,
                 createdAt: r.createdAt
             ))
