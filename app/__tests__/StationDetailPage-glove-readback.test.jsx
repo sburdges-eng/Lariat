@@ -29,6 +29,7 @@ jest.mock('next/navigation', () => ({
 }));
 
 import * as db from '../../lib/db.ts';
+import { serviceDate } from '../../lib/serviceDate.ts';
 import StationPage from '../stations/[id]/page.jsx';
 
 // Real fixture station/item from data/cache/{stations,line_checks}.json
@@ -54,7 +55,9 @@ beforeEach(() => {
 /** @param {0 | 1 | null} glove */
 function seed(glove) {
   const conn = db.getDb();
-  const date = db.todayISO();
+  // Must match StationPage's serviceDate() read filter — todayISO() is UTC and
+  // disagrees after 18:00 Denver, which is exactly when this suite was red.
+  const date = serviceDate();
   conn
     .prepare(
       `INSERT INTO line_check_entries
