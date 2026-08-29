@@ -115,13 +115,20 @@ final class HaccpPlanRepositoryTests: XCTestCase {
         let (repo, path) = try makeRepo()
         defer { cleanup(path) }
         let plan = try await repo.buildPlan(today: planDate, generatedAt: generatedAt)
-        // 1 temp_log corrective (walk_in_cooler) + 1 line_check fail w/ note.
-        XCTAssertEqual(plan.correctiveActions.count, 2)
-        // line_check row created_at is later → leads.
+        // 1 line_check fail w/ note + 1 temp_log corrective + 1 cooling breach.
+        // The cooling row is the one the plan used to count in the CCP table
+        // while reporting no corrective actions for it two sections below.
+        XCTAssertEqual(plan.correctiveActions.count, 3)
+        // Newest first: line_check 07-06, temp_log 07-05, cooling stage2 07-03.
         XCTAssertEqual(plan.correctiveActions.entries[0].source, .lineCheck)
         XCTAssertEqual(plan.correctiveActions.entries[0].subject, "grill: Ribeye")
         XCTAssertEqual(plan.correctiveActions.entries[1].source, .tempLog)
         XCTAssertEqual(plan.correctiveActions.entries[1].subject, "walk_in_cooler")
+        XCTAssertEqual(plan.correctiveActions.entries[2].source, .cooling)
+        XCTAssertEqual(plan.correctiveActions.entries[2].subject, "Chili")
+        XCTAssertEqual(plan.correctiveActions.entries[2].note, "Split into hotel pans")
+        // Timed at the stage-2 reading, not the batch start.
+        XCTAssertEqual(plan.correctiveActions.entries[2].createdAt, "2026-07-03T20:00:00Z")
         // A line_check row with status='pass' must NOT appear.
         XCTAssertFalse(plan.correctiveActions.entries.contains { $0.note == "should-not-appear" })
     }
@@ -235,12 +242,15 @@ private func seedHaccpDatabase() throws -> String {
             );
 
             -- 3 in-window: 1 breach, 1 in_progress, 1 ok; 1 pre-window excluded
-            INSERT INTO cooling_log (shift_date, location_id, item, started_at, status)
+            -- The breach carries the corrective action app/api/cooling/route.js
+            -- refuses the close without (422 "breach requires a corrective
+            -- action note"), so the plan must print it.
+            INSERT INTO cooling_log (shift_date, location_id, item, started_at, status, stage2_at, corrective_action)
             VALUES
-              ('2026-07-03', 'default', 'Chili',  '2026-07-03T14:00:00Z', 'breach'),
-              ('2026-07-04', 'default', 'Stock',  '2026-07-04T14:00:00Z', 'in_progress'),
-              ('2026-07-05', 'default', 'Sauce',  '2026-07-05T14:00:00Z', 'ok'),
-              ('2026-06-01', 'default', 'OldPot', '2026-06-01T14:00:00Z', 'breach');
+              ('2026-07-03', 'default', 'Chili',  '2026-07-03T14:00:00Z', 'breach', '2026-07-03T20:00:00Z', 'Split into hotel pans'),
+              ('2026-07-04', 'default', 'Stock',  '2026-07-04T14:00:00Z', 'in_progress', NULL, NULL),
+              ('2026-07-05', 'default', 'Sauce',  '2026-07-05T14:00:00Z', 'ok', NULL, NULL),
+              ('2026-06-01', 'default', 'OldPot', '2026-06-01T14:00:00Z', 'breach', NULL, NULL);
 
             -- receiving_log — real schema (subset of columns)
             CREATE TABLE receiving_log (
@@ -249,7 +259,10 @@ private func seedHaccpDatabase() throws -> String {
               location_id TEXT DEFAULT 'default',
               vendor TEXT NOT NULL,
               category TEXT NOT NULL,
+              item TEXT,
               status TEXT NOT NULL CHECK(status IN ('accepted','rejected','accepted_with_note')),
+              rejection_reason TEXT,
+              cook_id TEXT,
               created_at TEXT DEFAULT (datetime('now'))
             );
             INSERT INTO receiving_log (shift_date, location_id, vendor, category, status)
@@ -291,10 +304,16 @@ private func seedHaccpDatabase() throws -> String {
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               shift_date TEXT NOT NULL,
               location_id TEXT DEFAULT 'default',
+              station_id TEXT,
               point_label TEXT NOT NULL,
               chemistry TEXT NOT NULL,
               concentration_ppm REAL NOT NULL,
+              required_min_ppm REAL,
+              required_max_ppm REAL,
+              water_temp_f REAL,
               status TEXT NOT NULL,
+              corrective_action TEXT,
+              cook_id TEXT,
               created_at TEXT DEFAULT (datetime('now'))
             );
 
@@ -329,6 +348,14 @@ private func seedHaccpDatabase() throws -> String {
               shift_date TEXT NOT NULL,
               location_id TEXT DEFAULT 'default',
               entry_type TEXT NOT NULL,
+              vendor TEXT,
+              technician TEXT,
+              findings TEXT,
+              pest TEXT,
+              severity TEXT,
+              corrective_action TEXT,
+              report_path TEXT,
+              cook_id TEXT,
               created_at TEXT DEFAULT (datetime('now'))
             );
             INSERT INTO pest_control_log (shift_date, location_id, entry_type)
