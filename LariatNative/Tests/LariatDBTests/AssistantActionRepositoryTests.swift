@@ -834,18 +834,22 @@ final class AssistantActionRepositoryTests: XCTestCase {
 
     // ── unknown action ──────────────────────────────────────────────
 
-    func testUnknownActionIsUnhandled() async throws {
+    func testUnknownActionIsReportedNotSilentlyDropped() async throws {
         let (repo, writeDB, path) = try makeRepo()
         defer { cleanupAssistantDatabase(path) }
+        // Was .unhandled, mirroring a web bug: the model's own prose went back
+        // to the cook with no ACTION EXECUTED prefix, reading like a success.
         let out = try await repo.execute(
             payload: payload("launch_rockets", ["target": .string("moon")]),
             hasPin: true, locationId: LOC
         )
-        XCTAssertEqual(out, .init(actionExecuted: false, actionMsg: "", undo: nil))
-        XCTAssertEqual(try count(writeDB, "audit_events"), 0)
+        XCTAssertTrue(out.actionExecuted, "the cook must be told nothing happened")
+        XCTAssertTrue(out.actionMsg.contains("did not understand that command"))
+        XCTAssertNil(out.undo)
+        XCTAssertEqual(try count(writeDB, "audit_events"), 0, "still writes nothing")
     }
 
-    func testGuardFieldMissingIsUnhandled() async throws {
+    func testGuardFieldMissingIsReportedNotSilentlyDropped() async throws {
         let (repo, writeDB, path) = try makeRepo()
         defer { cleanupAssistantDatabase(path) }
         // eighty_six with no item — web's `payload.item` truthy guard fails and
@@ -854,7 +858,84 @@ final class AssistantActionRepositoryTests: XCTestCase {
             payload: payload("eighty_six", [:]),
             hasPin: true, locationId: LOC
         )
-        XCTAssertFalse(out.actionExecuted)
+        XCTAssertTrue(out.actionExecuted)
+        XCTAssertTrue(out.actionMsg.contains("did not understand that command"))
         XCTAssertEqual(try count(writeDB, "eighty_six"), 0)
+    }
+
+    // ── an out-of-range reading is never a pass ─────────────────────
+
+    func testLineCheckOutOfRangeWithNoteIsFailNotPass() async throws {
+        let (repo, writeDB, path) = try makeRepo()
+        defer { cleanupAssistantDatabase(path) }
+        // validateTempReading returns ok here — "out of range but the cook
+        // wrote a corrective action, accept the log". That is a decision about
+        // whether to KEEP the record, not about whether the walk-in passed.
+        let out = try await repo.execute(
+            payload: payload("line_check", [
+                "station": .string("walk-in"),
+                "item": .string("walk-in"),
+                "reading_f": .number(55),
+                "temp_point_id": .string("walk_in_cooler"),
+                "note": .string("moved product to the reach-in, called the tech"),
+            ]),
+            hasPin: true, locationId: LOC
+        )
+        try inspect(writeDB) { db in
+            let row = try Row.fetchOne(db, sql: "SELECT status, note FROM line_check_entries")!
+            XCTAssertEqual(row["status"], "fail", "55°F against a 41°F limit is not a pass")
+            XCTAssertTrue((row["note"] as String? ?? "").contains("reach-in"),
+                          "the cook's own note survives")
+        }
+        XCTAssertTrue(out.actionExecuted)
+    }
+
+    func testLineCheckOutOfRangeWithNoNoteIsRefused() async throws {
+        let (repo, writeDB, path) = try makeRepo()
+        defer { cleanupAssistantDatabase(path) }
+        // The web temp-log route answers this with a 422 and writes nothing.
+        // Storing the validator's own complaint in `note` put that sentence in
+        // front of an inspector as the "action taken".
+        let out = try await repo.execute(
+            payload: payload("line_check", [
+                "station": .string("walk-in"),
+                "item": .string("walk-in"),
+                "reading_f": .number(55),
+                "temp_point_id": .string("walk_in_cooler"),
+            ]),
+            hasPin: true, locationId: LOC
+        )
+        XCTAssertTrue(out.actionExecuted, "the cook is told, not ignored")
+        XCTAssertTrue(out.actionMsg.contains("not logged"))
+        XCTAssertEqual(try count(writeDB, "line_check_entries"), 0, "no record without the fix on it")
+    }
+
+    func testHaccpReceiveDriftBandIsFailNotPass() async throws {
+        let (repo, writeDB, path) = try makeRepo()
+        defer { cleanupAssistantDatabase(path) }
+        // refrigerated: 41°F limit, drift to 45°F. 44°F is accept_with_note —
+        // a compliance-aware "yes, with paperwork", not a clean receipt.
+        _ = try await repo.execute(
+            payload: payload("haccp_receive", [
+                "item": .string("chicken thighs"), "category": .string("refrigerated"),
+                "reading_f": .number(44), "package_ok": .bool(true),
+            ]),
+            hasPin: true, locationId: LOC
+        )
+        try inspect(writeDB) { db in
+            XCTAssertEqual(try String.fetchOne(db, sql: "SELECT status FROM line_check_entries"), "fail")
+        }
+    }
+
+    func testScaleRecipeRequiresPin() async throws {
+        let (repo, writeDB, path) = try makeRepo()
+        defer { cleanupAssistantDatabase(path) }
+        let out = try await repo.execute(
+            payload: payload("scale_recipe", ["recipe": .string("focaccia"), "multiplier": .number(2)]),
+            hasPin: false, locationId: LOC
+        )
+        XCTAssertTrue(out.actionExecuted)
+        XCTAssertTrue(out.actionMsg.contains("manager PIN required"))
+        XCTAssertEqual(try count(writeDB, "line_check_entries"), 0)
     }
 }

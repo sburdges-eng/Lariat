@@ -452,3 +452,173 @@ describe('kitchen-assistant action-engine — handler exception surfaces actionE
     assert.equal(countLineCheckEntries(), 0, 'transaction rolled back; no row');
   });
 });
+
+// ── HACCP write path: the assistant must not be a softer door than the board ──
+//
+// Every branch below has a human counterpart that refuses the same input.
+// The assistant reached the same tables without the same rules.
+
+function postReqNoPin(action, message = 'log this') {
+  stubbedAction = action;
+  return new Request('http://localhost/api/kitchen-assistant', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      message,
+      location_id: LOC,
+      cook_id: COOK,
+      conversation_session_id: SESSION,
+    }),
+  });
+}
+
+function lineCheckRows() {
+  return testDb
+    .prepare('SELECT station_id, item, status, note FROM line_check_entries ORDER BY id')
+    .all();
+}
+
+describe('kitchen assistant — an out-of-range temperature is never a pass', () => {
+  it('stamps fail, not pass, when the reading is over the limit and the cook noted the fix', async () => {
+    // validateTempReading returns ok:true here — "out of range but the cook
+    // wrote a corrective action, accept the log". That is a decision about
+    // whether to ACCEPT the record, not about whether the walk-in passed.
+    // Reading it as pass/fail rendered a 55F walk-in green.
+    const res = await POST(postReq({
+      action: 'line_check',
+      station: 'walk-in',
+      item: 'Walk-in cooler',
+      temp_point_id: 'walk_in_cooler',
+      reading_f: 55,
+      note: 'moved product to the reach-in, called the tech',
+    }));
+    assert.strictEqual(res.status, 200);
+
+    const rows = lineCheckRows();
+    assert.strictEqual(rows.length, 1, 'the record is still kept');
+    assert.strictEqual(rows[0].status, 'fail', '55F against a 41F limit is not a pass');
+    assert.match(rows[0].note, /reach-in/, "the cook's own note survives");
+  });
+
+  it('keeps a reading inside the limit a pass', async () => {
+    await POST(postReq({
+      action: 'line_check',
+      station: 'walk-in',
+      item: 'Walk-in cooler',
+      temp_point_id: 'walk_in_cooler',
+      reading_f: 38,
+      note: null,
+    }));
+    const rows = lineCheckRows();
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].status, 'pass');
+  });
+
+  it('refuses an out-of-range reading with no corrective note, and never files its own complaint as the fix', async () => {
+    // app/api/temp-log/route.js answers this with a 422. The assistant wrote
+    // the row anyway and stored the VALIDATOR'S error sentence in `note` —
+    // which then reached an inspector through /api/corrective-actions and the
+    // printed HACCP plan as the "action taken".
+    const res = await POST(postReq({
+      action: 'line_check',
+      station: 'walk-in',
+      item: 'Walk-in cooler',
+      temp_point_id: 'walk_in_cooler',
+      reading_f: 55,
+      note: null,
+    }));
+    const body = await res.json();
+
+    assert.strictEqual(lineCheckRows().length, 0, 'no record without the fix on it');
+    assert.strictEqual(body.actionExecuted, true, 'the cook must be told, not silently ignored');
+    assert.strictEqual(body.actionError, true);
+    for (const row of lineCheckRows()) {
+      assert.doesNotMatch(row.note ?? '', /needs a note on the fix/,
+        "the validator's complaint is not a corrective action");
+    }
+  });
+});
+
+describe('kitchen assistant — a drift-band delivery is not a clean pass', () => {
+  it('stamps fail for accept_with_note so the delivery is not filed as clean', async () => {
+    // refrigerated: 41F limit, drift to 45F. 44F is 'accept_with_note' —
+    // a compliance-aware "yes, with paperwork", collapsed here into 'pass'.
+    await POST(postReq({
+      action: 'haccp_receive',
+      item: 'chicken thighs',
+      category: 'refrigerated',
+      reading_f: 44,
+      note: 'iced down on the dock',
+    }));
+    const rows = lineCheckRows();
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].status, 'fail', '44F on a 41F limit is not a clean receipt');
+  });
+
+  it('still passes a delivery inside the limit', async () => {
+    await POST(postReq({
+      action: 'haccp_receive',
+      item: 'milk',
+      category: 'refrigerated',
+      reading_f: 38,
+      note: null,
+    }));
+    const rows = lineCheckRows();
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].status, 'pass');
+  });
+});
+
+describe('kitchen assistant — every writing action is PIN-gated', () => {
+  it('blocks scale_recipe without a manager PIN', async () => {
+    // The reachable path, not a hypothetical one. lib/cookMessageClassifier.ts
+    // admits a bare "generate" lead as an imperative command
+    // (IMPERATIVE_LEAD_RE) but does NOT require a PIN before the LLM for it
+    // (PIN_REQUIRED_GENERATE_RE only matches "generate prep ..."). So this
+    // phrasing passes the pre-LLM gate at route.js:238 with no cookie and
+    // reaches the action chain, where the inner pinRequired list was the only
+    // thing left — and scale_recipe was the one write action missing from it.
+    const res = await POST(postReqNoPin(
+      { action: 'scale_recipe', recipe: 'marinara', multiplier: 3 },
+      'generate the scaled amounts for marinara times three',
+    ));
+    const body = await res.json();
+    assert.strictEqual(body.actionExecuted, true, 'the chain was reached, so the gate is what stops it');
+    assert.strictEqual(lineCheckRows().length, 0, 'no unattested write');
+    assert.match(body.answer ?? '', /PIN/i);
+  });
+
+  it('still lets a manager scale a recipe', async () => {
+    // Guards the fix from over-reaching: with a PIN the action is not blocked
+    // by the gate. (The recipe does not exist in this fixture DB, so the
+    // branch fails downstream — what matters is that the PIN message is not
+    // what comes back.)
+    const res = await POST(postReq(
+      { action: 'scale_recipe', recipe: 'marinara', multiplier: 3 },
+      'scale marinara times three',
+    ));
+    const body = await res.json();
+    assert.doesNotMatch(body.answer ?? '', /manager PIN required/i);
+  });
+});
+
+describe('kitchen assistant — an action it does not understand is not a success', () => {
+  it('reports an unknown action instead of returning the model prose as done', async () => {
+    // A local fine-tune emitting an off-schema action name fell off the end
+    // of the else-if chain: no write, actionExecuted false, and the model's
+    // own "Done." handed back to the cook as if it had happened.
+    const res = await POST(postReq({ action: 'delete_everything', item: 'x' }));
+    const body = await res.json();
+    assert.strictEqual(lineCheckRows().length, 0);
+    assert.strictEqual(body.actionExecuted, true, 'the cook must be told nothing happened');
+    assert.strictEqual(body.actionError, true);
+  });
+
+  it('reports a known action that is missing its companion field', async () => {
+    const res = await POST(postReq({ action: 'line_check' }));
+    const body = await res.json();
+    assert.strictEqual(lineCheckRows().length, 0);
+    assert.strictEqual(body.actionExecuted, true);
+    assert.strictEqual(body.actionError, true);
+  });
+});
