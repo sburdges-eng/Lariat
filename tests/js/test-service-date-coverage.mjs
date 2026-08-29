@@ -42,7 +42,7 @@ const TODAY_ISO_ALLOW = new Map([
   ['app/analytics/operators/page.jsx', 'rolling reporting window end — calendar, not shift'],
   ['app/api/analytics/operators/route.js', 'same reporting window as the operators page'],
   ['app/floor/page.jsx', 'guest reservation_at calendar bookings'],
-  ['app/management/page.jsx', 'cert expires_on calendar math'],
+  ['app/management/reads.ts', 'cert expires_on calendar math'],
   ['app/labor/certs/page.jsx', 'cert expires_on calendar math'],
   ['app/reservations/page.jsx', 'reservation calendar day'],
   ['scripts/phase-c-reconcile.mjs', 'C4 money checksums keyed to the UTC calendar day of the run'],
