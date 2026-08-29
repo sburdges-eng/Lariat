@@ -569,39 +569,6 @@ describe('kitchen assistant — a drift-band delivery is not a clean pass', () =
   });
 });
 
-describe('kitchen assistant — every writing action is PIN-gated', () => {
-  it('blocks scale_recipe without a manager PIN', async () => {
-    // The reachable path, not a hypothetical one. lib/cookMessageClassifier.ts
-    // admits a bare "generate" lead as an imperative command
-    // (IMPERATIVE_LEAD_RE) but does NOT require a PIN before the LLM for it
-    // (PIN_REQUIRED_GENERATE_RE only matches "generate prep ..."). So this
-    // phrasing passes the pre-LLM gate at route.js:238 with no cookie and
-    // reaches the action chain, where the inner pinRequired list was the only
-    // thing left — and scale_recipe was the one write action missing from it.
-    const res = await POST(postReqNoPin(
-      { action: 'scale_recipe', recipe: 'marinara', multiplier: 3 },
-      'generate the scaled amounts for marinara times three',
-    ));
-    const body = await res.json();
-    assert.strictEqual(body.actionExecuted, true, 'the chain was reached, so the gate is what stops it');
-    assert.strictEqual(lineCheckRows().length, 0, 'no unattested write');
-    assert.match(body.answer ?? '', /PIN/i);
-  });
-
-  it('still lets a manager scale a recipe', async () => {
-    // Guards the fix from over-reaching: with a PIN the action is not blocked
-    // by the gate. (The recipe does not exist in this fixture DB, so the
-    // branch fails downstream — what matters is that the PIN message is not
-    // what comes back.)
-    const res = await POST(postReq(
-      { action: 'scale_recipe', recipe: 'marinara', multiplier: 3 },
-      'scale marinara times three',
-    ));
-    const body = await res.json();
-    assert.doesNotMatch(body.answer ?? '', /manager PIN required/i);
-  });
-});
-
 describe('kitchen assistant — an action it does not understand is not a success', () => {
   it('reports an unknown action instead of returning the model prose as done', async () => {
     // A local fine-tune emitting an off-schema action name fell off the end

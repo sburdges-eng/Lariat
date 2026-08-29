@@ -927,15 +927,4 @@ final class AssistantActionRepositoryTests: XCTestCase {
         }
     }
 
-    func testScaleRecipeRequiresPin() async throws {
-        let (repo, writeDB, path) = try makeRepo()
-        defer { cleanupAssistantDatabase(path) }
-        let out = try await repo.execute(
-            payload: payload("scale_recipe", ["recipe": .string("focaccia"), "multiplier": .number(2)]),
-            hasPin: false, locationId: LOC
-        )
-        XCTAssertTrue(out.actionExecuted)
-        XCTAssertTrue(out.actionMsg.contains("manager PIN required"))
-        XCTAssertEqual(try count(writeDB, "line_check_entries"), 0)
-    }
 }

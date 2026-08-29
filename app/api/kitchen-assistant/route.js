@@ -470,13 +470,12 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           'give_gold_star',
           'haccp_receive',
           'generate_prep',
-          // Writes N rows into line_check_entries at the scale_recipe
-          // branch below. It was the one write action missing from this
-          // list, so it was reachable with no manager PIN.
-          'scale_recipe',
-          // Writes N rows into line_check_entries at the scale_recipe
-          // branch below. It was the one write action missing from this
-          // list, so it was reachable with no manager PIN.
+          // `scale_recipe` is deliberately NOT here. It writes to
+          // line_check_entries, but under station 'scaled:<slug>' which no
+          // board reads, and gating it would mean a cook has to find a manager
+          // to scale a recipe mid-service. Owner's call, 2026-08-29: leave it
+          // open. If the unattested write is the concern, the fix is to stop
+          // writing and just return the scaled list — not a PIN.
         ];
         if (pinRequired.includes(payload.action) && !hasPin) {
           actionMsg = 'Action blocked — manager PIN required. Show a manager and ask them to confirm.';

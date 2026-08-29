@@ -19,9 +19,6 @@ public struct AssistantActionRepository {
     public static let pinRequiredActions: Set<String> = [
         "update_inventory", "maintenance", "update_order_guide", "beo_add_prep",
         "line_check", "eighty_six", "give_gold_star", "haccp_receive", "generate_prep",
-        // Writes N rows into line_check_entries in scaleRecipe(_:) below. It
-        // was the one write action missing from this set on both halves.
-        "scale_recipe",
     ]
 
     public struct Outcome: Sendable, Equatable {
