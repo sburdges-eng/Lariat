@@ -158,3 +158,126 @@ describe('boh offline cache tier', () => {
     assert.deepEqual(extra, [], `OFFLINE_PAGES caches unexpected path(s): ${extra.join(', ')}`);
   });
 });
+
+describe('boh sheet data stays out of the client bundle', () => {
+  // The fifth place the tier split can leak, and the only one the four
+  // checks above cannot see: the JavaScript bundle itself.
+  //
+  // `lib/boh/index.ts` imports BOH_SHEETS (the whole 190KB packet, both
+  // tiers) and evaluates MANAGER_SHEET_PATHS/COOK_SHEET_PATHS at module
+  // scope, so the import survives tree-shaking. A `'use client'` file that
+  // reaches that barrel for one string helper therefore ships every
+  // manager sheet — Sysco account number, vendor reps and their phone
+  // numbers, named private-event customers — into a chunk that /boh and
+  // /boh/[sheet] load. Those two routes are deliberately open, and
+  // config.matcher covers no /_next/static path, so the bytes arrive with
+  // no PIN and public/sw.js then persists them into ASSET_CACHE for
+  // offline reading.
+  //
+  // The check is static, not bundle-based, because `npm run test:boh`
+  // runs before `npm run build` in verify — a scan of .next would find no
+  // directory in CI and skip, which is the vacuous-gate failure this repo
+  // has been bitten by before. The bundle scan below is corroboration
+  // when a build happens to be present, not the gate.
+
+  const CLIENT_ROOTS = ['app'];
+  const SOURCE_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs'];
+  const SHEET_DATA = path.join(REPO_ROOT, 'lib/boh/sheets.generated.ts');
+
+  /** @param {string} dir @param {string[]} out */
+  function walk(dir, out = []) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full, out);
+      else if (SOURCE_EXTS.includes(path.extname(entry.name))) out.push(full);
+    }
+    return out;
+  }
+
+  /**
+   * Runtime import edges only. `import type` is erased by the compiler and
+   * JSDoc `import('...')` lives in a comment, so neither pulls bytes into
+   * a bundle — counting them would report leaks that do not exist.
+   * @param {string} file
+   */
+  function importsFrom(file) {
+    const src = stripComments(fs.readFileSync(file, 'utf8'));
+    const specifiers = [];
+    const patterns = [
+      /(?:^|\n)\s*import\s+(?!type\b)[^;'"]*from\s*['"]([^'"]+)['"]/g,
+      /(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g,
+      /(?:^|\n)\s*export\s+(?!type\b)[^;'"]*from\s*['"]([^'"]+)['"]/g,
+      /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+    ];
+    for (const re of patterns) {
+      for (const m of src.matchAll(re)) specifiers.push(m[1]);
+    }
+    return specifiers;
+  }
+
+  /** @param {string} fromFile @param {string} spec */
+  function resolveRelative(fromFile, spec) {
+    if (!spec.startsWith('.')) return null;
+    const base = path.resolve(path.dirname(fromFile), spec);
+    const candidates = [
+      base,
+      ...SOURCE_EXTS.map((e) => base + e),
+      ...SOURCE_EXTS.map((e) => path.join(base, `index${e}`)),
+    ];
+    return candidates.find((c) => fs.existsSync(c) && fs.statSync(c).isFile()) ?? null;
+  }
+
+  /**
+   * Every module a client entry pulls in, followed transitively. Returns
+   * the first path that reaches the sheet data, or null.
+   * @param {string} entry
+   */
+  function pathToSheetData(entry) {
+    const queue = [[entry]];
+    const seen = new Set([entry]);
+    while (queue.length > 0) {
+      const trail = /** @type {string[]} */ (queue.shift());
+      const file = trail[trail.length - 1];
+      for (const spec of importsFrom(file)) {
+        const resolved = resolveRelative(file, spec);
+        if (!resolved || seen.has(resolved)) continue;
+        if (resolved === SHEET_DATA) return [...trail, resolved];
+        seen.add(resolved);
+        queue.push([...trail, resolved]);
+      }
+    }
+    return null;
+  }
+
+  const clientEntries = CLIENT_ROOTS.flatMap((root) =>
+    walk(path.join(REPO_ROOT, root)).filter((f) => {
+      const head = fs.readFileSync(f, 'utf8').slice(0, 400);
+      return /^\s*(['"])use client\1/m.test(head);
+    }),
+  );
+
+  it('finds client components to check, so this gate is not vacuous', () => {
+    assert.ok(clientEntries.length > 0, "no 'use client' files found under app/");
+  });
+
+  it('never lets a client component reach lib/boh/sheets.generated.ts', () => {
+    const leaks = clientEntries
+      .map((entry) => ({ entry, trail: pathToSheetData(entry) }))
+      .filter((r) => r.trail !== null)
+      .map(
+        (r) =>
+          `${path.relative(REPO_ROOT, r.entry)}\n    ` +
+          /** @type {string[]} */ (r.trail).map((f) => path.relative(REPO_ROOT, f)).join('\n    -> '),
+      );
+    assert.deepEqual(
+      leaks,
+      [],
+      'client component(s) pull the whole line book into the browser bundle:\n' +
+        `${leaks.join('\n\n')}\n\n` +
+        'Import the pure helpers from lib/boh/helpers.ts instead of the ' +
+        'lib/boh/index.ts barrel — the barrel evaluates MANAGER_SHEET_PATHS ' +
+        'over BOH_SHEETS at module scope, so it can never be tree-shaken.',
+    );
+  });
+});

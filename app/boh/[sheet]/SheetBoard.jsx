@@ -11,7 +11,7 @@
 
 import Link from 'next/link';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { sheetStorageKey, taskMatrixDays } from '../../../lib/boh/index.ts';
+import { sheetStorageKey, taskMatrixDays } from '../../../lib/boh/helpers.ts';
 import {
   EMPTY_SHEET_STATE,
   blockControlIds,

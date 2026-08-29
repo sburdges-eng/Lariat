@@ -10,7 +10,7 @@
 
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { BOH_BASE } from '../../lib/boh/index.ts';
+import { BOH_BASE } from '../../lib/boh/helpers.ts';
 import { useT } from '../_components/I18nProvider.jsx';
 
 /**

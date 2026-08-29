@@ -7,7 +7,7 @@
 // to their own sheet. This keeps them one tap from the book.
 
 import Link from 'next/link';
-import { BOH_BASE } from '../../lib/boh/index.ts';
+import { BOH_BASE } from '../../lib/boh/helpers.ts';
 import { getMessages, t } from '../../lib/i18n/index.ts';
 import { getLocale } from '../../lib/i18n/server.ts';
 
