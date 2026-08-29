@@ -156,6 +156,12 @@ describe('every migrated surface keeps both sides on the same clock', () => {
     'app/api/inventory/counts/route.js',
   ];
 
+  // Kitchen assistant alone — many write stamps + matching context reads.
+  const WAVE_4 = [
+    'app/api/kitchen-assistant/route.js',
+    'lib/kitchenAssistantContext.ts',
+  ];
+
   const MIGRATED = [...WAVE_1, ...WAVE_2];
 
   it('no migrated file still calls todayISO()', () => {
@@ -175,6 +181,16 @@ describe('every migrated surface keeps both sides on the same clock', () => {
 
   it('wave 3 write-only files actually use serviceDate()', () => {
     const missing = WAVE_3.filter((f) => !fs.readFileSync(f, 'utf8').includes('serviceDate'));
+    assert.deepEqual(missing, [], 'these are listed as migrated but never call serviceDate');
+  });
+
+  it('wave 4 kitchen-assistant files no longer call todayISO()', () => {
+    const stragglers = WAVE_4.filter((f) => fs.readFileSync(f, 'utf8').includes('todayISO'));
+    assert.deepEqual(stragglers, [], 'these were migrated but still reference todayISO');
+  });
+
+  it('wave 4 kitchen-assistant files actually use serviceDate()', () => {
+    const missing = WAVE_4.filter((f) => !fs.readFileSync(f, 'utf8').includes('serviceDate'));
     assert.deepEqual(missing, [], 'these are listed as migrated but never call serviceDate');
   });
 });
