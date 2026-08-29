@@ -74,11 +74,31 @@ fails with `ERR_DLOPEN_FAILED … 137 vs 147` and looks like a flaky code bug.
 - Trap: a passing pure-math suite (`test-beo-estimate.mjs`) proves nothing about the binding.
   Confirm with a DB-touching suite.
 
-**Swift:** the 2026-07-19→22 breakage (no Xcode, CLT-only, missing XCTest/SwiftUIMacros) is
-**resolved — verified 2026-07-27.** `Xcode-beta.app` is back in `/Applications`, `xcode-select`
-points at it, Swift 6.4 / arm64-apple-macosx27, and from `LariatNative/` both `swift build` (47s)
-and `swift test` (exit 0) are green with **no `SDKROOT` override**. That workaround is obsolete.
-Native gates are real signals again — a red one is a code defect, not the old blocker.
+**Swift: `swift build` works, `swift test` does not — re-verified 2026-08-29.** The
+2026-07-19→22 breakage has **returned**. This paragraph previously read "resolved — verified
+2026-07-27", with `Xcode-beta.app` back in `/Applications` and Swift 6.4 / arm64-apple-macosx27.
+None of that holds on this machine now:
+
+| Check | 2026-07-27 (as documented) | 2026-08-29 (measured) |
+| --- | --- | --- |
+| `ls -d /Applications/Xcode*.app` | `Xcode-beta.app` | **no match — no Xcode at all** |
+| `xcode-select -p` | `/Applications/Xcode-beta.app/…` | `/Library/Developer/CommandLineTools` |
+| `swift --version` | 6.4 / arm64-apple-macosx27 | 6.3.3 / arm64-apple-macosx26.0 |
+| `$(xcode-select -p)/Platforms` | present | **does not exist** |
+| `swift build` | green, 47s | **green, 91s** |
+| `swift test` | exit 0 | **`error: no such module 'XCTest'` → `error: fatalError`** |
+
+So from `LariatNative/`: **`swift build` is a real local signal — a red build is a code defect.**
+`swift test` cannot run here at all; CLT-only has no XCTest. Do not report the native gate as
+green off a local run, and do not chase `no such module 'XCTest'` as a code bug — it is this
+machine, not the suite.
+
+**The native test gate still exists — it just lives in CI.** `.github/workflows/native-ci.yml`
+runs `swift test` on a `macos-26` runner, path-filtered to `LariatNative/**`, `tests/fixtures/**`
+and `lib/db.ts`. It ran green on `357a1be4` (#635). To verify native changes, push the branch and
+read `gh run list`; a local `swift build` plus CI is the honest evidence chain until Xcode is
+reinstalled. Piping `swift test` through `tail` hides this — `$?` then reports `tail`'s exit
+code, not the compiler's, which is how a broken toolchain can read as a pass.
 
 **No interactive/TTY commands** (`codex resume`, `hermes model`, browser OAuth). They cannot
 complete in this tool environment — flag them for Sean to run manually.
@@ -113,8 +133,15 @@ complete in this tool environment — flag them for Sean to run manually.
 
 ## 4. Verification — evidence before claims
 
-- Full web gate: `npm run verify` (typecheck + 13 suites + `next build`), under `npx node@24`.
-- Full native gate: `swift build && swift test` from `LariatNative/`.
+- Full web gate: `npm run verify` — typecheck, lint, **30 test steps covering 378
+  `tests/js` suites**, then `next build`, under `npx node@24`. (It said "13 suites";
+  it has not been 13 for a long time.) It is **not hermetic**: `version.json` is
+  gitignored and generated, and CI runs `npm run version:stamp` before the suites
+  because `test-discover-route` asserts the stamped version. `verify` does not, so on
+  a fresh checkout it fails there — run `npm run version:stamp` first.
+- Full native gate: `swift build` from `LariatNative/`, plus the `native-ci` run on the
+  pushed branch. **`swift test` cannot run on this machine** — CLT-only, no XCTest (§2).
+  Never report the native gate green off a local run.
 - Lint: `npm run lint` / `npm run lint:changed`.
 - Coverage: `npm run coverage` (add `-- --check` to enforce floors). **Never quote the headline
   percentage as codebase coverage** — Node only instruments files it loads, so untested files are
