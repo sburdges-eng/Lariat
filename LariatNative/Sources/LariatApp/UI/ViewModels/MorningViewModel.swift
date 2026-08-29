@@ -109,7 +109,7 @@ import Observation
         // Poll like the command/rollup views: cross-process web writes are
         // invisible to GRDB ValueObservation, so BoardPoller re-queries every 3 s.
         poller.start(interval: .seconds(3)) { [weak self] in
-            let today = ShiftDate.todayISO()
+            let today = ShiftDate.serviceDate()
             async let bundleResult = commandRepo.fetch(today: today)
             async let morningResult = morningRepo.fetch(today: today)
             do {

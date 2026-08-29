@@ -74,7 +74,7 @@ public struct InventoryCountRepository: Sendable {
     public func openCount(input: InventoryCountOpenInput, context: RegulatedWriteContext) throws -> Int64 {
         let label = clip(input.label, max: 100)
         let cookId = clip(input.cookId, max: 64)
-        let countDate = clip(input.countDate, max: 32) ?? ShiftDate.todayISO()
+        let countDate = clip(input.countDate, max: 32) ?? ShiftDate.serviceDate()
         let locationId = context.locationId
 
         return try AuditedWriteRunner.perform(db: writeDB) { db in

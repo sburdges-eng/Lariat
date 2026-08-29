@@ -236,7 +236,7 @@ final class ShowPickerModel {
         shows.first { $0.id == selectedShowId }
     }
 
-    func load(today: String = ShiftDate.todayISO()) async {
+    func load(today: String = ShiftDate.serviceDate()) async {
         do {
             let recent = try await repo.recentShows(limit: 60)
             shows = recent

@@ -121,7 +121,7 @@ final class ReceivingMatchesViewModel {
                 actorCookId: user.id == 0 ? nil : String(user.id),
                 actorSource: RegulatedWriteContext.nativeMacActorSource,
                 locationId: locationId,
-                shiftDate: ShiftDate.todayISO()
+                shiftDate: ShiftDate.serviceDate()
             )
             // Web resolver sends the picked cook identity when one is set;
             // natively the manager-PIN user id is the acting identity.

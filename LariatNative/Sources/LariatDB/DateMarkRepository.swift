@@ -12,7 +12,7 @@ public struct DateMarkRepository: Sendable {
     }
 
     public func load(
-        today: String = ShiftDate.todayISO(),
+        today: String = ShiftDate.serviceDate(),
         locationId: String = LocationScope.resolve()
     ) async throws -> DateMarkBoardSnapshot {
         try await readDB.pool.read { db in

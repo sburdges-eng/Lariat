@@ -831,8 +831,8 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           let auditEventId = null;
           let entityId = null;
           db.transaction(() => {
-            const info = db.prepare('INSERT INTO gold_stars (location_id, cook_name, reason, stars) VALUES (?, ?, ?, ?)')
-              .run(locationId, cookName, reasonClip, starVal);
+            const info = db.prepare('INSERT INTO gold_stars (location_id, cook_name, reason, stars, awarded_date) VALUES (?, ?, ?, ?, ?)')
+              .run(locationId, cookName, reasonClip, starVal, serviceDate());
             entityId = Number(info.lastInsertRowid);
             auditEventId = postAuditEvent({
               entity: 'gold_stars', entity_id: Number(info.lastInsertRowid), action: 'insert',

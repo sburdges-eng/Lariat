@@ -57,7 +57,7 @@ final class InventoryCountRepositoryTests: XCTestCase {
         let id = try repo.openCount(input: InventoryCountOpenInput(label: "EOM"), context: ctx())
         try writeDB.pool.read { db in
             let d = try String.fetchOne(db, sql: "SELECT count_date FROM inventory_counts WHERE id=?", arguments: [id])
-            XCTAssertEqual(d, ShiftDate.todayISO())
+            XCTAssertEqual(d, ShiftDate.serviceDate())
         }
     }
 

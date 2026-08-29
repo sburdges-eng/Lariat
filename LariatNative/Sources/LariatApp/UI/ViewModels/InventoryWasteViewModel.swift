@@ -50,7 +50,7 @@ final class InventoryWasteViewModel {
 
     func refresh() async {
         let clamped = InventoryWaste.clampDays(Double(days))
-        let since = InventoryWaste.sinceDate(today: ShiftDate.todayISO(), days: clamped)
+        let since = InventoryWaste.sinceDate(today: ShiftDate.serviceDate(), days: clamped)
         do {
             async let recentRows = repo.wasteRecent(since: since, locationId: locationId)
             async let items = repo.wasteByItem(since: since, locationId: locationId)

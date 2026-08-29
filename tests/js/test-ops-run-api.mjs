@@ -546,20 +546,22 @@ describe('command alerts for day plan', () => {
     assert.ok(!alerts.some((a) => a.source === 'day-plan-open'));
   });
 
-  // The Command tile links straight to /day-plan, so its counts have to come
-  // from the same partition the board renders. The board defaults to
-  // serviceDate(); if this tile followed the caller's `today` instead, then
-  // between 18:00 and 02:00 Mountain a manager would read "0 late" here and
-  // click through to a board full of late steps.
-  it('counts the service date, not whatever date the caller passed', async () => {
+  // Wave 5 made Command/morning `today` a service date, so the 18:00–02:00
+  // "0 late here, full board there" split is gone. An explicit ?date= now
+  // has to show THAT day's plan — a morning digest for Tuesday must not
+  // pull Wednesday's (or today's) ticks.
+  it("honours the caller's date for ops_run counts", async () => {
     const svc = serviceDate();
     await opsRoute.GET(new Request(`http://localhost/api/ops-run?date=${svc}&location=default`));
 
-    // A date with no steps of its own. ops_run must ignore it.
-    const s = summarize('default', '2020-01-01');
-    assert.ok(
-      s.ops_run.todo > 0,
-      'ops_run counts must follow serviceDate(), not the passed date',
+    const today = summarize('default', svc);
+    assert.ok(today.ops_run.todo > 0, "today's plan is visible on today's summary");
+
+    const historic = summarize('default', '2020-01-01');
+    assert.equal(
+      historic.ops_run.todo,
+      0,
+      "a dated summary must not pull the current service day's ticks",
     );
   });
 

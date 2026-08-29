@@ -56,7 +56,7 @@ public struct AssistantActionRepository {
         payload: AssistantActionPayload,
         hasPin: Bool,
         locationId: String,
-        shiftDate: String = ShiftDate.todayISO()
+        shiftDate: String = ShiftDate.serviceDate()
     ) async throws -> Outcome {
         // Defense-in-depth PIN gate (web keeps it even after the #248 pre-LLM gate).
         if Self.pinRequiredActions.contains(payload.action) && !hasPin {

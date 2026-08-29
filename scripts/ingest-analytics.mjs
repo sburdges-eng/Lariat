@@ -195,7 +195,8 @@ export async function runDepletionSweep(db, { location_id, skipDepletion }) {
     return { skipped: false, periods: 0, writes: 0, unresolved: 0, skippedAlready: 0 };
   }
 
-  const shiftDate = new Date().toISOString().slice(0, 10);
+  const { serviceDate } = await import('../lib/serviceDate.ts');
+  const shiftDate = serviceDate();
   const { applyDepletionsForPeriod } = await import('../lib/salesDepletion.ts');
 
   let totalSales = 0;

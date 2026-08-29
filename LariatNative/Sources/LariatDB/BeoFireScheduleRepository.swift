@@ -19,7 +19,7 @@ public struct BeoFireScheduleRepository: Sendable {
         date: String? = nil,
         locationId: String = LocationScope.resolve()
     ) async throws -> BeoFireScheduleCompute.FireSchedulePayload {
-        let resolvedDate = date ?? ShiftDate.todayISO()
+        let resolvedDate = date ?? ShiftDate.serviceDate()
         return try await database.pool.read { db in
             let courseRows = try Row.fetchAll(
                 db,
@@ -64,7 +64,7 @@ public struct BeoFireScheduleRepository: Sendable {
                 arguments: [locationId, eventId]
             )
             let eventDate: String? = courseRows.first?["event_date"]
-            let resolvedDate = eventDate ?? date ?? ShiftDate.todayISO()
+            let resolvedDate = eventDate ?? date ?? ShiftDate.serviceDate()
             let courses = courseRows.map(Self.courseRow)
             let lines = try Self.linesForCourses(db, courseIds: courses.map(\.id))
             return BeoFireScheduleCompute.resolveSchedule(

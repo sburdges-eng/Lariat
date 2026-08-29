@@ -5,7 +5,7 @@ import LariatModel
 struct DateMarkView: View {
     @State private var vm: DateMarkViewModel
     @State private var item = ""
-    @State private var preparedOn = ShiftDate.todayISO()
+    @State private var preparedOn = ShiftDate.serviceDate()
     @State private var batchRef = ""
     @State private var discardTarget: DateMarkRow?
     @State private var query = ""

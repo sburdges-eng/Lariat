@@ -61,23 +61,26 @@ function getReq(qs = '') {
 }
 
 /**
- * Insert a star dated `daysAgo` days back (0 = today).
- *
- * Stores `awarded_date`/`created_at` in UTC to match how the route writes
- * rows in production (the column defaults are `date('now')` / `datetime('now')`,
- * both UTC). The board query re-applies `'localtime'` to `created_at`, so
- * seeding in localtime here would double-convert and misclassify "today" as
- * "yesterday" during the early-morning UTC-offset window (flaky-by-clock).
+ * Insert a star dated `daysAgo` service days back (0 = current service day).
+ * The board filters on awarded_date = serviceDate(), so seed that column
+ * from the same helper — not UTC date('now').
  */
+const { serviceDate } = await import('../../lib/serviceDate.ts');
+
+function addDaysISO(iso, days) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function seedStar(cook, stars, daysAgo) {
+  const awarded = addDaysISO(serviceDate(), -daysAgo);
   testDb
     .prepare(
       `INSERT INTO gold_stars (cook_name, reason, stars, location_id, awarded_date, created_at)
-       VALUES (?, 'seed', ?, 'default',
-               date('now', ?),
-               datetime('now', ?))`,
+       VALUES (?, 'seed', ?, 'default', ?, datetime('now'))`,
     )
-    .run(cook, stars, `-${daysAgo} days`, `-${daysAgo} days`);
+    .run(cook, stars, awarded);
 }
 
 describe('POST /api/gold-stars — manager PIN gate', () => {
@@ -91,6 +94,8 @@ describe('POST /api/gold-stars — manager PIN gate', () => {
     const res = await POST(postReq({ cook_name: 'Alex', reason: 'rush', stars: 2 }));
     assert.equal(res.status, 200);
     assert.equal(testDb.prepare('SELECT COUNT(*) c FROM gold_stars').get().c, 1);
+    const row = testDb.prepare('SELECT awarded_date FROM gold_stars').get();
+    assert.equal(row.awarded_date, serviceDate());
     const audit = testDb
       .prepare("SELECT COUNT(*) c FROM audit_events WHERE entity = 'gold_stars'")
       .get().c;

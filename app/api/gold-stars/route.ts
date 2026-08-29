@@ -3,6 +3,7 @@ import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
 import { requirePin } from '../../../lib/pin';
+import { serviceDate } from '../../../lib/serviceDate';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,8 +13,9 @@ export const dynamic = 'force-dynamic';
  *   leave the board but are never deleted.
  * GET /api/gold-stars?view=leaderboard → the permanent per-employee record:
  *   all-time totals per cook (sum of stars, award count, last award date).
- * "Today" is the venue's local day (created_at in localtime), so a star
- * given during evening service doesn't vanish at the UTC rollover.
+ * "Today" is the venue service day (02:00–02:00 local), so a star given
+ * during evening service doesn't vanish at the UTC rollover and a 1am
+ * award still sits on the day that opened that morning.
  */
 export async function GET(req: Request) {
   const db = getDb();
@@ -42,11 +44,11 @@ export async function GET(req: Request) {
       `SELECT * FROM gold_stars
         WHERE location_id = ?
           AND deleted_at IS NULL
-          AND date(created_at, 'localtime') = date('now', 'localtime')
+          AND awarded_date = ?
         ORDER BY id DESC
         LIMIT 50`,
     )
-    .all(loc);
+    .all(loc, serviceDate());
 
   return Response.json(rows);
 }
@@ -80,8 +82,8 @@ async function goldStarsPostHandler(req: Request) {
     // ACID: HR/personal data — transaction + audit trail.
     const newId = db.transaction(() => {
       const info = db
-        .prepare('INSERT INTO gold_stars (cook_name, reason, stars, location_id) VALUES (?,?,?,?)')
-        .run(cookName, reasonText, parsedStars, loc);
+        .prepare('INSERT INTO gold_stars (cook_name, reason, stars, location_id, awarded_date) VALUES (?,?,?,?,?)')
+        .run(cookName, reasonText, parsedStars, loc, serviceDate());
       const id = Number(info.lastInsertRowid);
       postAuditEvent({
         entity: 'gold_stars', entity_id: id, action: 'insert',

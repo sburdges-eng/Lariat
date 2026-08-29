@@ -12,7 +12,7 @@ public struct BreakRepository: Sendable {
     }
 
     public func load(
-        date: String = ShiftDate.todayISO(),
+        date: String = ShiftDate.serviceDate(),
         cookId: String? = nil,
         locationId: String = LocationScope.resolve(),
         shiftStartedAt: String? = nil,

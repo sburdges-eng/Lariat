@@ -22,7 +22,7 @@ public struct CoolingRepository: Sendable {
     // ── GET — board snapshot ───────────────────────────────────────────
 
     public func load(
-        date: String = ShiftDate.todayISO(),
+        date: String = ShiftDate.serviceDate(),
         locationId: String = LocationScope.resolve(),
         includeClosed: Bool = true,
         nowMs: Double = Date().timeIntervalSince1970 * 1000

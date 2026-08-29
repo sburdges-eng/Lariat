@@ -13,7 +13,7 @@ public struct TempPinVerifier {
         env: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
         guard let pin = env["LARIAT_PIN"], !pin.isEmpty else { return false }
-        return shiftDate != ShiftDate.todayISO()
+        return shiftDate != ShiftDate.serviceDate()
     }
 
     /// Master manager PIN **or** active `temp_pins` row with matching scope.

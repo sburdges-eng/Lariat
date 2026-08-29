@@ -67,7 +67,7 @@ public struct AssistantContextRepository {
         locationId: String,
         userQuestion: String,
         hasPin: Bool,
-        date: String = ShiftDate.todayISO()
+        date: String = ShiftDate.serviceDate()
     ) throws -> AssistantGroundedContext {
         var sources: [AssistantContextSource] = []
         let qLower = userQuestion.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)

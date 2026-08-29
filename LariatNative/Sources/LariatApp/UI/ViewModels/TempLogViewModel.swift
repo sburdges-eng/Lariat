@@ -74,7 +74,7 @@ final class TempLogViewModel {
         guard ensureCookIdentity() else { return }
 
         let input = TempLogPostInput(
-            shiftDate: ShiftDate.todayISO(),
+            shiftDate: ShiftDate.serviceDate(),
             pointId: pointId,
             readingF: reading,
             correctiveAction: note.isEmpty ? nil : note,

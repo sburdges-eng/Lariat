@@ -36,7 +36,7 @@ final class ShowsTonightViewModel {
         self.locationId = locationId
     }
 
-    var today: String { ShiftDate.todayISO() }
+    var today: String { ShiftDate.serviceDate() }
 
     func start() {
         poller.start(interval: .seconds(5)) { [weak self] in

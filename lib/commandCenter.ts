@@ -13,7 +13,6 @@ import { listMarginDeltas } from './marginDeltas.ts';
 import { classifyProbes } from './calibrations.ts';
 import { isStepLate, opsLateAlertMessage, opsOpenAlertMessage } from './opsRun.ts';
 import { listOpsRunSteps, localNowMinutes } from './opsRunRepo.ts';
-import { serviceDate } from './serviceDate.ts';
 import { readLatestAccountingVariance } from './computeEngine/index.ts';
 import { listDepletionExceptions } from './depletionExceptions.ts';
 import { readLastCostingIngest } from './costingBenchmarks.mjs';
@@ -534,13 +533,10 @@ export function summarize(locationId: string, today: string): CommandSummary {
   // Day-plan spine: read existing ticks only — do not seed templates here
   // or Command would invent work just by opening the page.
   //
-  // Deliberately serviceDate() rather than the caller's `today`. This tile
-  // links straight to /day-plan, and that board files against the service day
-  // (02:00 to 02:00 local). Reading a different partition would show a manager
-  // "0 late" between 18:00 and 02:00 and then open a board full of late steps.
-  // The rest of summarize() still takes its date from the caller — those
-  // surfaces move in their own wave.
-  const opsSteps = listOpsRunSteps(locationId, serviceDate(), db);
+  // `today` is already a service date from /command and /morning (wave 5).
+  // Honour the caller's date so ?date= on those boards shows that day's
+  // plan, not whichever service day happens to be open now.
+  const opsSteps = listOpsRunSteps(locationId, today, db);
   const nowMin = localNowMinutes();
   let opsTodo = 0;
   let opsDone = 0;
@@ -549,7 +545,7 @@ export function summarize(locationId: string, today: string): CommandSummary {
     if (step.status === 'done') opsDone += 1;
     else if (step.status === 'todo') {
       opsTodo += 1;
-      if (isStepLate(step, nowMin, serviceDate())) opsLate += 1;
+      if (isStepLate(step, nowMin, today)) opsLate += 1;
     }
   }
 

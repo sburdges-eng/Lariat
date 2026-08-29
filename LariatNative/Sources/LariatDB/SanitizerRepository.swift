@@ -23,7 +23,7 @@ public struct SanitizerRepository: Sendable {
     // ── GET — board snapshot ───────────────────────────────────────────
 
     public func load(
-        date: String = ShiftDate.todayISO(),
+        date: String = ShiftDate.serviceDate(),
         locationId: String = LocationScope.resolve()
     ) async throws -> SanitizerBoardSnapshot {
         try await readDB.pool.read { db in

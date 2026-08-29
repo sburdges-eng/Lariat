@@ -139,10 +139,10 @@ final class BeoFireScheduleRepositoryTests: XCTestCase {
     }
 
     func testEventScopeFallsBackToQueryDateWhenNoCourses() async throws {
-        // Web: date = firstCourse.event_date || url date || todayISO().
+        // Web: date = firstCourse.event_date || url date || serviceDate().
         let r = try await repo.schedule(eventId: 99999, date: "2026-06-03", locationId: "default")
         XCTAssertEqual(r.date, "2026-06-03")
         let r2 = try await repo.schedule(eventId: 99999, locationId: "default")
-        XCTAssertEqual(r2.date, ShiftDate.todayISO())
+        XCTAssertEqual(r2.date, ShiftDate.serviceDate())
     }
 }

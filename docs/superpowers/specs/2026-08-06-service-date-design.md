@@ -203,8 +203,8 @@ anything that would rewrite an existing `audit_events` row.
 5. Wave 3 — the six write-only routes, together.
 6. Wave 4 — `kitchen-assistant` alone.
 7. Wave 5 — display defaults, each decided explicitly; plus the 19 inline sites.
-8. Native `serviceDate` plus the cross-language parity gate.
-9. The coverage sweep that keeps it from regressing.
+8. Native `serviceDate` plus the cross-language parity gate. (`ShiftDate.serviceDate`, `ServiceDateParityTests`)
+9. The coverage sweep that keeps it from regressing. (`tests/js/test-service-date-coverage.mjs`)
 
 Each step is independently shippable and independently revertible. No step leaves a surface
 with a write default and a read default that disagree.

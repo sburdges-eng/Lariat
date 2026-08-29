@@ -8,6 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
+import { serviceDate } from '../lib/serviceDate.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -21,7 +22,7 @@ if (!fs.existsSync(DB)) {
 fs.mkdirSync(OUT, { recursive: true });
 const db = new Database(DB, { readonly: true });
 
-const date = process.argv[2] || new Date().toISOString().slice(0, 10);
+const date = process.argv[2] || serviceDate();
 // Audit F7 (2026-05-16): LARIAT_EXPORT_LOCATION still wins (purpose-specific
 // override). After that, prefer canonical LARIAT_LOCATION_ID, then the legacy
 // LARIAT_LOCATION (warned).
