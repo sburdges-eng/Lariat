@@ -24,7 +24,10 @@ export default async function DayPlanPage({ searchParams }) {
 
   const steps = ensureOpsRunForShift(loc, date);
   const nowMin = localNowMinutes();
-  const rollup = rollupOpsSteps(steps, nowMin);
+  // Third argument is load-bearing: without it the banner and the per-daypart
+  // counters count lateness on ANY date, so /day-plan?date=<a past day> went
+  // red above rows that DayPlanBoard correctly renders with no Late mark.
+  const rollup = rollupOpsSteps(steps, nowMin, today);
 
   return (
     <div className="page">

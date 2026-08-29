@@ -42,7 +42,9 @@ export async function GET(req) {
       : listOpsRunSteps(loc, shiftDate);
 
     const nowMin = localNowMinutes();
-    const rollup = rollupOpsSteps(rows, nowMin);
+    // Third argument is load-bearing — see app/day-plan/page.jsx. Without it
+    // a rollup for a past shift_date reports steps past due.
+    const rollup = rollupOpsSteps(rows, nowMin, serviceDate());
     return Response.json({
       shift_date: shiftDate,
       location_id: loc,

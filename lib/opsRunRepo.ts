@@ -13,12 +13,9 @@ import {
   classifyBusyDay,
   houseOpsTemplateSeeds,
   isOpsDaypart,
-  isStepLate,
   OPS_DYNAMIC_STEP_CAP,
-  rollupOpsSteps,
   weekdayShortFromISO,
   type OpsDaypart,
-  type OpsRunRollup,
   type OpsStepStatus,
 } from './opsRun.ts';
 import {
@@ -26,7 +23,7 @@ import {
   AUGUST_MONTHLY_TARGET,
   augustChecklistForDate,
 } from './augustChecklists2026.ts';
-import { serviceDate, VENUE_TIME_ZONE } from './serviceDate.ts';
+import { VENUE_TIME_ZONE } from './serviceDate.ts';
 
 export interface OpsRunStepRow {
   id: number;
@@ -598,7 +595,9 @@ function materializeLineChecks(
       locationId,
       shiftDate,
       daypart: 'open',
-      stepKey: `line-check-rollup-${shiftDate}`,
+      // Outside the `line-check-` station namespace on purpose: that prefix
+      // is sliced into a station id, and this row is not a station.
+      stepKey: `line-checks-open-${shiftDate}`,
       title: 'Line checks still open',
       detail: `${incomplete} station${incomplete === 1 ? '' : 's'} · ${unsigned} need sign-off`,
       dueTime: '08:00',
@@ -926,25 +925,4 @@ export function updateOpsStepStatus(
   ).run(status, doneAt, doneByOut, id);
 
   return readOpsRunStep(id, db);
-}
-
-export function opsRunRollupFor(
-  locationId: string,
-  shiftDate: string,
-  nowMinutes: number = localNowMinutes(),
-  db: DB = getDb(),
-): OpsRunRollup {
-  const steps = listOpsRunSteps(locationId, shiftDate, db);
-  return rollupOpsSteps(steps, nowMinutes, serviceDate());
-}
-
-export function countLateOpsSteps(
-  locationId: string,
-  shiftDate: string,
-  nowMinutes: number = localNowMinutes(),
-  db: DB = getDb(),
-): number {
-  const steps = listOpsRunSteps(locationId, shiftDate, db);
-  const today = serviceDate();
-  return steps.filter((s) => isStepLate(s, nowMinutes, today)).length;
 }
