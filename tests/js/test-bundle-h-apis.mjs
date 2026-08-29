@@ -49,6 +49,7 @@ db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
 
 const { todayISO } = db;
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 const { postAuditEvent } = auditEvents;
 
 // Routes — import lazily after setDbPathForTest so their getDb()
@@ -157,13 +158,17 @@ describe('POST /api/cleaning — happy path', () => {
     assert.strictEqual(row.area, 'General');
   });
 
-  it('defaults shift_date to todayISO() when omitted', async () => {
+  // Deliberately serviceDate(), not todayISO(). The route moved to the venue
+  // service day in wave 1 of the service-date migration; this assertion did not,
+  // so it passed all day and failed every evening between 18:00 Mountain and
+  // midnight, when the UTC date has rolled over and the service day has not.
+  it('defaults shift_date to the service date when omitted', async () => {
     await cleaning.POST(postReq('http://localhost/api/cleaning', {
       item: 'hoods degrease',
       cook_id: 'alice',
     }));
     const row = testDb.prepare('SELECT shift_date FROM cleaning_log').get();
-    assert.strictEqual(row.shift_date, todayISO());
+    assert.strictEqual(row.shift_date, serviceDate());
   });
 
   it('emits NO audit-context warn (insert + audit in same transaction)', async () => {
