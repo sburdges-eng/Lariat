@@ -107,6 +107,56 @@ public struct HaccpPlanRepository {
                 arguments: [loc, windowStart, today]
             )
 
+            // The four sources the plan used to miss. Each is a place a route
+            // already refused the write until the cook documented the fix, so
+            // reading only temp_log + line_check_entries let the plan count a
+            // cooling breach and then report no corrective actions for it.
+            let coolingCorrective = try HaccpCoolingCorrectiveRow.fetchAll(
+                db,
+                sql: """
+                    SELECT id, shift_date, station_id, item, corrective_action, cook_id,
+                           COALESCE(stage2_at, stage1_at, created_at) AS corrected_at
+                      FROM cooling_log
+                     WHERE location_id = ? AND shift_date >= ? AND shift_date <= ?
+                       AND corrective_action IS NOT NULL AND TRIM(corrective_action) != ''
+                     ORDER BY corrected_at DESC
+                    """,
+                arguments: [loc, windowStart, today]
+            )
+            let sanitizerCorrective = try HaccpSanitizerCorrectiveRow.fetchAll(
+                db,
+                sql: """
+                    SELECT id, shift_date, station_id, point_label, corrective_action, cook_id, created_at
+                      FROM sanitizer_checks
+                     WHERE location_id = ? AND shift_date >= ? AND shift_date <= ?
+                       AND corrective_action IS NOT NULL AND TRIM(corrective_action) != ''
+                     ORDER BY created_at DESC
+                    """,
+                arguments: [loc, windowStart, today]
+            )
+            let receivingCorrective = try HaccpReceivingCorrectiveRow.fetchAll(
+                db,
+                sql: """
+                    SELECT id, shift_date, vendor, item, category, rejection_reason, cook_id, created_at
+                      FROM receiving_log
+                     WHERE location_id = ? AND shift_date >= ? AND shift_date <= ?
+                       AND rejection_reason IS NOT NULL AND TRIM(rejection_reason) != ''
+                     ORDER BY created_at DESC
+                    """,
+                arguments: [loc, windowStart, today]
+            )
+            let pestCorrective = try HaccpPestCorrectiveRow.fetchAll(
+                db,
+                sql: """
+                    SELECT id, shift_date, entry_type, pest, corrective_action, cook_id, created_at
+                      FROM pest_control_log
+                     WHERE location_id = ? AND shift_date >= ? AND shift_date <= ?
+                       AND corrective_action IS NOT NULL AND TRIM(corrective_action) != ''
+                     ORDER BY created_at DESC
+                    """,
+                arguments: [loc, windowStart, today]
+            )
+
             // ── Calibration log (window) + probe status board (all history) ─
             let calibrationWindow = try HaccpCalibrationWindowRow.fetchAll(
                 db,
@@ -139,7 +189,11 @@ public struct HaccpPlanRepository {
                 tempLogCorrective: tempLogCorrective,
                 lineCheckCorrective: lineCheckCorrective,
                 calibrationWindow: calibrationWindow,
-                allCalibrations: allCalibrations
+                allCalibrations: allCalibrations,
+                coolingCorrective: coolingCorrective,
+                sanitizerCorrective: sanitizerCorrective,
+                receivingCorrective: receivingCorrective,
+                pestCorrective: pestCorrective
             )
         }
     }

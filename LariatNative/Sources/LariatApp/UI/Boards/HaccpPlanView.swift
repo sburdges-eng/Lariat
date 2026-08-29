@@ -179,7 +179,7 @@ private struct HaccpPlanDocumentView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack {
                                 Text(e.shiftDate).font(.caption).monospacedDigit()
-                                Text(e.source == .tempLog ? "Temp log" : "Line check")
+                                Text(e.source.label)
                                     .font(.caption2)
                                     .padding(.horizontal, 6).padding(.vertical, 2)
                                     .background(.quaternary, in: Capsule())

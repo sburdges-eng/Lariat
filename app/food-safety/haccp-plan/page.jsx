@@ -10,6 +10,7 @@
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { buildHaccpPlan } from '../../../lib/haccpPlan';
 import { serviceDate } from '../../../lib/serviceDate';
+import { CORRECTIVE_SOURCE_LABEL } from '../../../lib/correctiveActions';
 
 /** @typedef {Record<string, string | string[] | undefined>} PageSearchParams */
 
@@ -174,7 +175,7 @@ export default async function HaccpPlanPage({ searchParams }) {
               {plan.corrective_actions.entries.map((e) => (
                 <tr key={`${e.source}-${e.entry_id}`}>
                   <td>{e.shift_date}</td>
-                  <td>{e.source === 'temp_log' ? 'Temp log' : 'Line check'}</td>
+                  <td>{CORRECTIVE_SOURCE_LABEL[e.source] ?? e.source}</td>
                   <td>{e.subject}</td>
                   <td>{e.note}</td>
                   <td>{e.cook_id || '—'}</td>

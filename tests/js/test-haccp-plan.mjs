@@ -280,3 +280,68 @@ describe('GET /api/food-safety/haccp-plan', () => {
     assert.equal(body.corrective_actions.count, 1);
   });
 });
+
+describe('haccp plan — the corrective-action section reads every source', () => {
+  // The document contradicted itself: the CCP table printed
+  // `plan.cooling.breaches_30d` breaches, and two sections below it the
+  // corrective-action section printed "No corrective actions recorded in
+  // the window." Both were rendered from the same plan object, for the
+  // same inspector, on the same sheet.
+
+  function insertCoolingBreach({ shift_date, item, corrective_action, location_id = 'default' }) {
+    db.prepare(
+      `INSERT INTO cooling_log
+         (shift_date, location_id, item, station_id, started_at, start_reading_f,
+          stage1_at, stage1_reading_f, stage2_at, stage2_reading_f,
+          status, breach_reason, corrective_action, cook_id, created_at)
+       VALUES (?, ?, ?, 'saute', ?, 135, NULL, NULL, ?, 48, 'breach',
+               'stage 2 over 4h', ?, 'cook-1', ?)`,
+    ).run(shift_date, location_id, item, `${shift_date}T08:00:00Z`,
+          `${shift_date}T15:00:00Z`, corrective_action, `${shift_date}T08:00:00Z`);
+  }
+
+  function insertSanitizerFail({ shift_date, point_label, corrective_action, location_id = 'default' }) {
+    db.prepare(
+      `INSERT INTO sanitizer_checks
+         (shift_date, location_id, station_id, point_label, chemistry,
+          concentration_ppm, required_min_ppm, required_max_ppm, water_temp_f,
+          status, corrective_action, cook_id, created_at)
+       VALUES (?, ?, 'dish', ?, 'quat', 150, 200, 400, 75, 'low', ?, 'cook-2', ?)`,
+    ).run(shift_date, location_id, point_label, corrective_action, `${shift_date}T12:00:00Z`);
+  }
+
+  it('prints the cooling breach it already counted two sections above', () => {
+    const day = isoMinusDays(TODAY, 3);
+    insertCoolingBreach({ shift_date: day, item: 'pork green chile', corrective_action: 'split into hotel pans' });
+
+    const plan = haccp.buildHaccpPlan('default', TODAY);
+    assert.ok(plan.cooling.breaches_30d >= 1, 'sanity: the breach is counted');
+    const cooling = plan.corrective_actions.entries.filter((e) => e.source === 'cooling');
+    assert.equal(cooling.length, 1, 'the breach the plan counted must appear as a corrective action');
+    assert.equal(cooling[0].subject, 'pork green chile');
+    assert.equal(cooling[0].note, 'split into hotel pans');
+    assert.notEqual(plan.corrective_actions.count, 0);
+  });
+
+  it('prints a sanitizer fix', () => {
+    const day = isoMinusDays(TODAY, 2);
+    insertSanitizerFail({ shift_date: day, point_label: 'dish machine final rinse', corrective_action: 'remade at 300ppm' });
+
+    const plan = haccp.buildHaccpPlan('default', TODAY);
+    const sanitizer = plan.corrective_actions.entries.filter((e) => e.source === 'sanitizer');
+    assert.equal(sanitizer.length, 1);
+    assert.equal(sanitizer[0].note, 'remade at 300ppm');
+  });
+
+  it('keeps the 30-day window and the location scope on the new sources', () => {
+    insertCoolingBreach({ shift_date: isoMinusDays(TODAY, 31), item: 'old stock', corrective_action: 'too old to print' });
+    insertCoolingBreach({ shift_date: isoMinusDays(TODAY, 2), item: 'other venue', corrective_action: 'not ours', location_id: 'second' });
+    insertSanitizerFail({ shift_date: isoMinusDays(TODAY, 40), point_label: 'stale', corrective_action: 'too old' });
+
+    const plan = haccp.buildHaccpPlan('default', TODAY);
+    const notes = plan.corrective_actions.entries.map((e) => e.note);
+    assert.ok(!notes.includes('too old to print'), '31-day-old row must fall outside the window');
+    assert.ok(!notes.includes('not ours'), 'another location must never leak into this plan');
+    assert.ok(!notes.includes('too old'), 'sanitizer window must match');
+  });
+});
