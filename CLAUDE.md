@@ -37,13 +37,24 @@ directory you are actually in before your first edit. Do not edit
 `.claude/worktrees/cadi-cxx-toolchain/**/Lariat*` (a foreign project's snapshot; do not
 delete it either).
 
-**Correction (2026-08-28).** This section previously stated that all non-canonical Lariat
-iterations were deleted 2026-07-22 after archiving to
-`~/Dev/_archive/lariat-iterations-20260722/`, and that its table was "the complete set".
-Neither holds on this machine: that archive path does not exist, and ten checkouts of the
-Lariat remote are present — including copies under `backup/`, `MacBackup-2026-08-07/`, and
-`Dev/_archives/lariat-pre-scrub-2026-04-18/`. Treat any checkout not listed above as a
-backup: read it if you must, but never edit it, and never delete one as "cleanup".
+**Correction (2026-08-30).** An earlier version of this section claimed all non-canonical
+Lariat iterations were deleted 2026-07-22 after archiving to
+`~/Dev/_archive/lariat-iterations-20260722/`; that path does not exist. The 2026-08-28 pass
+then counted ten checkouts of the Lariat remote. **Seven remain as of 2026-08-30:** this
+table's two, the four `lariat-pre-scrub-2026-04-18` copies, and one inside the SanDisk
+recovery dump under `~/Documents/Codex/`. The `MacBackup-2026-08-07/` and `MacRescue/`
+duplicates of `hospitality/Lariat`, `backup/Lariat`, and a standalone
+`MacBackup-2026-08-07/Dev/Lariat-KDS` were deleted on Sean's explicit instruction after every
+branch tip was verified present on `origin`; their 11 stashes, one orphaned commit
+(`c50eae9`, on no branch and no remote), and untracked `.codex/` configs were exported to
+`~/lariat_dev/stash-archive-2026-08-30/` first. Exactly one Lariat-KDS checkout now exists:
+`~/Dev/hospitality/Lariat/Lariat-KDS` — every KDS commit is on `origin`, which as of
+2026-08-28 is *ahead* of any local copy.
+
+Treat any checkout not listed above as a backup: read it if you must, but never edit it, and
+never delete one as "cleanup" absent an explicit instruction from Sean. The four pre-scrub
+copies are the only record of pre-scrub history (HEAD `b0c20f5` is on no branch and no
+remote) and still carry the PII the scrub removed.
 
 This table describes one machine at one point in time. Verify it rather than trusting it.
 
