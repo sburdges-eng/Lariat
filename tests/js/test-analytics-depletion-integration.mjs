@@ -134,11 +134,16 @@ describe('runDepletionSweep — analytics ingest hook', () => {
     assert.deepStrictEqual(runs.map((r) => r.period_label), ['period-D1', 'period-D2']);
   });
 
-  it('uses today UTC for shift_date on every inventory_updates row', async () => {
+  it('uses the service day for shift_date on every inventory_updates row', async () => {
     seedTestBurger(db);
     seedSalesRow(db, 'period-E', 1);
 
-    const expected = new Date().toISOString().slice(0, 10);
+    // ingest-analytics.mjs:199 stamps serviceDate(). Asserting a UTC slice
+    // here agreed with that for eighteen hours a day and disagreed for six —
+    // from 18:00 Denver the UTC date is already tomorrow. That is a test that
+    // passes all morning and fails overnight, which is what it did.
+    const { serviceDate } = await import('../../lib/serviceDate.ts');
+    const expected = serviceDate();
     await runDepletionSweep(db, { location_id: LOC, skipDepletion: false });
 
     const dates = db
