@@ -5,6 +5,12 @@ import GRDB
 
 /// Parity port of tests/js/test-kitchen-assistant-context-pin.mjs (GH #247)
 /// plus coordinator ordering/source assertions, against the real web schema.
+// Seeds bind ShiftDate.serviceDate() rather than SQLite's date('now').
+// date('now') is UTC; the repository reads the venue SERVICE day
+// (02:00-02:00 America/Denver). They agree for 18 hours a day and disagree
+// for six — every night from 18:00 Denver the UTC date is already tomorrow,
+// so a seeded row is invisible to the query the test then makes. That is why
+// native-ci was green all morning and red at 03:29 UTC.
 final class AssistantContextRepositoryTests: XCTestCase {
     private let LOC = "default"
 
@@ -32,16 +38,16 @@ final class AssistantContextRepositoryTests: XCTestCase {
             try db.execute(
                 sql: """
                   INSERT INTO sales_lines (location_id, period_label, item_name, quantity_sold, net_sales, source)
-                  VALUES (?, date('now'), 'Smoked Brisket Sandwich', 28, 420, 'test')
+                  VALUES (?, ?, 'Smoked Brisket Sandwich', 28, 420, 'test')
                   """,
-                arguments: [self.LOC]
+                arguments: [self.LOC, ShiftDate.serviceDate()]
             )
             try db.execute(
                 sql: """
                   INSERT INTO toast_sales_daily (location_id, shift_date, net_sales, orders, guests, comparison_group)
-                  VALUES (?, date('now'), 12500, 320, 410, 1)
+                  VALUES (?, ?, 12500, 320, 410, 1)
                   """,
-                arguments: [self.LOC]
+                arguments: [self.LOC, ShiftDate.serviceDate()]
             )
         }
     }
@@ -164,12 +170,12 @@ final class AssistantContextRepositoryTests: XCTestCase {
         defer { cleanupAssistantDatabase(path) }
         _ = try writeDB.write { db in
             try db.execute(
-                sql: "INSERT INTO eighty_six (location_id, item, shift_date) VALUES (?, 'Lobster Bisque', date('now'))",
-                arguments: [self.LOC]
+                sql: "INSERT INTO eighty_six (location_id, item, shift_date) VALUES (?, 'Lobster Bisque', ?)",
+                arguments: [self.LOC, ShiftDate.serviceDate()]
             )
             try db.execute(
-                sql: "INSERT INTO inventory_updates (location_id, item, shift_date, delta, direction) VALUES (?, 'cilantro', date('now'), '3 bunch', 'out')",
-                arguments: [self.LOC]
+                sql: "INSERT INTO inventory_updates (location_id, item, shift_date, delta, direction) VALUES (?, 'cilantro', ?, '3 bunch', 'out')",
+                arguments: [self.LOC, ShiftDate.serviceDate()]
             )
         }
         let ctx = try repo.buildGroundedContext(locationId: LOC, userQuestion: "anything 86?", hasPin: false)
@@ -194,7 +200,8 @@ final class AssistantContextRepositoryTests: XCTestCase {
         defer { cleanupAssistantDatabase(path) }
         _ = try writeDB.write { db in
             try db.execute(
-                sql: "INSERT INTO eighty_six (location_id, item, shift_date) VALUES ('site-b', 'Foreign Item', date('now'))"
+                sql: "INSERT INTO eighty_six (location_id, item, shift_date) VALUES ('site-b', 'Foreign Item', ?)",
+                arguments: [ShiftDate.serviceDate()]
             )
         }
         let ctx = try repo.buildGroundedContext(locationId: LOC, userQuestion: "anything 86?", hasPin: false)
@@ -227,8 +234,8 @@ final class AssistantContextRepositoryTests: XCTestCase {
         _ = try writeDB.write { db in
             for i in 0..<40 {
                 try db.execute(
-                    sql: "INSERT INTO eighty_six (location_id, item, shift_date, reason) VALUES (?, ?, date('now'), ?)",
-                    arguments: [self.LOC, "Item \(i)", String(repeating: "reason ", count: 60)]
+                    sql: "INSERT INTO eighty_six (location_id, item, shift_date, reason) VALUES (?, ?, ?, ?)",
+                    arguments: [self.LOC, "Item \(i)", ShiftDate.serviceDate(), String(repeating: "reason ", count: 60)]
                 )
             }
         }

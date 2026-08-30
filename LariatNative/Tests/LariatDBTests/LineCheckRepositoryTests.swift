@@ -22,7 +22,7 @@ final class LineCheckRepositoryTests: XCTestCase {
         defer { cleanup(path: path) }
 
         let repo = LineCheckRepository(readDB: readDB, writeDB: writeDB, catalog: catalog)
-        let today = ShiftDate.todayISO()
+        let today = ShiftDate.serviceDate()
         let context = RegulatedWriteContext.nativeCook(cookId: "alice")
 
         _ = try repo.postEntry(
@@ -75,7 +75,7 @@ final class LineCheckRepositoryTests: XCTestCase {
         defer { cleanup(path: path) }
 
         let repo = LineCheckRepository(readDB: readDB, writeDB: writeDB, catalog: catalog)
-        let today = ShiftDate.todayISO()
+        let today = ShiftDate.serviceDate()
         let context = RegulatedWriteContext.nativeCook(cookId: "bob")
 
         _ = try repo.postEntry(
@@ -109,7 +109,7 @@ final class LineCheckRepositoryTests: XCTestCase {
         defer { cleanup(path: path) }
 
         let repo = LineCheckRepository(readDB: readDB, writeDB: writeDB, catalog: catalog)
-        let today = ShiftDate.todayISO()
+        let today = ShiftDate.serviceDate()
         let context = RegulatedWriteContext.nativeCook(cookId: "carol")
 
         _ = try repo.postEntry(

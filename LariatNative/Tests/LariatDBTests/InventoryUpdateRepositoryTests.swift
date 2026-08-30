@@ -203,7 +203,9 @@ final class InventoryUpdateRepositoryTests: XCTestCase {
         let repo = InventoryUpdateRepository(readDB: readDB, writeDB: writeDB)
         _ = try repo.logUpdate(input: InventoryLogInput(item: "patty", qty: 8, unit: "oz", source: "toast", recipeId: "burger", ingredient: "patty"), context: ctx())
         _ = try repo.logUpdate(input: InventoryLogInput(item: "cilantro", delta: "1 bunch", direction: "waste"), context: ctx())
-        let rows = try await repo.listUpdates(date: ShiftDate.todayISO())
+        // logUpdate stamped the service day via its write context; read it back
+        // with the same clock, not the UTC one.
+        let rows = try await repo.listUpdates(date: ShiftDate.serviceDate())
         XCTAssertEqual(rows.map(\.item), ["cilantro", "patty"])   // newest first
     }
 
