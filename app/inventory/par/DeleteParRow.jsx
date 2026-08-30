@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+/** @param {{ id: number | string, ingredient: string, locationId?: string }} props */
 export default function DeleteParRow({ id, ingredient, locationId = 'default' }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);

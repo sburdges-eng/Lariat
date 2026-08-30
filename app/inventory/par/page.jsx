@@ -6,6 +6,29 @@ import DeleteParRow from './DeleteParRow';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * One par line joined to its most recent count. The LEFT JOIN means every
+ * `latest.*` column is null until the ingredient has been counted at least
+ * once at this location.
+ *
+ * @typedef {{
+ *   id: number,
+ *   vendor: string | null,
+ *   ingredient: string,
+ *   sku: string | null,
+ *   par_qty: number | null,
+ *   par_unit: string | null,
+ *   pack_size: string | null,
+ *   pack_unit: string | null,
+ *   category: string | null,
+ *   on_hand_qty: number | null,
+ *   on_hand_unit: string | null,
+ *   counted_at: string | null,
+ *   counted_by: string | null,
+ * }} ParRow
+ */
+
+/** @param {string | null | undefined} iso */
 function fmtDate(iso) {
   if (!iso) return '';
   try {
@@ -17,6 +40,7 @@ function fmtDate(iso) {
   }
 }
 
+/** @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props */
 export default async function ParPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -30,7 +54,8 @@ export default async function ParPage({ searchParams }) {
   // Latest line per ingredient across all counts at this location.
   // SQLite supports MAX() over rows so we use a correlated max subquery
   // to pick the most recent counted_at row for each ingredient/sku.
-  const rows = db
+  const rows = /** @type {ParRow[]} */ (
+    db
     .prepare(
       `SELECT p.id, p.vendor, p.ingredient, p.sku, p.par_qty, p.par_unit,
               p.pack_size, p.pack_unit, p.category,
@@ -55,7 +80,8 @@ export default async function ParPage({ searchParams }) {
         WHERE p.location_id = ?
         ORDER BY p.category, p.ingredient`,
     )
-    .all(loc, loc);
+    .all(loc, loc)
+  );
 
   const lowRows = rows.filter(
     (r) =>
@@ -66,14 +92,23 @@ export default async function ParPage({ searchParams }) {
 
   const display = onlyLow ? lowRows : rows;
 
+  /** @type {Map<string, ParRow[]>} */
   const groups = new Map();
   for (const r of display) {
     const cat = r.category || 'Other';
     if (!groups.has(cat)) groups.set(cat, []);
-    groups.get(cat).push(r);
+    groups.get(cat)?.push(r);
   }
   const groupList = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  const categories = [...new Set(rows.map((r) => r.category).filter(Boolean))].sort();
+  // filter(Boolean) does not narrow away null for the checker, and AddParRow
+  // takes string[]. The predicate is the narrowing.
+  const categories = [
+    ...new Set(
+      rows
+        .map((r) => r.category)
+        .filter(/** @returns {c is string} */ (c) => typeof c === 'string' && c !== ''),
+    ),
+  ].sort();
 
   return (
     <div>

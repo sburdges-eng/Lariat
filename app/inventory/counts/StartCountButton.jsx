@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+/** @param {{ locationId?: string }} props */
 export default function StartCountButton({ locationId = 'default' }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -13,6 +14,7 @@ export default function StartCountButton({ locationId = 'default' }) {
     setCookId(window.localStorage.getItem('lariat_cook') || '');
   }, []);
 
+  /** @param {import('react').FormEvent} e */
   const start = async (e) => {
     e.preventDefault();
     setBusy(true);

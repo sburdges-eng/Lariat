@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+/** @param {{ locationId?: string, categories?: string[] }} props */
 export default function AddParRow({ locationId = 'default', categories = [] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -35,6 +36,7 @@ export default function AddParRow({ locationId = 'default', categories = [] }) {
     setNote('');
   };
 
+  /** @param {import('react').FormEvent} e */
   const submit = async (e) => {
     e.preventDefault();
     if (!ingredient.trim()) return;

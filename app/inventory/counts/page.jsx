@@ -6,6 +6,23 @@ import StartCountButton from './StartCountButton';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * One inventory count with its line tally. `closed_at` is null while the
+ * count is still open — that is what the board reads to decide whether a
+ * cook can still add to it.
+ *
+ * @typedef {{
+ *   id: number,
+ *   count_date: string,
+ *   label: string | null,
+ *   opened_at: string,
+ *   closed_at: string | null,
+ *   cook_id: string | null,
+ *   line_count: number,
+ * }} CountRow
+ */
+
+/** @param {string | null | undefined} iso */
 function fmt(iso) {
   if (!iso) return '';
   try {
@@ -17,6 +34,7 @@ function fmt(iso) {
   }
 }
 
+/** @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props */
 export default async function CountsListPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -25,7 +43,8 @@ export default async function CountsListPage({ searchParams }) {
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const db = getDb();
-  const counts = db
+  const counts = /** @type {CountRow[]} */ (
+    db
     .prepare(
       `SELECT c.id, c.count_date, c.label, c.opened_at, c.closed_at, c.cook_id,
               (SELECT COUNT(*) FROM inventory_count_lines l WHERE l.count_id = c.id) AS line_count
@@ -34,7 +53,8 @@ export default async function CountsListPage({ searchParams }) {
         ORDER BY c.opened_at DESC
         LIMIT 50`,
     )
-    .all(loc);
+    .all(loc)
+  );
 
   return (
     <div>
