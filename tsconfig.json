@@ -68,7 +68,6 @@
     "electron-builder.yml",
     "design/**",
     "line_setups/**",
-    "app/inventory/**",
     "public/**",
     "Lariat-worktrees/**",
     "worktrees/**",

@@ -7,12 +7,14 @@ import WasteLogClient from './WasteLogClient';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {number} days */
 function startOfRange(days) {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().slice(0, 10);
 }
 
+/** @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props */
 export default async function WastePage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -28,7 +30,8 @@ export default async function WastePage({ searchParams }) {
   const today = serviceDate();
   const db = getDb();
 
-  const recent = db
+  const recent = /** @type {import('./WasteLogClient').WasteRow[]} */ (
+    db
     .prepare(
       `SELECT id, shift_date, station_id, item, delta, note, cook_id, created_at
          FROM inventory_updates
@@ -38,9 +41,11 @@ export default async function WastePage({ searchParams }) {
         ORDER BY id DESC
         LIMIT 200`,
     )
-    .all(loc, since);
+    .all(loc, since)
+  );
 
-  const byItem = db
+  const byItem = /** @type {import('./WasteLogClient').WasteByItemRow[]} */ (
+    db
     .prepare(
       `SELECT item, COUNT(*) AS hits, MAX(created_at) AS last_at
          FROM inventory_updates
@@ -51,7 +56,8 @@ export default async function WastePage({ searchParams }) {
         ORDER BY hits DESC, last_at DESC
         LIMIT 20`,
     )
-    .all(loc, since);
+    .all(loc, since)
+  );
 
   const stations = getStations();
 

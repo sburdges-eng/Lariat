@@ -6,6 +6,9 @@ import CountSheet from './CountSheet';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {{ params?: Promise<Record<string, string>> | Record<string, string> } & { searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function CountSheetPage({ params, searchParams }) {
   const p = (await params) || {};
   const sp = (await searchParams) || {};
@@ -16,17 +19,20 @@ export default async function CountSheetPage({ params, searchParams }) {
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const db = getDb();
-  const head = db
+  const head = /** @type {import('./CountSheet').CountHead | undefined} */ (
+    db
     .prepare(
       `SELECT id, count_date, label, opened_at, closed_at, cook_id, location_id
          FROM inventory_counts WHERE id = ? AND location_id = ?`,
     )
-    .get(id, loc);
+    .get(id, loc)
+  );
   if (!head) return notFound();
 
   // All par-list rows for the current location, plus existing count lines
   // joined in so the BOH can walk a structured sheet instead of typing names.
-  const lines = db
+  const lines = /** @type {import('./CountSheet').CountParRow[]} */ (
+    db
     .prepare(
       `SELECT p.vendor, p.ingredient, p.sku, p.par_qty, p.par_unit,
               p.pack_size, p.pack_unit, p.category,
@@ -39,10 +45,12 @@ export default async function CountSheetPage({ params, searchParams }) {
         WHERE p.location_id = ?
         ORDER BY p.category, p.ingredient`,
     )
-    .all(id, loc);
+    .all(id, loc)
+  );
 
   // Surface any free-typed lines that aren't in the par master.
-  const orphanLines = db
+  const orphanLines = /** @type {import('./CountSheet').CountOrphanRow[]} */ (
+    db
     .prepare(
       `SELECT id AS line_id, vendor, ingredient, sku, on_hand_qty, unit,
               par_qty, par_unit, note, counted_by, counted_at
@@ -56,7 +64,8 @@ export default async function CountSheetPage({ params, searchParams }) {
           )
         ORDER BY ingredient`,
     )
-    .all(id, loc);
+    .all(id, loc)
+  );
 
   return (
     <>

@@ -7,6 +7,7 @@ import InventoryNav from '../_nav';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props */
 export default async function InventoryLogPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -16,9 +17,13 @@ export default async function InventoryLogPage({ searchParams }) {
       : DEFAULT_LOCATION_ID;
   const date = serviceDate();
   const db = getDb();
-  const updates = db
-    .prepare(`SELECT * FROM inventory_updates WHERE shift_date=? AND location_id=? ORDER BY id DESC`)
-    .all(date, loc);
+  // better-sqlite3's .all() is unknown[]; the board's prop type is the
+  // contract this row set has to meet.
+  const updates = /** @type {import('../InventoryBoard').InventoryUpdate[]} */ (
+    db
+      .prepare(`SELECT * FROM inventory_updates WHERE shift_date=? AND location_id=? ORDER BY id DESC`)
+      .all(date, loc)
+  );
   const stations = getStations();
   return (
     <>

@@ -2,6 +2,31 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+/**
+ * The count head, and the two row shapes the sheet renders. Both row queries
+ * LEFT JOIN or select from inventory_count_lines, so every `l.*` column is
+ * null until a cook has actually counted that ingredient.
+ *
+ * @typedef {{ id: number, count_date: string, label: string | null,
+ *   opened_at: string, closed_at: string | null, cook_id: string | null,
+ *   location_id: string }} CountHead
+ *
+ * @typedef {{ vendor: string | null, ingredient: string, sku: string | null,
+ *   par_qty: number | null, par_unit: string | null, pack_size: string | null,
+ *   pack_unit: string | null, category: string | null,
+ *   line_id: number | null, on_hand_qty: number | null, unit: string | null,
+ *   note: string | null, counted_by: string | null,
+ *   counted_at: string | null }} CountParRow
+ *
+ * @typedef {{ line_id: number, vendor: string | null, ingredient: string,
+ *   sku: string | null, on_hand_qty: number | null, unit: string | null,
+ *   par_qty: number | null, par_unit: string | null, note: string | null,
+ *   counted_by: string | null, counted_at: string | null }} CountOrphanRow
+ *
+ * @typedef {{ on_hand_qty: number | null, unit: string, note: string | null }} CountLineFields
+ */
+
+/** @param {string | null | undefined} iso */
 function fmtTime(iso) {
   if (!iso) return '';
   try {
@@ -13,30 +38,36 @@ function fmtTime(iso) {
   }
 }
 
+/**
+ * @param {{ head: CountHead, parRows: CountParRow[],
+ *   orphanLines: CountOrphanRow[], locationId?: string }} props
+ */
 export default function CountSheet({ head, parRows, orphanLines, locationId = 'default' }) {
   const router = useRouter();
   const closed = !!head.closed_at;
   const [cookId, setCookId] = useState('');
   const [filter, setFilter] = useState('');
-  const [savingKey, setSavingKey] = useState(null);
-  const [errKey, setErrKey] = useState(null);
+  const [savingKey, setSavingKey] = useState(/** @type {string | number | null} */ (null));
+  const [errKey, setErrKey] = useState(/** @type {string | number | null} */ (null));
 
   useEffect(() => {
     setCookId(window.localStorage.getItem('lariat_cook') || '');
   }, []);
 
   const groups = useMemo(() => {
+    /** @type {Map<string, CountParRow[]>} */
     const buckets = new Map();
     for (const row of parRows) {
       const cat = row.category || 'Other';
       if (!buckets.has(cat)) buckets.set(cat, []);
-      buckets.get(cat).push(row);
+      buckets.get(cat)?.push(row);
     }
     return [...buckets.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [parRows]);
 
   const f = filter.trim().toLowerCase();
 
+  /** @param {CountParRow | CountOrphanRow} row @param {CountLineFields} fields */
   const saveLine = async (row, fields) => {
     const key = row.line_id || `par-${row.ingredient}-${row.sku || ''}`;
     setSavingKey(key);
@@ -164,7 +195,7 @@ export default function CountSheet({ head, parRows, orphanLines, locationId = 'd
                   <div className="meta">
                     {row.on_hand_qty != null && <>{row.on_hand_qty} {row.unit || ''} · </>}
                     {row.counted_by && <>{row.counted_by} · </>}
-                    <time dateTime={row.counted_at}>{fmtTime(row.counted_at)}</time>
+                    <time dateTime={row.counted_at ?? undefined}>{fmtTime(row.counted_at)}</time>
                   </div>
                 </div>
               </li>
@@ -178,6 +209,11 @@ export default function CountSheet({ head, parRows, orphanLines, locationId = 'd
   );
 }
 
+/**
+ * @param {{ row: CountParRow, closed: boolean, saving: boolean,
+ *   err: boolean,
+ *   onSave: (row: CountParRow, fields: CountLineFields) => void }} props
+ */
 function CountRow({ row, closed, saving, err, onSave }) {
   const [qty, setQty] = useState(row.on_hand_qty != null ? String(row.on_hand_qty) : '');
   const [unit, setUnit] = useState(row.unit || row.par_unit || 'pack');
@@ -189,6 +225,7 @@ function CountRow({ row, closed, saving, err, onSave }) {
     setNote(row.note || '');
   }, [row.on_hand_qty, row.unit, row.par_unit, row.note]);
 
+  /** @param {import('react').FormEvent} e */
   const submit = (e) => {
     e.preventDefault();
     if (closed) return;
@@ -271,6 +308,7 @@ function CountRow({ row, closed, saving, err, onSave }) {
   );
 }
 
+/** @param {{ countId: number, cookId: string, locationId: string }} props */
 function FreeAddRow({ countId, cookId, locationId }) {
   const router = useRouter();
   const [ingredient, setIngredient] = useState('');
@@ -279,6 +317,7 @@ function FreeAddRow({ countId, cookId, locationId }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
+  /** @param {import('react').FormEvent} e */
   const submit = async (e) => {
     e.preventDefault();
     if (!ingredient.trim()) return;

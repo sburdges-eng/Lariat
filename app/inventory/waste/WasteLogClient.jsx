@@ -2,6 +2,15 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+/**
+ * @typedef {{ id: number, shift_date: string, station_id: string | null,
+ *   item: string, delta: string | null, note: string | null,
+ *   cook_id: string | null, created_at: string }} WasteRow
+ * @typedef {{ item: string, hits: number, last_at: string | null }} WasteByItemRow
+ * @typedef {{ id: string, name: string }} StationOption
+ */
+
+/** @param {string | null | undefined} iso */
 function fmtTime(iso) {
   if (!iso) return '';
   try {
@@ -13,6 +22,7 @@ function fmtTime(iso) {
   }
 }
 
+/** @param {string | null | undefined} iso */
 function fmtDay(iso) {
   if (!iso) return '';
   try {
@@ -30,6 +40,16 @@ const RANGES = [
   { days: 30, label: '30 days' },
 ];
 
+/**
+ * @param {{
+ *   recent: WasteRow[],
+ *   byItem: WasteByItemRow[],
+ *   stations: StationOption[],
+ *   days: number,
+ *   date: string,
+ *   locationId: string,
+ * }} props
+ */
 export default function WasteLogClient({
   recent, byItem, stations, days, date, locationId,
 }) {
@@ -47,6 +67,7 @@ export default function WasteLogClient({
     setCookId(window.localStorage.getItem('lariat_cook') || '');
   }, []);
 
+  /** @param {import('react').FormEvent} e */
   const submit = async (e) => {
     e.preventDefault();
     if (!item.trim()) return;
@@ -192,7 +213,7 @@ export default function WasteLogClient({
                   <div className="meta">
                     {b.hits} hit{b.hits === 1 ? '' : 's'}
                     {' · last '}
-                    <time dateTime={b.last_at}>{fmtTime(b.last_at)}</time>
+                    <time dateTime={b.last_at ?? undefined}>{fmtTime(b.last_at)}</time>
                   </div>
                 </div>
               </li>
