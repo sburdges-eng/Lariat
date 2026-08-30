@@ -1,6 +1,11 @@
 'use client';
 import React, { useCallback, useEffect, useState } from 'react';
 import { serviceDate } from '../../lib/serviceDate.ts';
+// The route scopes every read and write by location (app/api/gold-stars/route.ts
+// :22 locationFromRequest, :77 locationFromBody, WHERE location_id = ?). This
+// board sent none of its five fetches a location, so on any non-default venue
+// it read and awarded against 'default'.
+import { useLocation } from '../_components/useLocation';
 
 const STAR_TIERS = [
   { val: 1, label: '★ Good' },
@@ -77,22 +82,24 @@ export default function GoldStarBoard() {
 
   const [selectedCook, setSelectedCook] = useState('');
   const [reason, setReason] = useState('');
+  const { locationId, locQuery } = useLocation();
   const [starCount, setStarCount] = useState(1);
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const refreshLeaderboard = useCallback(() => {
-    fetch('/api/gold-stars?view=leaderboard')
+    fetch(`/api/gold-stars?view=leaderboard${locQuery ? `&location=${encodeURIComponent(locationId)}` : ''}`)
       .then(r => r.json() as Promise<LeaderboardRow[]>)
       .then(rows => setLeaderboard(Array.isArray(rows) ? rows : []))
       .catch(() => {});
-  }, []);
+  }, [locationId, locQuery]);
 
   useEffect(() => {
     Promise.all([
+      // /api/staff is deliberately unscoped: the roster has no location column.
       fetch('/api/staff').then(r => r.json() as Promise<RosterItem[]>),
-      fetch('/api/gold-stars').then(r => r.json() as Promise<DBRow[]>),
-      fetch('/api/gold-stars?view=leaderboard').then(r => r.json() as Promise<LeaderboardRow[]>),
+      fetch(`/api/gold-stars${locQuery}`).then(r => r.json() as Promise<DBRow[]>),
+      fetch(`/api/gold-stars?view=leaderboard${locQuery ? `&location=${encodeURIComponent(locationId)}` : ''}`).then(r => r.json() as Promise<LeaderboardRow[]>),
     ])
       .then(([staff, stars, board]) => {
         setRoster(
@@ -105,7 +112,7 @@ export default function GoldStarBoard() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [locationId, locQuery]);
 
   const openModal = useCallback(() => {
     setSelectedCook('');
@@ -129,6 +136,7 @@ export default function GoldStarBoard() {
           cook_name: selectedCook,
           reason: trimmed,
           stars: starCount,
+          location_id: locationId,
         }),
       });
       if (!res.ok) {
@@ -174,7 +182,7 @@ export default function GoldStarBoard() {
 
     setRecognitions(list => list.filter(r => r.id !== id));
     try {
-      const res = await fetch(`/api/gold-stars/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/gold-stars/${id}${locQuery}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('delete failed');
       refreshLeaderboard();
     } catch {
