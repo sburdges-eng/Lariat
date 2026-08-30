@@ -5,6 +5,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import LariAmbient from '../_components/LariAmbient';
+// joined_at comes from SQLite's datetime('now') default — space-separated and
+// zoneless — while seated_at/left_at are ISO. parseTimestamp reads both as UTC;
+// bare Date.parse read the first shape as local and put every wait at zero.
+// lib/hostStand is pure (no db, no node builtins), so a client bundle is safe.
+import { parseTimestamp } from '../../lib/hostStand.ts';
 
 /** @typedef {import('../../lib/hostStand').WaitlistPartyRow} WaitlistPartyRow */
 /** @typedef {import('../../lib/hostStand').WaitlistSummary} WaitlistSummary */
@@ -15,7 +20,7 @@ const POLL_MS = 30_000;
 /** @param {string | null} iso */
 function fmtMinutes(iso) {
   if (!iso) return '—';
-  const ms = Date.now() - Date.parse(iso);
+  const ms = Date.now() - parseTimestamp(iso);
   if (!Number.isFinite(ms)) return '—';
   return `${Math.max(0, Math.floor(ms / 60_000))} min`;
 }
@@ -24,7 +29,10 @@ function fmtMinutes(iso) {
 function fmtClock(iso) {
   if (!iso) return '';
   try {
-    return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return new Date(parseTimestamp(iso)).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   } catch {
     return '';
   }
@@ -294,7 +302,7 @@ export default function HostStand({ initialParties, initialSummary, locationId }
                       ? `${Math.max(
                           0,
                           Math.floor(
-                            (Date.parse(p.seated_at) - Date.parse(p.joined_at)) / 60_000,
+                            (parseTimestamp(p.seated_at) - parseTimestamp(p.joined_at)) / 60_000,
                           ),
                         )} min`
                       : '—'}
