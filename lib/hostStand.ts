@@ -165,9 +165,36 @@ export function summarizeWaitlist(
  * 0 (not negative) when end < start — host workflow doesn't have a
  * meaningful "negative wait" case.
  */
+/**
+ * Parse a timestamp this app actually stores, not just the ISO ones.
+ *
+ * `waitlist_parties.joined_at` has no explicit writer — every row takes the
+ * column DEFAULT `(datetime('now'))`, and SQLite renders that as UTC in
+ * `YYYY-MM-DD HH:MM:SS` form: a space instead of the `T`, and no `Z`.
+ * `Date.parse` reads a string in that shape as LOCAL time, so on a Denver
+ * host the join instant lands six hours in the future. Every wait went
+ * negative and clamped to zero, and the join time rendered six hours off.
+ *
+ * `seated_at`, `left_at` and the caller's "now" are all
+ * `new Date().toISOString()`, so the two shapes get compared against each
+ * other constantly. Normalizing on read fixes rows already in the database;
+ * changing the column would need a backfill, because `ORDER BY joined_at` is
+ * a string sort and `' '` sorts before `'T'` — mixed rows would order every
+ * legacy party ahead of every new one regardless of when they arrived.
+ *
+ * A string that already carries a zone (`Z` or `±HH:MM`) is passed through
+ * untouched.
+ */
+export function parseTimestamp(ts: string | null | undefined): number {
+  if (typeof ts !== 'string') return NaN;
+  const t = ts.trim();
+  const naive = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?)$/.exec(t);
+  return Date.parse(naive ? `${naive[1]}T${naive[2]}Z` : t);
+}
+
 export function minutesBetween(startIso: string, endIso: string): number {
-  const a = Date.parse(startIso);
-  const b = Date.parse(endIso);
+  const a = parseTimestamp(startIso);
+  const b = parseTimestamp(endIso);
   if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
   return Math.max(0, Math.floor((b - a) / 60_000));
 }

@@ -113,6 +113,27 @@ describe('minutesBetween', () => {
     assert.equal(minutesBetween('not-a-date', '2026-05-13T18:00:00Z'), 0);
     assert.equal(minutesBetween('2026-05-13T18:00:00Z', null), 0);
   });
+
+  it("reads SQLite's datetime('now') as UTC, the way SQLite wrote it", () => {
+    // waitlist_parties.joined_at has no explicit writer — every row takes the
+    // column DEFAULT (datetime('now')), which SQLite renders as UTC in
+    // 'YYYY-MM-DD HH:MM:SS' form: a space, no T, no Z. Date.parse treats that
+    // as LOCAL time, so on a Denver host the join instant lands six hours in
+    // the future, `end - start` goes negative, and Math.max(0, ...) floors
+    // every wait on the stand to zero.
+    assert.equal(
+      minutesBetween('2026-05-13 18:00:00', '2026-05-13T18:15:30Z'),
+      15,
+      'a party that has waited 15 minutes must not read 0',
+    );
+    // The seated average mixes the same two shapes: joined_at from the
+    // default, seated_at from new Date().toISOString().
+    assert.equal(
+      minutesBetween('2026-05-13 18:00:00', '2026-05-13 18:20:00'),
+      20,
+      'both-space-separated must agree too',
+    );
+  });
 });
 
 describe('summarizeWaitlist', () => {
