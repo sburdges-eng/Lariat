@@ -7,6 +7,11 @@ import { useEffect, useState, useMemo } from 'react';
 /** @typedef {import('../../lib/kitchenAssistantContext.ts').ContextSource} ContextSource */
 
 import { MAX_MESSAGE, AI_DOWN_COPY } from '../../lib/specialsShared';
+// Both routes scope by location (locationFromBodyOrRequest in
+// app/api/specials/route.js:79 and app/api/specials/saved/route.js:76), and
+// saved specials carry a location_id column. This page sent neither fetch a
+// location, so a special saved at one venue landed under 'default'.
+import { useLocation } from '../_components/useLocation';
 
 /**
  * @param {number} status
@@ -22,6 +27,7 @@ function specialsErrorCopy(status, error) {
 }
 
 export default function SpecialsPage() {
+  const { locationId } = useLocation();
   const [ollamaOk, setOllamaOk] = useState(/** @type {boolean | null} */ (null));
   const [pantry, setPantry] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -84,7 +90,7 @@ export default function SpecialsPage() {
       const res = await fetch('/api/specials', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ message: combinedPrompt }),
+        body: JSON.stringify({ message: combinedPrompt, location_id: locationId }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -123,6 +129,7 @@ export default function SpecialsPage() {
           cost_total: costTotal,
           scratch_notes: recipeScratch,
           sources: sources,
+          location_id: locationId,
         }),
       });
       const data = await res.json().catch(() => ({}));

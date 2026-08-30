@@ -9,8 +9,25 @@ import { enrichOrderGuideRows } from '../../lib/orderGuideEnrichment.ts';
 
 export const dynamic = 'force-dynamic';
 
-export default function PurchasingPage() {
-  const loc = DEFAULT_LOCATION_ID;
+/**
+ * The order guide is what somebody actually orders from, so it has to be the
+ * guide for the venue the URL names. This page used to hardcode
+ * DEFAULT_LOCATION_ID and never read searchParams at all, so
+ * /purchasing?location=west showed the default venue's guide with nothing on
+ * screen to say so.
+ *
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
+export default async function PurchasingPage({ searchParams } = {}) {
+  const sp = (await searchParams) || {};
+  const loc =
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
+      : DEFAULT_LOCATION_ID;
+  // Every hop between these three pages has to carry the venue, or the
+  // location dies on the first click and the next page silently shows
+  // 'default'. Empty for the default venue so ordinary URLs stay clean.
+  const locQuery = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
   const db = getDb();
   const rawRows = /** @type {OrderGuideRow[]} */ (
     db
@@ -30,9 +47,9 @@ export default function PurchasingPage() {
       <p className="subtitle">
         From the <strong>Order Guide</strong> sheet ({n} items). Pull fresh after the operations workbook is updated.
         {' '}
-        <Link href="/purchasing/compare">Sysco vs Shamrock</Link>
+        <Link href={`/purchasing/compare${locQuery}`}>Sysco vs Shamrock</Link>
         {' · '}
-        <Link href="/purchasing/link">Link vendors</Link>
+        <Link href={`/purchasing/link${locQuery}`}>Link vendors</Link>
       </p>
 
       {n === 0 && (

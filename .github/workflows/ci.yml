@@ -22,6 +22,21 @@ on:
   push:
     branches: [main]
 
+  # Nightly, inside the window where this repo's suites hide failures.
+  #
+  # The venue service day runs 02:00-02:00 America/Denver, so from 18:00 Denver
+  # (00:00 UTC) until 02:00 Denver (08:00 UTC) the UTC date and the service date
+  # name different days. Code that stamps one and reads the other passes for
+  # eighteen hours and fails for six. That is not hypothetical: on 2026-08-30 it
+  # put ten LariatDBTests and one web suite red on main (#646), and it had
+  # survived seven merges because every green run in the repo's history landed
+  # between 10:00 and 11:30 UTC.
+  #
+  # 05:00 UTC is 23:00 Denver — squarely inside the band. Scheduled runs only
+  # fire on the default branch, which is exactly the thing worth watching.
+  schedule:
+    - cron: '0 5 * * *'
+
 permissions:
   contents: read
 

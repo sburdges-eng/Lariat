@@ -27,18 +27,28 @@ function reasonLabel(reason) {
   return 'can\'t compare';
 }
 
-export default function VendorComparePage() {
+/** @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props */
+export default async function VendorComparePage({ searchParams } = {}) {
+  const sp = (await searchParams) || {};
+  const loc =
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
+      : DEFAULT_LOCATION_ID;
+  // Every hop between these three pages has to carry the venue, or the
+  // location dies on the first click and the next page silently shows
+  // 'default'. Empty for the default venue so ordinary URLs stay clean.
+  const locQuery = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
   const db = getDb();
-  const summary = listVendorCompareRows(db, { locationId: DEFAULT_LOCATION_ID });
-  const coverage = summarizeMappingCoverage(db, DEFAULT_LOCATION_ID);
-  const singleVendorMasters = listSingleVendorMasters(db, DEFAULT_LOCATION_ID);
+  const summary = listVendorCompareRows(db, { locationId: loc });
+  const coverage = summarizeMappingCoverage(db, loc);
+  const singleVendorMasters = listSingleVendorMasters(db, loc);
 
   return (
     <div>
       <p className="subtitle" style={{ marginTop: 0 }}>
-        <Link href="/purchasing">← Order guide</Link>
+        <Link href={`/purchasing${locQuery}`}>← Order guide</Link>
         {' · '}
-        <Link href="/purchasing/link">Link vendors</Link>
+        <Link href={`/purchasing/link${locQuery}`}>Link vendors</Link>
       </p>
       <h1>Sysco vs Shamrock</h1>
       <p className="subtitle">
@@ -48,7 +58,7 @@ export default function VendorComparePage() {
 
       {summary.rows.length === 0 && (
         <div className="card" style={{ borderColor: 'var(--yellow)' }}>
-          No mapped pairs yet. <Link href="/purchasing/link">Link vendors</Link> to add your first staple.
+          No mapped pairs yet. <Link href={`/purchasing/link${locQuery}`}>Link vendors</Link> to add your first staple.
         </div>
       )}
 
