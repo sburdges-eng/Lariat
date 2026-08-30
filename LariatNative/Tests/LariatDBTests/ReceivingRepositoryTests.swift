@@ -18,7 +18,13 @@ import GRDB
 // credit" (the board's own responsibility).
 
 final class ReceivingRepositoryTests: XCTestCase {
-    private func today() -> String { ShiftDate.todayISO() }
+    // The repositories stamp and read the venue SERVICE day (02:00-02:00
+    // America/Denver). Reading back a UTC date here agrees with that for 18
+    // hours and disagrees for six — every night from 18:00 Denver the UTC date
+    // is already tomorrow, so the row this test just wrote is invisible to the
+    // query it then makes. That is why native-ci was green all morning and red
+    // at 03:29 UTC.
+    private func today() -> String { ShiftDate.serviceDate() }
 
     // ── POST — happy path ──────────────────────────────────────────────
 
