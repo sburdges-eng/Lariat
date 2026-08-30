@@ -1,0 +1,221 @@
+{
+  "schema_version": 1,
+  "id": "cascade_batch_floor_worked_example",
+  "module": "beo_cascade",
+  "source_test": "docs/superpowers/specs/2026-07-28-beo-batch-ordering-design.md worked example",
+  "manifest": {
+    "coleslaw": {
+      "slug": "coleslaw",
+      "display_name": "Coleslaw",
+      "yield_qty": 12.0,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "green cabbage",
+          "qty": 10.0,
+          "unit": "qt",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "special_sauce": {
+      "slug": "special_sauce",
+      "display_name": "Special Sauce",
+      "yield_qty": 4.0,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [
+        "lariat_rub"
+      ],
+      "bom": [
+        {
+          "ingredient": "mayo",
+          "qty": 3.0,
+          "unit": "qt",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "lariat_rub",
+          "qty": 0.5,
+          "unit": "cup",
+          "is_sub_recipe": true,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "buttermilk_brine": {
+      "slug": "buttermilk_brine",
+      "display_name": "Buttermilk Brine",
+      "yield_qty": 12.0,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [
+        "lariat_rub"
+      ],
+      "bom": [
+        {
+          "ingredient": "buttermilk",
+          "qty": 10.0,
+          "unit": "qt",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "lariat_rub",
+          "qty": 0.5,
+          "unit": "cup",
+          "is_sub_recipe": true,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "lariat_rub": {
+      "slug": "lariat_rub",
+      "display_name": "Lariat Rub",
+      "yield_qty": 2.0,
+      "yield_unit": "cup",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "paprika",
+          "qty": 1.0,
+          "unit": "cup",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "mac_balls": {
+      "slug": "mac_balls",
+      "display_name": "Mac Balls",
+      "yield_qty": 60.0,
+      "yield_unit": "ea",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "mac mix",
+          "qty": 4.0,
+          "unit": "qt",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "beo_map": {
+    "nashville slider": [
+      "coleslaw",
+      "special_sauce",
+      "buttermilk_brine"
+    ]
+  },
+  "scales": [
+    [
+      "nashville slider",
+      "coleslaw",
+      0.0625
+    ],
+    [
+      "nashville slider",
+      "special_sauce",
+      0.0625
+    ],
+    [
+      "nashville slider",
+      "buttermilk_brine",
+      0.24
+    ]
+  ],
+  "input": {
+    "mode": "build_cascade",
+    "line_items": [
+      {
+        "item_name": "Nashville Slider",
+        "quantity": 50
+      }
+    ]
+  },
+  "expect": {
+    "prep_demands": [
+      {
+        "recipe_slug": "buttermilk_brine",
+        "display_name": "Buttermilk Brine",
+        "qty": 12.0,
+        "unit": "qt",
+        "order_qty": 12.0,
+        "prep_qty": 12.0,
+        "batch_qty": 12.0
+      },
+      {
+        "recipe_slug": "coleslaw",
+        "display_name": "Coleslaw",
+        "qty": 3.125,
+        "unit": "qt",
+        "order_qty": 12.0,
+        "prep_qty": 6.0,
+        "batch_qty": 12.0
+      },
+      {
+        "recipe_slug": "lariat_rub",
+        "display_name": "Lariat Rub",
+        "qty": 0.890625,
+        "unit": "cup",
+        "order_qty": 2.0,
+        "prep_qty": 1.0,
+        "batch_qty": 2.0
+      },
+      {
+        "recipe_slug": "special_sauce",
+        "display_name": "Special Sauce",
+        "qty": 3.125,
+        "unit": "qt",
+        "order_qty": 4.0,
+        "prep_qty": 4.0,
+        "batch_qty": 4.0
+      }
+    ],
+    "order_guide": [
+      {
+        "ingredient": "buttermilk",
+        "unit": "qt",
+        "total_needed": 10.0,
+        "on_hand": 0.0,
+        "to_order": 10.0
+      },
+      {
+        "ingredient": "green cabbage",
+        "unit": "qt",
+        "total_needed": 10.0,
+        "on_hand": 0.0,
+        "to_order": 10.0
+      },
+      {
+        "ingredient": "mayo",
+        "unit": "qt",
+        "total_needed": 3.0,
+        "on_hand": 0.0,
+        "to_order": 3.0
+      },
+      {
+        "ingredient": "paprika",
+        "unit": "cup",
+        "total_needed": 1.0,
+        "on_hand": 0.0,
+        "to_order": 1.0
+      }
+    ],
+    "warnings": [],
+    "tolerance_places": 5
+  }
+}

@@ -271,10 +271,7 @@ public enum BomExpandCompute {
             let rowQty = row.qty
             let rowUnit = row.unit
 
-            var subSlug = row.subSlug
-            if subSlug == nil && (row.isSubRecipe || couldBeSub(m, ingredient: ingredient, manifest: manifest)) {
-                subSlug = resolveSubSlug(manifest, parent: m, ingredient: ingredient)
-            }
+            let subSlug = rowSubSlug(manifest, parent: m, row: row)
 
             if let ss = subSlug, manifest[ss] == nil {
                 let msg = "recipe '\(slug)' pins sub-recipe '\(ss)' which is not in the manifest"
@@ -384,6 +381,288 @@ public enum BomExpandCompute {
                 out: &out, visited: visited + [slug], warnings: &warnings
             )
         }
+    }
+
+    /// The sub-recipe slug a BOM row resolves to, or nil for a leaf row.
+    ///
+    /// THE single predicate for "is this BOM row a sub-recipe?". Every walker
+    /// must ask the same question: the order guide scales a recipe's own leaf
+    /// rows while the prep board settles its sub-recipes as separate nodes, so
+    /// if the two disagree about which rows are leaves, an ingredient is either
+    /// ordered twice or dropped from the guide entirely.
+    ///
+    /// The returned slug is NOT guaranteed to be in `manifest` — callers keep
+    /// their own unknown-slug handling, which differs by walker (fail loud vs
+    /// warn). Port of `_row_sub_slug` in bom_expand.py.
+    static func rowSubSlug(
+        _ manifest: [String: RecipeManifest], parent: RecipeManifest, row: BomRow
+    ) -> String? {
+        if let pinned = row.subSlug { return pinned }
+        guard row.isSubRecipe || couldBeSub(parent, ingredient: row.ingredient, manifest: manifest) else {
+            return nil
+        }
+        return resolveSubSlug(manifest, parent: parent, ingredient: row.ingredient)
+    }
+
+    // MARK: - Batch flooring (port of the order walk in bom_expand.py)
+    //
+    // A BEO orders and preps in batches, because that is what a kitchen can
+    // actually make. Three numbers per recipe per event:
+    //
+    //   consumption  what the event eats     qty / yieldQty, linear, never floored
+    //   order        what to buy             whole batches, up, never fewer than one
+    //   prep         what to make            half-batch granularity, up
+    //
+    // Spec: docs/superpowers/specs/2026-07-28-beo-batch-ordering-design.md.
+    // This is a port of `_settle_order_batches` and friends; the Python stays
+    // the oracle and the fixtures under Tests/Fixtures/BeoCascade pin them
+    // together.
+
+    /// Does this recipe get rounded up to whole batches?
+    ///
+    /// Only when its yield is a real measure — volume or weight. Those are the
+    /// things a kitchen mixes in batches and cannot make a third of: brines,
+    /// rubs, sauces, flours. Over-making one is cheap, because it gets used in
+    /// standard service whether the event needed it all or not.
+    ///
+    /// A yield in `ea`, `case`, `portion`, `pan` or `hotel pan` is a count, not
+    /// a batch. Flooring one orders a 60-piece batch of mac balls to serve 20,
+    /// or a full case of churros for four portions — an over-order nothing
+    /// absorbs. Those pass through at the honest linear figure.
+    static func floorsInBatches(_ m: RecipeManifest) -> Bool {
+        let yu = normalize(m.yieldUnit)
+        return volumeToQt[yu] != nil || weightToLb[yu] != nil
+    }
+
+    /// Round a batch count UP to `granularity`, never below one step — unless
+    /// nothing is demanded at all, which stays zero.
+    ///
+    /// Ordering uses granularity 1.0 (whole batches); prep uses 0.5, because a
+    /// half batch is makeable and a quarter is not. Rounding is always up: 0.78
+    /// of a batch rounded down to 0.5 would make less than the event eats.
+    static func roundUpBatches(_ batches: Double, granularity: Double) -> Double {
+        precondition(granularity > 0, "granularity must be positive, got \(granularity)")
+        // Nothing demanded is nothing made. The floor below exists to turn a
+        // FRACTION of a batch into a whole one; applied to zero it invents food
+        // the event never eats. A per_count of 0 means "on the menu, consumes
+        // none of this recipe", and that has to stay zero all the way down the
+        // sub-recipe walk rather than becoming a full batch — and a full batch
+        // of every sub under it.
+        //
+        // A trace is NOT zero: 0.01 qt still buys the whole batch below.
+        if batches <= 0 { return 0.0 }
+        // Epsilon so an exact batch count is not pushed to the next step by
+        // float error — 12.0/12.0 must stay one batch, not become two.
+        let steps = (batches / granularity - 1e-9).rounded(.up)
+        return Swift.max(1.0, steps) * granularity
+    }
+
+    /// Collect nodes and per-batch sub-recipe coefficients for the order walk.
+    private static func discoverOrderGraph(
+        _ manifest: [String: RecipeManifest],
+        slug: String, qty rawQty: Double, unit rawUnit: String,
+        edges: inout [String: [(String, Double)]],
+        seeds: inout [String: Double],
+        visited: [String],
+        warnings: inout [String]?
+    ) throws {
+        guard let m = manifest[slug] else {
+            let msg = "recipe '\(slug)' is not in the manifest"
+            if warnings == nil { throw BomExpandError.unknownRecipe(msg) }
+            warnings?.append(msg)
+            return
+        }
+        if visited.contains(slug) {
+            let idx = visited.firstIndex(of: slug)!
+            let path = Array(visited[idx...]) + [slug]
+            let msg = "sub-recipe cycle: \(path.joined(separator: " -> "))"
+            if warnings == nil { throw BomExpandError.recipeCycle(msg) }
+            warnings?.append(msg)
+            return
+        }
+        var qty = rawQty
+        if rawUnit != m.yieldUnit {
+            guard let converted = convertQty(qty, from: rawUnit, to: m.yieldUnit) else {
+                let msg = "recipe '\(slug)' yields in '\(m.yieldUnit)' but demand asked for \(qty) '\(rawUnit)'"
+                if warnings == nil { throw BomExpandError.unitMismatch(msg) }
+                warnings?.append(msg)
+                return
+            }
+            qty = converted
+        }
+        if m.yieldQty <= 0 {
+            let msg = "recipe '\(slug)' has non-positive yield_qty \(m.yieldQty); cannot scale"
+            if warnings == nil { throw BomExpandError.invalidYield(msg) }
+            warnings?.append(msg)
+            return
+        }
+
+        seeds[slug, default: 0.0] += qty
+        if edges[slug] != nil { return }  // already mapped; seeds still accumulate
+        edges[slug] = []
+
+        for row in m.bom {
+            let rowQty = row.qty
+            let rowUnit = row.unit
+
+            guard let ss = rowSubSlug(manifest, parent: m, row: row) else { continue }
+            guard let subM = manifest[ss] else {
+                let msg = "recipe '\(slug)' pins sub-recipe '\(ss)' which is not in the manifest"
+                if warnings == nil { throw BomExpandError.unknownRecipe(msg) }
+                warnings?.append(msg)
+                continue
+            }
+
+            // Coefficient is per ONE batch of the parent, so the settle pass
+            // can multiply it by whatever the parent rounds to.
+            var perBatch = rowQty
+            if rowUnit != subM.yieldUnit {
+                guard let converted = reconcileSubUnitQty(subM, qty: perBatch, fromUnit: rowUnit) else {
+                    let msg = subUnitMismatchMessage(parentSlug: slug, subSlug: ss, subM: subM, rowUnit: rowUnit)
+                    if warnings == nil { throw BomExpandError.unitMismatch(msg) }
+                    warnings?.append(msg)
+                    continue
+                }
+                perBatch = converted
+            }
+            edges[slug]?.append((ss, perBatch))
+            try discoverOrderGraph(
+                manifest, slug: ss, qty: 0.0, unit: subM.yieldUnit,
+                edges: &edges, seeds: &seeds, visited: visited + [slug], warnings: &warnings
+            )
+        }
+    }
+
+    /// Settle every reachable recipe node to a whole (or half) batch COUNT.
+    ///
+    /// This is the one kernel behind both floored channels — `expandRecipeOrders`
+    /// (recipe-node quantities, for the prep board) and `aggregateOrderDemand`
+    /// (leaf-ingredient quantities, for the order guide). They read the same
+    /// primitive rather than one dividing the other's answer back out, so a
+    /// BEO's two tabs cannot disagree about how many batches a recipe is.
+    ///
+    /// Nodes settle in dependency order, parents before children, so a
+    /// sub-recipe shared by two parents is summed BEFORE it is rounded.
+    /// Rounding each branch separately would order two batches of lariat rub
+    /// for a Nashville slider — one for the hot rub, one for the oil — where a
+    /// single batch covers both.
+    static func settleOrderBatches(
+        _ manifest: [String: RecipeManifest],
+        demands: [(String, Double, String)],
+        granularity: Double,
+        warnings: inout [String]?
+    ) throws -> [String: Double] {
+        // Pass 1 — discover the reachable graph and its edges.
+        var edges: [String: [(String, Double)]] = [:]
+        var seeds: [String: Double] = [:]
+        for (slug, qty, unit) in demands {
+            try discoverOrderGraph(
+                manifest, slug: slug, qty: qty, unit: unit,
+                edges: &edges, seeds: &seeds, visited: [], warnings: &warnings
+            )
+        }
+
+        // Pass 2 — settle in dependency order (Kahn), rounding each node's TOTAL.
+        //
+        // `edges` holds only the nodes discovery actually mapped. A sub-recipe
+        // that bailed out (cycle, non-positive yield) had its EDGE recorded by
+        // the parent before the recursion returned, so it can be an edge target
+        // with no edge list of its own. Enqueuing one would divide by its zero
+        // yield — taking down an entire event where the linear walk merely
+        // warned. `edges[child] == nil` is that node; skip it.
+        var indegree: [String: Int] = [:]
+        for node in edges.keys { indegree[node] = 0 }
+        for (_, children) in edges {
+            for (child, _) in children where edges[child] != nil {
+                indegree[child, default: 0] += 1
+            }
+        }
+        var pending = seeds
+        var ready = edges.keys.filter { (indegree[$0] ?? 0) == 0 }
+        var batches: [String: Double] = [:]
+
+        while let node = ready.popLast() {
+            guard let m = manifest[node] else { continue }
+            let raw = (pending[node] ?? 0.0) / m.yieldQty
+            let n = floorsInBatches(m) ? roundUpBatches(raw, granularity: granularity) : raw
+            batches[node] = n
+            for (child, perBatch) in edges[node] ?? [] {
+                pending[child, default: 0.0] += perBatch * n
+                guard edges[child] != nil else { continue }
+                indegree[child]! -= 1
+                if indegree[child]! == 0 { ready.append(child) }
+            }
+        }
+
+        // A node left with indegree > 0 sits inside a cycle: Kahn never reaches
+        // it, so it silently vanishes from the prep board and the order guide.
+        // Discovery already warned about the cycle itself, but not that these
+        // recipes went missing because of it — and a prep sheet that is quietly
+        // short is worse than one that says why.
+        for node in Set(edges.keys).subtracting(batches.keys).sorted() {
+            let msg = "recipe '\(node)' could not be settled to a batch count (sub-recipe "
+                + "cycle); it is omitted from the order guide and the prep board"
+            if warnings == nil { throw BomExpandError.recipeCycle(msg) }
+            warnings?.append(msg)
+        }
+        return batches
+    }
+
+    /// Recipe-node quantities rounded up to whole batches at every level.
+    ///
+    /// Same shape as `expandRecipeDemand` — [(slug, yieldUnit): qty] — but every
+    /// node is a whole number of batches (or halves at granularity 0.5), and a
+    /// sub-recipe's demand derives from its parent's ROUNDED figure.
+    public static func expandRecipeOrders(
+        _ manifest: [String: RecipeManifest],
+        demands: [(String, Double, String)],
+        granularity: Double,
+        warnings: inout [String]
+    ) -> [BomKey: Double] {
+        var sink: [String]? = warnings
+        let batches = (try? settleOrderBatches(manifest, demands: demands, granularity: granularity, warnings: &sink)) ?? [:]
+        warnings = sink ?? []
+        var out: [BomKey: Double] = [:]
+        for (slug, n) in batches {
+            guard let m = manifest[slug] else { continue }
+            out[BomKey(slug, m.yieldUnit)] = n * m.yieldQty
+        }
+        return out
+    }
+
+    /// Leaf-ingredient totals for the batches you will actually make.
+    ///
+    /// Same shape as `aggregateDemand` — [(ingredient, unit): qty] — but each
+    /// recipe's BOM is scaled by the batch count the settle lands on, not by the
+    /// raw linear fraction.
+    ///
+    /// Only a recipe's OWN leaf rows are walked. A sub-recipe row is skipped
+    /// because the sub is already its own settled node and contributes its own
+    /// leaves — counting it here would double-order.
+    ///
+    /// Leaf units are NOT converted, matching `expandInto` exactly: the row's own
+    /// unit is the key. A guide that silently re-expressed cup as qt would no
+    /// longer line up with the vendor pack it gets compared against.
+    public static func aggregateOrderDemand(
+        _ manifest: [String: RecipeManifest],
+        demands: [(String, Double, String)],
+        granularity: Double,
+        warnings: inout [String]
+    ) -> [BomKey: Double] {
+        var sink: [String]? = warnings
+        let batches = (try? settleOrderBatches(manifest, demands: demands, granularity: granularity, warnings: &sink)) ?? [:]
+        warnings = sink ?? []
+        var out: [BomKey: Double] = [:]
+        for (slug, n) in batches {
+            guard let m = manifest[slug] else { continue }
+            for row in m.bom {
+                // The sub is already its own settled node and contributes its
+                // own leaves — counting it here would double-order.
+                if rowSubSlug(manifest, parent: m, row: row) != nil { continue }
+                out[BomKey(row.ingredient, row.unit), default: 0.0] += row.qty * n
+            }
+        }
+        return out
     }
 
     // MARK: - Sub-recipe name resolution

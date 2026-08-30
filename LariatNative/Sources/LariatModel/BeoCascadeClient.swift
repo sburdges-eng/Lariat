@@ -26,12 +26,29 @@ public struct CascadeOrderGuideRow: Equatable, Sendable {
 public struct CascadePrepDemandRow: Equatable, Sendable {
     public let recipeSlug: String
     public let displayName: String
+    /// What the event actually eats — linear, never floored. A food-cost
+    /// figure has to be built from this one.
     public let qty: Double
     public let unit: String
+    /// What to buy: whole batches, rounded up, never fewer than one.
+    public let orderQty: Double
+    /// What to make: half-batch granularity, rounded up.
+    public let prepQty: Double
+    /// The recipe's yield, so a surface can render "0.5 batch" rather than
+    /// making the reader divide.
+    public let batchQty: Double
 
-    public init(recipeSlug: String, displayName: String, qty: Double, unit: String) {
+    /// The three quantities default to `qty` so the spawn-based JSON path and
+    /// any caller predating the batch model keeps the linear figure.
+    public init(
+        recipeSlug: String, displayName: String, qty: Double, unit: String,
+        orderQty: Double? = nil, prepQty: Double? = nil, batchQty: Double = 0
+    ) {
         self.recipeSlug = recipeSlug; self.displayName = displayName
         self.qty = qty; self.unit = unit
+        self.orderQty = orderQty ?? qty
+        self.prepQty = prepQty ?? qty
+        self.batchQty = batchQty
     }
 }
 

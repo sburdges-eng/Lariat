@@ -147,4 +147,146 @@ final class BeoCascadeComputeTests: XCTestCase {
         XCTAssertTrue(warnedRecipes.contains("reached"), "reached orphan should be warned")
         XCTAssertFalse(warnedRecipes.contains("unreached"), "unreached orphan must be scoped out")
     }
+
+    // MARK: - Batch flooring (P3)
+    //
+    // A BEO orders and preps in batches. The Python engine floored in
+    // 2026-07-28; the Swift port did not, and nothing gated the divergence.
+    // Spec: docs/superpowers/specs/2026-07-28-beo-batch-ordering-design.md.
+
+    /// Assert every prep row against the oracle, including the three
+    /// quantities. Fails on the first mismatch with the recipe named, because
+    /// "prep[2] order_qty" is not something you can read a diff of.
+    private func assertPrepRows(
+        _ result: BeoCascadeResult, _ f: BeoFixture, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        let acc = accuracy(f.expect.tolerancePlaces)
+        let expected = f.expect.prepDemands ?? []
+        XCTAssertEqual(result.prepDemands.count, expected.count, "prep_demands count", file: file, line: line)
+        for (i, e) in expected.enumerated() where i < result.prepDemands.count {
+            let got = result.prepDemands[i]
+            XCTAssertEqual(got.recipeSlug, e.recipeSlug, "prep[\(i)] slug", file: file, line: line)
+            XCTAssertEqual(got.qty, e.qty, accuracy: acc, "\(e.recipeSlug) qty (consumption)", file: file, line: line)
+            if let o = e.orderQty {
+                XCTAssertEqual(got.orderQty, o, accuracy: acc, "\(e.recipeSlug) order_qty", file: file, line: line)
+            }
+            if let pq = e.prepQty {
+                XCTAssertEqual(got.prepQty, pq, accuracy: acc, "\(e.recipeSlug) prep_qty", file: file, line: line)
+            }
+            if let b = e.batchQty {
+                XCTAssertEqual(got.batchQty, b, accuracy: acc, "\(e.recipeSlug) batch_qty", file: file, line: line)
+            }
+        }
+    }
+
+    private func assertOrderGuide(
+        _ result: BeoCascadeResult, _ f: BeoFixture, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        guard let expected = f.expect.orderGuide else { return }
+        let acc = accuracy(f.expect.tolerancePlaces)
+        XCTAssertEqual(result.orderGuide.count, expected.count, "order_guide count", file: file, line: line)
+        for (i, e) in expected.enumerated() where i < result.orderGuide.count {
+            let got = result.orderGuide[i]
+            XCTAssertEqual(got.ingredient, e.ingredient, "order[\(i)] ingredient", file: file, line: line)
+            XCTAssertEqual(got.unit, e.unit, "\(e.ingredient) unit", file: file, line: line)
+            XCTAssertEqual(got.totalNeeded, e.totalNeeded, accuracy: acc, "\(e.ingredient) total_needed", file: file, line: line)
+            XCTAssertEqual(got.toOrder, e.toOrder, accuracy: acc, "\(e.ingredient) to_order", file: file, line: line)
+        }
+    }
+
+    /// The spec's own worked example: 50 Nashville Sliders.
+    ///
+    /// | recipe          | eats     | order            | prep               |
+    /// | Buttermilk Brine| 12.0 qt  | 1 batch — 12 qt  | 1.0 batch — 12 qt  |
+    /// | Special Sauce   | 3.125 qt | 1 batch — 4 qt   | 1.0 batch — 4 qt   |
+    /// | Coleslaw        | 3.125 qt | 1 batch — 12 qt  | 0.5 batch — 6 qt   |
+    ///
+    /// Coleslaw is the row that earns the order/prep distinction: buy the
+    /// ingredients for 12 qt, make 6.
+    func testCascadeBatchFloorWorkedExample() throws {
+        let f = try BeoFixtures.load("cascade_batch_floor_worked_example")
+        let r = runCascade(f)
+        assertPrepRows(r, f)
+        assertOrderGuide(r, f)
+
+        // Named assertions on top of the fixture sweep, so a regression says
+        // which rule broke rather than "prep[1] order_qty".
+        let bySlug = Dictionary(uniqueKeysWithValues: r.prepDemands.map { ($0.recipeSlug, $0) })
+        XCTAssertEqual(bySlug["coleslaw"]?.orderQty ?? .nan, 12.0, accuracy: 1e-6,
+                       "0.26 of a batch still buys one whole batch")
+        XCTAssertEqual(bySlug["coleslaw"]?.prepQty ?? .nan, 6.0, accuracy: 1e-6,
+                       "prep rounds up to half-batch granularity, not to a whole batch")
+        XCTAssertEqual(bySlug["buttermilk_brine"]?.orderQty ?? .nan, 12.0, accuracy: 1e-6,
+                       "an exact batch count must not be pushed to two by float error")
+
+        // A sub-recipe shared by two parents is summed BEFORE it is rounded.
+        // Rounding each branch separately orders two batches of rub where one
+        // covers both.
+        XCTAssertEqual(bySlug["lariat_rub"]?.orderQty ?? .nan, 2.0, accuracy: 1e-6,
+                       "shared sub settles to ONE batch, not one per parent")
+
+        // The order guide buys for the batches, not for consumption: coleslaw's
+        // BOM is 10 qt of cabbage per 12 qt batch, and the event eats 0.26 of a
+        // batch. Buying 2.6 qt while the board says to make 12 is two answers
+        // to one question.
+        let cabbage = r.orderGuide.first { $0.ingredient == "green cabbage" }
+        XCTAssertEqual(cabbage?.totalNeeded ?? .nan, 10.0, accuracy: 1e-6,
+                       "guide buys for the floored batch, not the linear fraction")
+    }
+
+    /// The floor applies only where a batch is a real measure.
+    ///
+    /// A yield in `ea` is a count. Flooring one orders a 60-piece batch of mac
+    /// balls to serve 20 — an over-order nothing absorbs.
+    func testCascadeBatchFloorCountedYieldPassesThrough() throws {
+        let f = try BeoFixtures.load("cascade_batch_floor_counted_yield_passthrough")
+        let r = runCascade(f)
+        assertPrepRows(r, f)
+        assertOrderGuide(r, f)
+
+        let macBalls = r.prepDemands.first { $0.recipeSlug == "mac_balls" }
+        XCTAssertNotNil(macBalls, "the counted recipe is still on the board")
+        XCTAssertEqual(macBalls?.orderQty ?? .nan, macBalls?.qty ?? .nan, accuracy: 1e-6,
+                       "a counted yield orders the linear figure")
+        XCTAssertEqual(macBalls?.prepQty ?? .nan, macBalls?.qty ?? .nan, accuracy: 1e-6,
+                       "and preps it")
+        XCTAssertLessThan(macBalls?.orderQty ?? .infinity, 60.0,
+                          "flooring a count would order a whole 60-piece batch to serve 20")
+    }
+
+    /// `per_count` 0 means the item is on the menu and eats none of this
+    /// recipe. That has to stay zero all the way down the sub-recipe walk
+    /// rather than becoming a full batch — and a full batch of every sub under
+    /// it. A trace is NOT zero: 0.01 qt still buys the whole batch below.
+    func testCascadeBatchFloorZeroPerCountStaysZero() throws {
+        let f = try BeoFixtures.load("cascade_batch_floor_zero_per_count")
+        let r = runCascade(f)
+        assertPrepRows(r, f)
+        assertOrderGuide(r, f)
+
+        XCTAssertTrue(r.prepDemands.isEmpty,
+                      "nothing to buy and nothing to make means the recipe is off the board: \(r.prepDemands.map(\.recipeSlug))")
+        XCTAssertTrue(r.orderGuide.isEmpty,
+                      "a zero row is clutter on a guide read at a glance: \(r.orderGuide.map(\.ingredient))")
+    }
+
+    // MARK: - roundUpBatches, directly
+
+    func testRoundUpBatchesMatchesThePythonKernel() {
+        // Whole batches.
+        XCTAssertEqual(BomExpandCompute.roundUpBatches(0.26, granularity: 1.0), 1.0, accuracy: 1e-9)
+        XCTAssertEqual(BomExpandCompute.roundUpBatches(0.78, granularity: 1.0), 1.0, accuracy: 1e-9)
+        XCTAssertEqual(BomExpandCompute.roundUpBatches(1.0, granularity: 1.0), 1.0, accuracy: 1e-9,
+                       "an exact batch must not be pushed to two by float error")
+        XCTAssertEqual(BomExpandCompute.roundUpBatches(1.01, granularity: 1.0), 2.0, accuracy: 1e-9)
+        // Half batches.
+        XCTAssertEqual(BomExpandCompute.roundUpBatches(0.26, granularity: 0.5), 0.5, accuracy: 1e-9)
+        XCTAssertEqual(BomExpandCompute.roundUpBatches(0.78, granularity: 0.5), 1.0, accuracy: 1e-9)
+        XCTAssertEqual(BomExpandCompute.roundUpBatches(1.0, granularity: 0.5), 1.0, accuracy: 1e-9)
+        // Nothing demanded is nothing made.
+        XCTAssertEqual(BomExpandCompute.roundUpBatches(0.0, granularity: 1.0), 0.0, accuracy: 1e-9)
+        XCTAssertEqual(BomExpandCompute.roundUpBatches(-1.0, granularity: 1.0), 0.0, accuracy: 1e-9)
+        // A trace is not zero.
+        XCTAssertEqual(BomExpandCompute.roundUpBatches(1e-6, granularity: 1.0), 1.0, accuracy: 1e-9)
+    }
 }

@@ -29,6 +29,15 @@ on:
       # marker; a schema edit that skips this gate is exactly the silent
       # divergence the gate was added to catch.
       - 'lib/db.ts'
+      # The Python BEO/BOM engine IS the oracle the Tests/Fixtures parity files
+      # are generated from. Editing it without touching LariatNative changes
+      # what those fixtures should say, which is exactly how they went stale
+      # between 2026-07-28 and 2026-08-29.
+      - 'scripts/lib/bom_expand.py'
+      - 'scripts/lib/beo_pull.py'
+      - 'scripts/beo_cascade_cli.py'
+      - 'scripts/dev/export_beo_fixtures.py'
+      - 'scripts/dev/export_bom_expand_fixtures.py'
   push:
     branches: [main]
     paths:
@@ -41,6 +50,15 @@ on:
       # marker; a schema edit that skips this gate is exactly the silent
       # divergence the gate was added to catch.
       - 'lib/db.ts'
+      # The Python BEO/BOM engine IS the oracle the Tests/Fixtures parity files
+      # are generated from. Editing it without touching LariatNative changes
+      # what those fixtures should say, which is exactly how they went stale
+      # between 2026-07-28 and 2026-08-29.
+      - 'scripts/lib/bom_expand.py'
+      - 'scripts/lib/beo_pull.py'
+      - 'scripts/beo_cascade_cli.py'
+      - 'scripts/dev/export_beo_fixtures.py'
+      - 'scripts/dev/export_bom_expand_fixtures.py'
 
 permissions:
   contents: read
@@ -64,6 +82,20 @@ jobs:
           path: LariatNative/.build
           key: spm-${{ runner.os }}-${{ hashFiles('LariatNative/Package.resolved') }}
           restore-keys: spm-${{ runner.os }}-
+
+      # The Tests/Fixtures/{BeoCascade,BomExpand} JSON files are the Python
+      # oracle frozen for the Swift port to assert against. Nothing regenerated
+      # or compared them, so they drifted silently: the batch-ordering model
+      # shipped in the engine on 2026-07-28 and the committed fixtures still
+      # carried the pre-batch shape when this step was added on 2026-08-29.
+      #
+      # Runs BEFORE swift test: a stale fixture makes the parity suite assert
+      # the wrong thing, and "fixtures are stale" is a clearer failure than a
+      # parity test failing against them.
+      - name: BEO/BOM parity fixtures match the Python oracle
+        run: |
+          python3 scripts/dev/export_beo_fixtures.py --check
+          python3 scripts/dev/export_bom_expand_fixtures.py --check
 
       - name: swift test (LariatModel + LariatDB + LariatApp)
         run: swift test
