@@ -181,6 +181,13 @@ export function regulatedBoardFor(
   if (typeof stepKey !== 'string' || !stepKey) return null;
   const direct = REGULATED_STEP_BOARDS[stepKey];
   if (direct) return direct;
+  // The summary row's key, old and new. The legacy `line-check-rollup-` form
+  // is matched FIRST and explicitly: a shift materialized before the rename
+  // still carries rows with it, and they would otherwise fall into the station
+  // branch below and resolve to station 'rollup-<date>'.
+  if (stepKey.startsWith('line-checks-open-') || stepKey.startsWith('line-check-rollup-')) {
+    return REGULATED_STEP_BOARDS['open-line-checks'] ?? null;
+  }
   if (stepKey.startsWith('line-check-')) {
     const base = REGULATED_STEP_BOARDS['open-line-checks'];
     if (!base) return null;
@@ -191,7 +198,31 @@ export function regulatedBoardFor(
     const stationId = stepKey.slice('line-check-'.length);
     return stationId ? { ...base, station_id: stationId } : base;
   }
+  // Named cleaning work: the recurring schedule rows and the August deep-clean
+  // checklist. The generic `close-cleaning-due` roll-up already demanded a
+  // cleaning_log row for the shift; these did not, so a cook cleared
+  // "Hood — Degrease" — the specific task an inspector asks about — with
+  // nothing written to the log.
+  //
+  // Deliberately NOT scoped by schedule id: CleaningBoard.jsx never sends
+  // schedule_id, so every real row has it NULL and a scoped gate would be
+  // permanently unsatisfiable.
+  if (stepKey.startsWith('clean-sched-') || isAugustCleaningKey(stepKey)) {
+    return REGULATED_STEP_BOARDS['close-cleaning-due'] ?? null;
+  }
   return null;
+}
+
+/**
+ * August checklist rows that are cleaning work.
+ *
+ * All of them are, except the gear row: `aug-monthly-gear` links to
+ * /equipment, not /food-safety/cleaning, so gating it on the cleaning log
+ * would demand a record it never produces.
+ */
+function isAugustCleaningKey(stepKey: string): boolean {
+  if (!stepKey.startsWith('aug-')) return false;
+  return !stepKey.startsWith('aug-monthly-gear');
 }
 
 /** Statuses that assert the work is closed, and so need the record to exist. */
@@ -238,10 +269,20 @@ export function validateOpsStepInput(input: {
   return { ok: true };
 }
 
+/**
+ * `currentServiceDate` is REQUIRED, not optional.
+ *
+ * It was optional, and both roll-ups that actually render — app/day-plan/page.jsx
+ * and app/api/ops-run/route.js — simply omitted it, so lateness was counted on
+ * any date while the row render passed it correctly. The banner said "N steps
+ * past due" above rows carrying no Late mark. Making it required means the
+ * compiler catches the omission instead of a cook noticing the contradiction
+ * mid-shift.
+ */
 export function rollupOpsSteps(
   steps: OpsStepLike[],
   nowMinutes: number,
-  currentServiceDate?: string,
+  currentServiceDate: string,
 ): OpsRunRollup {
   const by_daypart = Object.fromEntries(
     OPS_DAYPARTS.map((d) => [d, { todo: 0, done: 0, late: 0 }]),

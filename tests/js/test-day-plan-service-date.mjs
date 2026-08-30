@@ -94,11 +94,25 @@ describe('the day-plan surface defaults to the service date', () => {
   }
 
   it('moves the read and write defaults together', () => {
+    // Asserts the two defaults by shape rather than by counting occurrences.
+    // A bare count was a proxy for the pairing and broke the moment a third
+    // legitimate call appeared — the rollup's service-day argument. Naming
+    // both defaults is stricter: a count of 2 would still pass if one default
+    // were deleted and another call added somewhere else in the file.
     const src = fs.readFileSync('app/api/ops-run/route.js', 'utf8');
-    assert.equal(
-      (src.match(/serviceDate\(\)/g) || []).length,
-      2,
-      'both the GET read default and the POST write default must use it',
+    assert.match(
+      src,
+      /const shiftDate = clip\(url\.searchParams\.get\('date'\), 32\) \|\| serviceDate\(\);/,
+      'the GET read default must come from serviceDate()',
+    );
+    assert.match(
+      src,
+      /const shiftDate = clip\(body\.shift_date, 32\) \|\| serviceDate\(\);/,
+      'the POST write default must come from serviceDate()',
+    );
+    assert.ok(
+      (src.match(/serviceDate\(\)/g) || []).length >= 2,
+      'both defaults must be present',
     );
   });
 });

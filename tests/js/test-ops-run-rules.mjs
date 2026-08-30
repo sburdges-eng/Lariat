@@ -21,6 +21,7 @@ const {
   weekdayShortFromISO,
   addDaysISO,
   OPS_DAYPARTS,
+  regulatedBoardFor,
 } = await import('../../lib/opsRun.ts');
 
 describe('parseDueMinutes', () => {
@@ -226,5 +227,86 @@ describe('augustChecklistForDate', () => {
       !makeupDone.some((i) => i.cadence === 'monthly'),
       'makeup stays off when Aug 16 monthly work is finished',
     );
+  });
+});
+
+describe('regulatedBoardFor — the gate must be true and satisfiable', () => {
+  it('scopes a real per-station row to that station', () => {
+    const board = regulatedBoardFor('line-check-grill');
+    assert.equal(board.board, 'station_signoffs');
+    assert.equal(board.station_id, 'grill');
+  });
+
+  it('never invents a station id from the roll-up row', () => {
+    // materializeLineChecks emits a non-station summary row. While it was
+    // keyed `line-check-rollup-<date>` it matched the station prefix, so the
+    // gate looked for a sign-off by station 'rollup-2026-01-01' — an id that
+    // can never exist, since they come from getStations(). Done and Skip both
+    // returned "No station signed off this shift. Sign one off first.",
+    // which was false whenever any station had signed off, and a cook on a
+    // red row just kept tapping.
+    for (const key of ['line-check-rollup-2026-01-01', 'line-checks-open-2026-01-01']) {
+      const board = regulatedBoardFor(key);
+      if (board) {
+        assert.notEqual(board.station_id, 'rollup-2026-01-01');
+        assert.notEqual(board.station_id, '2026-01-01');
+      }
+    }
+  });
+
+  it('gates the roll-up on the whole pass, the way the template step does', () => {
+    const board = regulatedBoardFor('line-checks-open-2026-01-01');
+    assert.equal(board.board, 'station_signoffs');
+    assert.equal(board.station_id, undefined, 'the roll-up stands for the pass, not one station');
+  });
+
+  it('gates a named cleaning task on the cleaning log', () => {
+    // The vague roll-up (close-cleaning-due) demanded a cleaning_log row while
+    // the specific named task an inspector would actually ask about did not:
+    // a cook cleared "Hood — Degrease" with nothing written to the log.
+    for (const key of ['clean-sched-12', 'aug-daily-line-2026-08-29', 'aug-monthly-floors-2026-08-29']) {
+      const board = regulatedBoardFor(key);
+      assert.ok(board, `${key} must be gated`);
+      assert.equal(board.board, 'cleaning_log');
+      assert.equal(board.date_column, 'shift_date');
+      assert.equal(board.station_id, undefined,
+        'CleaningBoard never sends schedule_id, so a scoped gate would never be satisfiable');
+    }
+  });
+
+  it('leaves the gear row to the equipment board, not the cleaning log', () => {
+    // aug-monthly-gear links to /equipment, not /food-safety/cleaning.
+    assert.equal(regulatedBoardFor('aug-monthly-gear-2026-08-29'), null);
+  });
+
+  it('leaves ordinary work ungated', () => {
+    assert.equal(regulatedBoardFor('prep-task-7'), null);
+    assert.equal(regulatedBoardFor('beo-event-3'), null);
+    assert.equal(regulatedBoardFor(''), null);
+    assert.equal(regulatedBoardFor(null), null);
+  });
+});
+
+describe('rollupOpsSteps — lateness belongs to the service day being shown', () => {
+  it('reports nothing late for a day that is not the current service day', () => {
+    // The row render (DayPlanBoard.jsx:245) passes serviceDate() to
+    // isStepLate, so a past day's rows carry no Late mark. Both roll-ups
+    // called rollupOpsSteps(steps, nowMin) with no third argument, so the
+    // banner and the per-daypart counters went red above rows that did not.
+    const steps = [
+      { daypart: 'open', step_key: 'a', title: 'Temps', status: 'todo', due_time: '07:00', shift_date: '2026-07-04' },
+      { daypart: 'side_work', step_key: 'b', title: 'Close', status: 'todo', due_time: '23:00', shift_date: '2026-07-04' },
+    ];
+    const rollup = rollupOpsSteps(steps, 23 * 60 + 59, '2026-08-29');
+    assert.equal(rollup.late, 0, 'a past service day cannot be running late');
+    assert.equal(rollup.by_daypart.open.late, 0);
+    assert.equal(rollup.todo, 2, 'the work is still outstanding, it just is not late');
+  });
+
+  it('still counts late on the day being worked', () => {
+    const steps = [
+      { daypart: 'open', step_key: 'a', title: 'Temps', status: 'todo', due_time: '07:00', shift_date: '2026-08-29' },
+    ];
+    assert.equal(rollupOpsSteps(steps, 10 * 60, '2026-08-29').late, 1);
   });
 });
