@@ -342,7 +342,11 @@ final class KitchenAssistantEngineTests: XCTestCase {
         )
         XCTAssertTrue(res.actionExecuted)
         XCTAssertFalse(res.actionError, "deferral is expected behavior, not an error")
-        XCTAssertTrue(res.answer.contains("db_query isn't available on this device yet"))
+        // The deferral copy coaches the path that DOES run on this Mac
+        // (scale renders the ingredient sheet) and must never point at the
+        // web cockpit — that's a dead pointer on a Next.js-off install.
+        XCTAssertTrue(res.answer.contains("Reports don't run on this Mac yet"))
+        XCTAssertFalse(res.answer.localizedCaseInsensitiveContains("web cockpit"))
     }
 
     // ── undo route half ─────────────────────────────────────────────
