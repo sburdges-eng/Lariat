@@ -101,6 +101,26 @@ public struct KitchenAssistantEngine {
             )
         }
 
+        // Deterministic recipe lookups answer before the LLM — the model has
+        // proven unreliable at reading its own recipe context (2026-08-31
+        // venue failures), while code reads a card perfectly every time.
+        // Allergen questions and anything ambiguous fall through untouched.
+        // Web twin: app/api/kitchen-assistant/route.js.
+        if !isCommand,
+           let direct = AssistantDirectAnswers.tryDirectRecipeAnswer(
+               message: message, recipes: AssistantDataCaches.loadRecipes()) {
+            return AssistantResponse(
+                answer: direct.answer,
+                model: "direct-lookup",
+                locationId: locationId,
+                sources: [AssistantContextSource(type: "recipe_direct", detail: direct.sourceDetail)],
+                latencyMs: 0,
+                actionExecuted: false,
+                actionError: false,
+                undo: nil
+            )
+        }
+
         let started = Date()
         let grounded: AssistantGroundedContext
         do {
