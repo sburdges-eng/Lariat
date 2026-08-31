@@ -8,6 +8,8 @@ import {
   ollamaChat,
 } from '../../../lib/ollama';
 import { locationFromBodyOrRequest } from '../../../lib/location';
+import { tryDirectRecipeAnswer } from '../../../lib/assistantDirectAnswers';
+import { getRecipes } from '../../../lib/data';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
 import { hasPinCookie } from '../../../lib/pin';
@@ -253,6 +255,27 @@ async function kitchenAssistantPostHandler(req) {
   // action. Every state-mutating action remains blocked before LLM when the
   // phrase is clear, and again below as defense-in-depth if the model emits
   // action JSON anyway.
+
+  // Deterministic recipe lookups answer before the LLM — same rationale as
+  // the Q-vs-C classifier (#248): the model has proven unreliable at reading
+  // its own recipe context (2026-08-31 venue failures), while code reads a
+  // card perfectly every time. Allergen questions and anything ambiguous
+  // fall through untouched. Native twin: KitchenAssistantEngine.ask.
+  if (!isCommand) {
+    const direct = tryDirectRecipeAnswer(message, getRecipes());
+    if (direct) {
+      return Response.json({
+        answer: direct.answer,
+        model: 'direct-lookup',
+        location_id: locationId,
+        sources: direct.sources,
+        latencyMs: 0,
+        actionExecuted: false,
+        actionError: false,
+        disclaimer: 'Check tags with a manager. Do not trust AI for allergies.',
+      });
+    }
+  }
 
   const started = Date.now();
   let contextText;
