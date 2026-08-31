@@ -120,4 +120,14 @@ final class AssistantDirectAnswersTests: XCTestCase {
         XCTAssertEqual(AssistantDirectAnswers.normalizeText("hatch chile"), "hatch chili")
         XCTAssertEqual(AssistantDirectAnswers.normalizeText("Jalapeño"), "jalapeno")
     }
+
+    func testRetrievalPhrasingFallsThrough() {
+        XCTAssertNil(answer("Find that wedding cake recipe with the cherry filling."))
+        XCTAssertNil(answer("search for the birria recipe notes"))
+        XCTAssertNil(answer("look up green chilli prep from last week"))
+    }
+
+    func testCardIntentWithHeavyExtraContentFallsThrough() {
+        XCTAssertNil(answer("birria recipe changes from the meeting yesterday about brisket"))
+    }
 }

@@ -44,6 +44,12 @@ const QTY_INTENT_RE = /\bhow (much|many)\b|\bwhat(?: is|'s)? the (amount|quantit
 const CARD_INTENT_RE =
   /\brecipes?\b|\bcard\b|\bingredients?\b|what'?s in\b|whats in\b|\bhow (?:do|to) (?:i |you )?(?:make|prep|build)\b|\bshow\b/i;
 
+/**
+ * Explicit retrieval phrasing ("find that…", "search for…") wants the
+ * semantic-search path, not a card dump — even when a recipe name appears.
+ */
+const RETRIEVAL_INTENT_RE = /\b(find|search|look (?:up|for))\b/i;
+
 const BOOK_RE =
   /recipe book|reccipe book|recipe list|list of recipes|what recipes|which recipes|all recipes|all the recipes/i;
 
@@ -223,6 +229,8 @@ export function tryDirectRecipeAnswer(message: unknown, recipes: Recipe[]): Dire
     };
   }
 
+  if (RETRIEVAL_INTENT_RE.test(m)) return null;
+
   const match = findRecipe(m, recipes);
   if (!match) return null;
   const { recipe, matchedPhrase } = match;
@@ -250,7 +258,10 @@ export function tryDirectRecipeAnswer(message: unknown, recipes: Recipe[]): Dire
     };
   }
 
-  if (CARD_INTENT_RE.test(m) || leftovers.length === 0) {
+  // A card renders only when the question is essentially ABOUT the recipe —
+  // at most one leftover token beyond the name, scaffolding, and units. More
+  // than that means unmodeled intent; the LLM takes it.
+  if (leftovers.length === 0 || (CARD_INTENT_RE.test(m) && leftovers.length <= 1)) {
     return {
       answer: renderCard(recipe),
       sources: [{ type: 'recipe_direct', detail: `recipe card: ${recipe.slug || recipe.name}` }],

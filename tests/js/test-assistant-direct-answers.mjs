@@ -133,3 +133,19 @@ test('normalizeText folds kitchen spellings', () => {
   assert.equal(normalizeText('hatch chile'), 'hatch chili');
   assert.equal(normalizeText('Jalapeño'), 'jalapeno');
 });
+
+test('retrieval phrasing falls through to semantic search even with a recipe name', () => {
+  assert.equal(
+    tryDirectRecipeAnswer('Find that wedding cake recipe with the cherry filling.', RECIPES),
+    null,
+  );
+  assert.equal(tryDirectRecipeAnswer('search for the birria recipe notes', RECIPES), null);
+  assert.equal(tryDirectRecipeAnswer('look up green chilli prep from last week', RECIPES), null);
+});
+
+test('card intent with heavy extra content falls through', () => {
+  assert.equal(
+    tryDirectRecipeAnswer('birria recipe changes from the meeting yesterday about brisket', RECIPES),
+    null,
+  );
+});

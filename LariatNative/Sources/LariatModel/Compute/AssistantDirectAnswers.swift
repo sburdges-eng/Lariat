@@ -32,6 +32,11 @@ public enum AssistantDirectAnswers {
         pattern: "\\brecipes?\\b|\\bcard\\b|\\bingredients?\\b|what'?s in\\b|whats in\\b|\\bhow (?:do|to) (?:i |you )?(?:make|prep|build)\\b|\\bshow\\b",
         options: [.caseInsensitive])
 
+    /// Explicit retrieval phrasing wants semantic search, not a card dump.
+    private static let retrievalIntent = try! NSRegularExpression(
+        pattern: "\\b(find|search|look (?:up|for))\\b",
+        options: [.caseInsensitive])
+
     private static let bookIntent = try! NSRegularExpression(
         pattern: "recipe book|reccipe book|recipe list|list of recipes|what recipes|which recipes|all recipes|all the recipes",
         options: [.caseInsensitive])
@@ -209,6 +214,8 @@ public enum AssistantDirectAnswers {
                 sourceDetail: "recipe book (\(recipes.count) recipes)")
         }
 
+        if matches(retrievalIntent, m) { return nil }
+
         guard let match = findRecipe(question: m, recipes: recipes) else { return nil }
         let recipe = match.recipe
         let leftovers = leftoverTokens(question: m, matchedPhrase: match.matchedPhrase)
@@ -232,7 +239,10 @@ public enum AssistantDirectAnswers {
                 sourceDetail: "ingredient lookup (absent): \(recipe.slug ?? name)")
         }
 
-        if matches(cardIntent, m) || leftovers.isEmpty {
+        // A card renders only when the question is essentially ABOUT the
+        // recipe — at most one leftover token beyond the name, scaffolding,
+        // and units. More than that means unmodeled intent; the LLM takes it.
+        if leftovers.isEmpty || (matches(cardIntent, m) && leftovers.count <= 1) {
             return DirectAnswer(
                 answer: renderCard(recipe),
                 sourceDetail: "recipe card: \(recipe.slug ?? recipe.name ?? "")")
