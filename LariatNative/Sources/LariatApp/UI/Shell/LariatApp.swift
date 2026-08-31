@@ -113,6 +113,19 @@ struct LariatApp: App {
 
   init() {
     let path = resolveDatabasePath()
+    // H8 first-run: a packaged launch with no database seeds one from the
+    // bundled frozen schema (Application Support default only — see
+    // FirstRunBootstrap's scope guard). Failure is loud on stderr and falls
+    // through to the degrade tile below rather than crashing the launch.
+    do {
+      let outcome = try FirstRunBootstrap.ensureDatabase(
+        dataDir: (path as NSString).deletingLastPathComponent)
+      if outcome == .seeded {
+        FileHandle.standardError.write(Data("lariat: first run — created a fresh database at \(path)\n".utf8))
+      }
+    } catch {
+      FileHandle.standardError.write(Data("lariat: first-run database seed FAILED: \(error)\n".utf8))
+    }
     sharedDatabase = try? LariatDatabase(path: path)
     sharedWriteDatabase = try? LariatWriteDatabase(path: path)
     do {

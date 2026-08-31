@@ -162,6 +162,13 @@ public func resolveDataDirectory(
         if fileExists(supportData) || fileExists(supportDb) {
             return supportData
         }
+        // H8 first-run: no dev repo above cwd and no <cwd>/data either — a
+        // Finder-launched .app lands here with cwd "/". Prefer the packaged
+        // Application Support default (which FirstRunBootstrap can create)
+        // over an unwritable "/data". A cwd that has its own data/ still wins.
+        if !fileExists((cwd as NSString).appendingPathComponent("data")) {
+            return supportData
+        }
     }
     return (cwd as NSString).appendingPathComponent("data")
 }
