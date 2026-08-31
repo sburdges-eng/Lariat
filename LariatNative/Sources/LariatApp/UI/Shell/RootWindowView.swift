@@ -123,10 +123,10 @@ struct RootWindowView: View {
             ZStack {
                 LaRiOS.Colors.background.ignoresSafeArea()
                 TileDegrade(
-                    title: "Database unavailable",
-                    message: "Could not open lariat.db at \(resolveDatabasePath()). " +
-                        "Check that the web app has created the database and that " +
-                        "LARIAT_DATA_DIR is set if needed.",
+                    title: "Can't open the board",
+                    message: "Lariat can't reach its data right now. " +
+                        "Close the app and open it again. Still stuck? Get a manager.\n" +
+                        "Details for the office: \(resolveDatabasePath())",
                     systemImage: "externaldrive.badge.xmark"
                 )
                 .foregroundStyle(LaRiOS.Colors.text)
@@ -471,9 +471,8 @@ struct RootWindowView: View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(LaRiOS.Colors.metal)
-            Text("Station catalog unavailable — \(message) " +
-                "Regenerate the web app's data/cache files; 86 and station boards " +
-                "are degraded until then.")
+            Text("Station list is missing — 86 and station boards are limited. " +
+                "Get a manager. Details for the office: \(message)")
                 .font(LaRiOS.Typography.small)
                 .foregroundStyle(LaRiOS.Colors.text)
             Spacer(minLength: 0)

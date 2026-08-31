@@ -92,7 +92,7 @@ final class SickWorkerViewModel {
         do {
             let gateOn = try writeDB.pool.read { db in try PinVerifier().gateConfigured(db: db) }
             guard gateOn else {
-                actionError = "PIN not set up — add a manager PIN in web Settings"
+                actionError = "No manager PIN is set. Add one on the Manager → PINs board first."
                 return
             }
             showPinSheet = true

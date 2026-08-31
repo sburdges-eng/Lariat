@@ -58,7 +58,9 @@ SIGN_IDENTITY="-"
 ICON_SRC="$NATIVE_DIR/Packaging/AppIcon.png"
 [[ -f "$ICON_SRC" ]] || ICON_SRC="$REPO_ROOT/public/logo.png"
 VERSION="0.1.0"
-BUILD_NUM="1"
+# Monotonic default so two builds are distinguishable in Get Info / About;
+# --build still overrides. Falls back to 1 outside a git checkout.
+BUILD_NUM="$(git -C "$REPO_ROOT" rev-list --count HEAD 2>/dev/null || echo 1)"
 MAKE_PKG=0
 OUT_DIR="$NATIVE_DIR/build"
 DATA_DIR=""
