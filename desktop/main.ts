@@ -1,10 +1,9 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
-import os from 'node:os';
 import { Supervisor } from './supervisor';
 import { readSettings, saveSettings, settingsToChildEnv, type Settings } from './settings';
-import { settingsPath, dataDirDefault, logDir, crashLogPath } from './paths';
+import { settingsPath, dataDirDefault, logDir, crashLogPath, detectExistingDbDir } from './paths';
 
 let supervisor: Supervisor | null = null;
 let mainWindow: BrowserWindow | null = null;
@@ -163,15 +162,11 @@ ipcMain.handle('wizard:cancel', async () => {
 
 /**
  * Spec §6.6: detect a pre-existing dev-tree DB so the wizard can offer
- * "use in place" without a full path picker. Probes the canonical dev
- * location only — any other location, the user picks via "Choose…".
- * Returns the absolute parent dir (suitable for LARIAT_DATA_DIR) or null.
+ * "use in place" without a full path picker. Candidate list + SQLite
+ * magic-header validation live in paths.ts (detectExistingDbDir) so a
+ * stub or non-SQLite file is never offered as "your existing data".
  */
-ipcMain.handle('paths:detectExistingDb', () => {
-  const candidate = path.join(os.homedir(), 'Dev', 'Lariat', 'data', 'lariat.db');
-  if (fs.existsSync(candidate)) return path.dirname(candidate);
-  return null;
-});
+ipcMain.handle('paths:detectExistingDb', () => detectExistingDbDir());
 
 function needsManagerPinSetup(settings: Settings | null): boolean {
   return !process.env.LARIAT_PIN && !settings?.managerPin;

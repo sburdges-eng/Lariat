@@ -26,3 +26,60 @@ test('dataDirDefault lives under ~/Library/Application Support/Lariat/data', () 
     path.join(os.homedir(), 'Library', 'Application Support', 'Lariat', 'data'),
   );
 });
+
+// --- detectExistingDbDir / isSqliteDatabase (restored 2026-07-09 hardening) ---
+
+import fs from 'node:fs';
+import { isSqliteDatabase, detectExistingDbDir } from '../paths.ts';
+
+function tmpHome(): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-paths-'));
+}
+
+const SQLITE_HEADER = Buffer.from('SQLite format 3\0', 'utf8');
+
+test('detectExistingDbDir returns null when nothing exists', () => {
+  assert.equal(detectExistingDbDir(tmpHome()), null);
+});
+
+test('detectExistingDbDir rejects a non-SQLite file', () => {
+  const home = tmpHome();
+  const dbPath = path.join(home, 'Dev', 'Lariat', 'data', 'lariat.db');
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  fs.writeFileSync(dbPath, 'this is not a database, it is a text file');
+  assert.equal(detectExistingDbDir(home), null);
+});
+
+test('detectExistingDbDir rejects an empty stub', () => {
+  const home = tmpHome();
+  const dbPath = path.join(home, 'Dev', 'Lariat', 'data', 'lariat.db');
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  fs.writeFileSync(dbPath, '');
+  assert.equal(detectExistingDbDir(home), null);
+});
+
+test('detectExistingDbDir accepts a real SQLite file and returns its dir', () => {
+  const home = tmpHome();
+  const dbPath = path.join(home, 'Dev', 'hospitality', 'Lariat', 'data', 'lariat.db');
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  fs.writeFileSync(dbPath, Buffer.concat([SQLITE_HEADER, Buffer.alloc(64)]));
+  assert.equal(detectExistingDbDir(home), path.dirname(dbPath));
+});
+
+test('detectExistingDbDir prefers lariat_dev over Dev checkouts', () => {
+  const home = tmpHome();
+  for (const base of [['lariat_dev', 'Lariat'], ['Dev', 'Lariat']]) {
+    const dbPath = path.join(home, ...base, 'data', 'lariat.db');
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+    fs.writeFileSync(dbPath, Buffer.concat([SQLITE_HEADER, Buffer.alloc(64)]));
+  }
+  assert.equal(
+    detectExistingDbDir(home),
+    path.join(home, 'lariat_dev', 'Lariat', 'data'),
+  );
+});
+
+test('isSqliteDatabase is false for a directory', () => {
+  const home = tmpHome();
+  assert.equal(isSqliteDatabase(home), false);
+});
