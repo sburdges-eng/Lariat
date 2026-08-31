@@ -2,20 +2,36 @@ import SwiftUI
 
 /// Manager-tier feature modules.
 extension FeatureModule {
+    // The three rollup boards are PIN-gated as of 2026-08-31 (web gates
+    // /api/analytics/**; native rendered them with zero PINs — lineage-audit
+    // finding, gated on Sean's decision). One unlock opens all three: the
+    // gate reads the shared PinSessionStore.
     static let managerCommand = FeatureModule(id: "manager.command") { ctx in
-        AnyView(CommandView(
-            database: ctx.database,
-            writeDatabase: ctx.writeDatabase,
-            navigate: ctx.navigate
-        ))
+        AnyView(ManagerGatedBoard(
+            database: ctx.database, writeDatabase: ctx.writeDatabase, title: "Command"
+        ) {
+            CommandView(
+                database: ctx.database,
+                writeDatabase: ctx.writeDatabase,
+                navigate: ctx.navigate
+            )
+        })
     }
 
     static let managerAnalytics = FeatureModule(id: "manager.analytics") { ctx in
-        AnyView(AnalyticsView(database: ctx.database))
+        AnyView(ManagerGatedBoard(
+            database: ctx.database, writeDatabase: ctx.writeDatabase, title: "Analytics"
+        ) {
+            AnalyticsView(database: ctx.database)
+        })
     }
 
     static let managerManagement = FeatureModule(id: "manager.management") { ctx in
-        AnyView(ManagementRollupView(database: ctx.database, writeDatabase: ctx.writeDatabase))
+        AnyView(ManagerGatedBoard(
+            database: ctx.database, writeDatabase: ctx.writeDatabase, title: "Management"
+        ) {
+            ManagementRollupView(database: ctx.database, writeDatabase: ctx.writeDatabase)
+        })
     }
 
     /// A5 — read-only JSONL audit-log viewer (`/management/audit-log`).
