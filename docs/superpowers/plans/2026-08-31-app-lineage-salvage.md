@@ -49,7 +49,7 @@ confusion risk (duplicate `com.lariat.native` bundle ids) is gone.
 
 | Item | Blocked on | Notes |
 |------|-----------|-------|
-| **H8 Developer ID + notarization** | Sean's Apple identity | Ad-hoc signing quarantines on any other Mac; also stabilizes the PHI Keychain ACL. The existing H8 front. |
+| **H8 Developer ID + notarization** | Sean's Apple identity | Ad-hoc signing quarantines on any other Mac; also stabilizes the PHI Keychain ACL. The existing H8 front. **Decided 2026-08-31: distribution = stapled `.app` in a `.dmg`** (not `.pkg`). |
 | **Auto-update channel (Sparkle)** | H8 signing first | Unsigned updates are worse than none. |
 | **Crash breadcrumb + file logging** | design pass | `~/Library/Logs/Lariat` daily log + unclean-shutdown marker + "closed unexpectedly — View Log" (cockpit convention). Care: don't swallow the PHI sweep's loud stderr. |
 | **Launch-at-login / kiosk resilience** | decide deployment shape | SMAppService; venue terminal should survive a reboot unattended. |
@@ -57,6 +57,17 @@ confusion risk (duplicate `com.lariat.native` bundle ids) is gone.
 | **LAN-hub / iPad architecture** | Sean's call | Native serves no ports by design; iPads need the web hub or a native sync story (ties to H7b + edge-blockers doc). |
 | **Boot health gate** | small | "Not set up yet" screen off `RecipeManifestLoader.isSeeded` instead of empty boards. |
 | **P7 HR paperwork suite** | design sign-off | `2026-08-31-hr-paperwork-suite.md`. |
+
+## Decisions made 2026-08-31 (Sean)
+
+- **Base data for this Mac** (which is the venue/testing Mac — no separate
+  venue Mac exists): the recovered Aug-5 real DB, migrated v5→v6 via one
+  `getDb()` open under node 24, promoted into Application Support. The
+  hand-seeded hybrid is backed up in the salvage archive.
+- **The three ungated manager rollup boards** (Command, Analytics,
+  Management): **gate them natively** — `ManagerGatedBoard` wrapping
+  `ShowsGateModel`, PR branch `fix/native-manager-rollup-gates`.
+- **H8 distribution format**: stapled `.app` in a `.dmg`.
 
 ## Standing cautions
 
