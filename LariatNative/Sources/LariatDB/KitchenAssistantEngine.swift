@@ -172,14 +172,19 @@ public struct KitchenAssistantEngine {
             // DEFERRED (Phase B plan): lib/devCodeSearch.ts is dev-only and not
             // ported. Mirror the web's disabled-code posture: handled, NOT an
             // error (web treats 'disabled' as expected).
-            actionMsg = "code_search isn't available on this device yet — use the web cockpit."
+            actionMsg = "Code search doesn't run on this Mac."
             actionExecuted = true
             finalAnswer = stripped
         } else if let payload = extraction.payload, payload.action == "db_query" {
             // DEFERRED (Phase B plan): lib/dbQueryTool.ts catalog not ported;
             // the prompt omits the catalog so the model rarely emits this.
             // Soft response, not an error (read-only surface).
-            actionMsg = "db_query isn't available on this device yet — ask on the web cockpit."
+            // "ask on the web cockpit" was a dead pointer on a Next.js-off
+            // install (Front 0 smoke find). Coach toward the path that DOES
+            // run here: scale actions render the full ingredient sheet with
+            // amounts, server-computed.
+            actionMsg = "Reports don't run on this Mac yet. For amounts in a recipe, say "
+                + "\"scale the recipe by 1\" — the math runs right here."
             actionExecuted = true
             finalAnswer = stripped
         } else if extraction.payload != nil, !isCommand {
