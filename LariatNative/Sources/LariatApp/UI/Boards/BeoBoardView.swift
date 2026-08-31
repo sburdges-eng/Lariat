@@ -266,6 +266,9 @@ struct BeoBoardView: View {
                     BeoEventHeaderEditor(event: event) { patch in
                         vm.requestUpdateEvent(patch)
                     }
+                    if !vm.lineItems.isEmpty {
+                        cascadeSummaryStrip
+                    }
                     prepSheet(event)
                 }
                 .padding(20)
@@ -274,6 +277,71 @@ struct BeoBoardView: View {
             rail
                 .frame(width: 308)
         }
+    }
+
+    // ── Cascade summary strip (Sheet tab) ────────────────────────────────
+    // The buy/prep outputs were invisible until their tabs were clicked —
+    // the G0 smoke walked right past them. This strip shows what the sheet
+    // produces and jumps straight there. Operator copy avoids "cascade":
+    // that's engine vocabulary, not line vocabulary.
+    private var cascadeSummaryStrip: some View {
+        Group {
+            if vm.cascadeLoading {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Working out what to buy and prep…")
+                        .font(.callout)
+                        .foregroundStyle(LariatBrand.inkSoft)
+                }
+            } else if let cascade = vm.cascade {
+                if let engineError = cascade.engineError {
+                    Label(engineError, systemImage: "exclamationmark.triangle")
+                        .font(.callout)
+                        .foregroundStyle(LariatTheme.bad)
+                } else {
+                    HStack(spacing: 10) {
+                        cascadeJumpChip(
+                            count: cascade.orderGuide.count, noun: "to buy",
+                            systemImage: "cart", tab: .orderGuide)
+                        cascadeJumpChip(
+                            count: cascade.prepDemands.count, noun: "prep tasks",
+                            systemImage: "list.clipboard", tab: .prep)
+                        if !cascade.unmapped.isEmpty {
+                            Text("\(cascade.unmapped.count) skipped — not kitchen items")
+                                .font(.caption)
+                                .foregroundStyle(LariatBrand.inkSoft)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+            } else {
+                Button {
+                    vm.runCascade()
+                } label: {
+                    Label("Build the buy + prep lists", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func cascadeJumpChip(
+        count: Int, noun: String, systemImage: String, tab: BeoBoardViewModel.Tab
+    ) -> some View {
+        Button { vm.tab = tab } label: {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                Text("\(count) \(noun)")
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+                Image(systemName: "chevron.right").font(.caption2)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.bordered)
+        .accessibilityLabel("\(count) \(noun). Open the \(tab.rawValue) tab.")
     }
 
     private func prepSheet(_ event: BeoEventRow) -> some View {
@@ -794,7 +862,7 @@ private struct BeoOrderGuidePanel: View {
                         engineError: cascade.engineError
                     )
                     if cascade.orderGuide.isEmpty, cascade.unmapped.isEmpty, cascade.warnings.isEmpty, cascade.engineError == nil {
-                        EmptyState(message: "No order guide items for this event yet.", systemImage: "cart")
+                        EmptyState(message: "Nothing to buy for this party yet. Add items on the Sheet tab.", systemImage: "cart")
                     } else {
                         Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
                             GridRow {
@@ -816,7 +884,7 @@ private struct BeoOrderGuidePanel: View {
                         .font(.callout)
                     }
                 } else {
-                    EmptyState(message: "Couldn't load order guide — reopen the tab to retry.", systemImage: "cart.badge.questionmark")
+                    EmptyState(message: "Couldn't build the buy list. Try again from the Sheet tab.", systemImage: "cart.badge.questionmark")
                 }
             }
             .padding()
@@ -841,7 +909,7 @@ private struct BeoPrepDemandsPanel: View {
                         engineError: cascade.engineError
                     )
                     if cascade.prepDemands.isEmpty, cascade.unmapped.isEmpty, cascade.warnings.isEmpty, cascade.engineError == nil {
-                        EmptyState(message: "No prep demands for this event yet.", systemImage: "list.clipboard")
+                        EmptyState(message: "No prep tasks for this party yet. Add items on the Sheet tab.", systemImage: "list.clipboard")
                     } else {
                         ForEach(Array(cascade.prepDemands.enumerated()), id: \.offset) { _, row in
                             HStack {
@@ -856,7 +924,7 @@ private struct BeoPrepDemandsPanel: View {
                         }
                     }
                 } else {
-                    EmptyState(message: "Couldn't load prep demands — reopen the tab to retry.", systemImage: "list.clipboard")
+                    EmptyState(message: "Couldn't build the prep list. Try again from the Sheet tab.", systemImage: "list.clipboard")
                 }
             }
             .padding()

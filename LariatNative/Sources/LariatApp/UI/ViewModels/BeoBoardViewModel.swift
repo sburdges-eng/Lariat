@@ -240,6 +240,10 @@ final class BeoBoardViewModel {
         Task {
             await loadCourses()
             await loadPastPrep()
+            // Eager: the Sheet strip shows "N to buy · M prep tasks" the
+            // moment a party is picked — the buy/prep tabs were invisible
+            // until clicked, and the G0 smoke walked right past them.
+            await loadCascade()
         }
     }
 
@@ -265,18 +269,26 @@ final class BeoBoardViewModel {
 
     func loadTabData() async {
         switch tab {
-        case .sheet, .recipes, .tasks:
+        case .recipes, .tasks:
             // Recipe tree and the prep-task checklist are both built
             // synchronously from the cached snapshot — no cascade/engine
             // call needed.
             break
-        case .orderGuide, .prep:
+        case .sheet, .orderGuide, .prep:
+            // .sheet loads it too, for the summary strip. loadCascade is
+            // guarded per event, so this is a no-op after the first run.
             await loadCascade()
         case .fire:
             await loadFire()
         case .allergens:
             await loadAllergenSummary()
         }
+    }
+
+    /// Manual retry from the Sheet strip when the eager run failed
+    /// (`loadCascade` left `cascade` nil on a repository throw).
+    func runCascade() {
+        Task { await loadCascade() }
     }
 
     private func loadCascade() async {
