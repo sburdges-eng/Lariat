@@ -27,11 +27,13 @@ const QUESTION_LEAD_RE =
  * `eighty[\s-]?six` covers the spelled-out form ("eighty-six the salmon"),
  * which is rare on the line but does appear in management surfaces.
  */
+// `double` is guarded against "double check"/"double-check" — that's speech,
+// not a scale command, and the ambiguous-goes-to-question bias applies.
 const IMPERATIVE_LEAD_RE =
-  /^(86|eighty[\s-]?six|log|mark|add|give|set|update|record|note|reject|receive|reorder|order|adjust|scale|prep|generate)\b/i;
+  /^(86|eighty[\s-]?six|log|mark|add|give|set|update|record|note|reject|receive|reorder|order|adjust|scale|double(?![\s-]*check\b)|halve|triple|quadruple|prep|generate)\b/i;
 
 const PIN_REQUIRED_LEAD_RE =
-  /^(86|eighty[\s-]?six|log|mark|add|give|set|record|note|reject|receive|reorder|order|adjust|scale|prep)\b/i;
+  /^(86|eighty[\s-]?six|log|mark|add|give|set|record|note|reject|receive|reorder|order|adjust|scale|double(?![\s-]*check\b)|halve|triple|quadruple|prep)\b/i;
 
 const PIN_REQUIRED_UPDATE_RE =
   /^update\s+(inventory|order(?:\s+guide)?|par|prep|line|station|count|counts|quantity|qty)\b/i;

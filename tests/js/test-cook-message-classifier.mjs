@@ -92,3 +92,28 @@ test('PIN-required command classifier: read-like imperatives can still reach db_
   assert.equal(requiresPinBeforeLlm('show recent temp log'), false);
   assert.equal(requiresPinBeforeLlm('86 the salmon?'), false);
 });
+
+test('scale-verb synonyms route as commands (the "double cornbread" gap)', () => {
+  assert.equal(isImperativeCommand('double cornbread recipe'), true);
+  assert.equal(isImperativeCommand('double the aioli'), true);
+  assert.equal(isImperativeCommand('halve the fish brine'), true);
+  assert.equal(isImperativeCommand('triple chicken stock'), true);
+  assert.equal(isImperativeCommand('quadruple the rub'), true);
+});
+
+test('"double check" stays a question — the ambiguous-goes-to-question bias holds', () => {
+  assert.equal(isImperativeCommand('double check the walk-in'), false);
+  assert.equal(isImperativeCommand('double-check the fryer temp'), false);
+  assert.equal(isImperativeCommand('double  check line 2'), false);
+});
+
+test('scale-verb synonyms carry the same PIN routing as "scale"', () => {
+  assert.equal(
+    requiresPinBeforeLlm('double cornbread recipe'),
+    requiresPinBeforeLlm('scale cornbread by 2'),
+  );
+  assert.equal(
+    requiresPinBeforeLlm('halve the fish brine'),
+    requiresPinBeforeLlm('scale the fish brine by 0.5'),
+  );
+});
