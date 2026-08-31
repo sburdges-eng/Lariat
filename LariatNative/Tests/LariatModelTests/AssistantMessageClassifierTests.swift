@@ -87,4 +87,23 @@ final class AssistantMessageClassifierTests: XCTestCase {
         XCTAssertFalse(pin("show recent temp log"))
         XCTAssertFalse(pin("86 the salmon?"))
     }
+
+    func testScaleVerbSynonymsRouteAsCommands() {
+        XCTAssertTrue(isCmd("double cornbread recipe"))
+        XCTAssertTrue(isCmd("double the aioli"))
+        XCTAssertTrue(isCmd("halve the fish brine"))
+        XCTAssertTrue(isCmd("triple chicken stock"))
+        XCTAssertTrue(isCmd("quadruple the rub"))
+    }
+
+    func testDoubleCheckStaysAQuestion() {
+        XCTAssertFalse(isCmd("double check the walk-in"))
+        XCTAssertFalse(isCmd("double-check the fryer temp"))
+        XCTAssertFalse(isCmd("double  check line 2"))
+    }
+
+    func testScaleVerbSynonymsMatchScalePinRouting() {
+        XCTAssertEqual(pin("double cornbread recipe"), pin("scale cornbread by 2"))
+        XCTAssertEqual(pin("halve the fish brine"), pin("scale the fish brine by 0.5"))
+    }
 }

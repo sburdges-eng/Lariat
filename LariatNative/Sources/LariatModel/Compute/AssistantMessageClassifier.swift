@@ -12,16 +12,17 @@ public enum AssistantMessageClassifier {
         options: [.caseInsensitive]
     )
 
-    /// `IMPERATIVE_LEAD_RE`
+    /// `IMPERATIVE_LEAD_RE` — `double` guarded against "double check"/
+    /// "double-check" (speech, not a scale command; ambiguous → question).
     private static let imperativeLead = try! NSRegularExpression(
-        pattern: "^(86|eighty[\\s-]?six|log|mark|add|give|set|update|record|note|reject|receive|reorder|order|adjust|scale|prep|generate)\\b",
+        pattern: "^(86|eighty[\\s-]?six|log|mark|add|give|set|update|record|note|reject|receive|reorder|order|adjust|scale|double(?![\\s-]*check\\b)|halve|triple|quadruple|prep|generate)\\b",
         options: [.caseInsensitive]
     )
 
     /// `PIN_REQUIRED_LEAD_RE` — note: no `update` / `generate` (those have their
     /// own qualified patterns so read-like imperatives still reach the LLM).
     private static let pinRequiredLead = try! NSRegularExpression(
-        pattern: "^(86|eighty[\\s-]?six|log|mark|add|give|set|record|note|reject|receive|reorder|order|adjust|scale|prep)\\b",
+        pattern: "^(86|eighty[\\s-]?six|log|mark|add|give|set|record|note|reject|receive|reorder|order|adjust|scale|double(?![\\s-]*check\\b)|halve|triple|quadruple|prep)\\b",
         options: [.caseInsensitive]
     )
 
