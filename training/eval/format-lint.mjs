@@ -48,6 +48,57 @@ const hasThink = (t) => /<\/?think>/i.test(t);
 // Quantity in prose: a number immediately followed by a unit token.
 const QTY_RE = /\b\d+(\.\d+)?\s*(g|kg|lb|lbs|oz|qt|quarts?|cups?|tbsp|tsp|gal|gallons?|ea|each|cases?|ml|l)\b/i;
 
+// MIRROR of isDegenerateAnswer in lib/extractAction.ts. Kept as a copy, not an
+// import, because this module must stay dependency-free: it is run by plain
+// `node` (npm run test:format-lint, and training/gcp/evaluate-candidates.mjs on
+// a GCP box), so it cannot pull in a TypeScript module.
+// tests/js/test-format-lint-degeneracy-parity.mjs fails if the two drift.
+//
+// Why the eval needs it at all: on 2026-08-31 KA v3 mimicked the CONTEXT's XML
+// and looped, fabricating ingredients. This linter is the HARD pre-gate for a
+// model flip, and it would have passed that candidate — nothing here looked at
+// repetition or markup. A looping candidate is the most likely way the incident
+// recurs at scale, so it disqualifies a candidate BEFORE any paid grading.
+const MARKUP_TAG_RE = /<\/?[a-z][a-z0-9]*(?:[-:_][a-z0-9]+)*(?:\s[^<>]{0,80})?\/?>/gi;
+const MARKUP_TAG_MIN = 5;
+const REPEAT_LINE_MIN_LEN = 8;
+const REPEAT_RUN_MIN = 4;
+const REPEAT_DOMINANCE_MIN = 0.5;
+
+function isTableRow(line) {
+  return line.length > 1 && line.startsWith('|') && line.endsWith('|');
+}
+
+export function isDegenerateAnswer(text) {
+  if (!text) return false;
+
+  const tagCount = (text.match(MARKUP_TAG_RE) || []).length;
+  if (tagCount >= MARKUP_TAG_MIN) return true;
+
+  const lines = text.split(/\r\n|\r|\n/).map((raw) => raw.trim());
+
+  let prev = null;
+  let run = 0;
+  const counts = new Map();
+  let nonEmpty = 0;
+  for (const line of lines) {
+    if (line.length > 0) nonEmpty += 1;
+    if (line.length < REPEAT_LINE_MIN_LEN || isTableRow(line)) {
+      prev = null;
+      run = 0;
+      continue;
+    }
+    run = line === prev ? run + 1 : 1;
+    prev = line;
+    if (run >= REPEAT_RUN_MIN) return true;
+    counts.set(line, (counts.get(line) || 0) + 1);
+  }
+
+  let repeated = 0;
+  for (const n of counts.values()) if (n >= REPEAT_RUN_MIN) repeated += n;
+  return nonEmpty > 0 && repeated / nonEmpty >= REPEAT_DOMINANCE_MIN;
+}
+
 /**
  * Lint a COMMAND-path response.
  * opts.validQueryNames?: string[] — if given, a db_query action's `query` must be in it.
@@ -56,6 +107,7 @@ const QTY_RE = /\b\d+(\.\d+)?\s*(g|kg|lb|lbs|oz|qt|quarts?|cups?|tbsp|tsp|gal|ga
 export function lintCommandResponse(text, opts = {}) {
   const violations = [];
   if (hasThink(text)) violations.push('contains a <think> block (thinking leaked into output)');
+  if (isDegenerateAnswer(text)) violations.push('degenerate output (markup mimicry or a repetition loop)');
 
   const objs = scanObjects(text);
   const actionObjs = objs.filter((o) => typeof o.value.action === 'string');
@@ -92,6 +144,7 @@ export function lintCommandResponse(text, opts = {}) {
 export function lintQuestionResponse(text, opts = {}) {
   const violations = [];
   if (hasThink(text)) violations.push('contains a <think> block (thinking leaked into output)');
+  if (isDegenerateAnswer(text)) violations.push('degenerate output (markup mimicry or a repetition loop)');
 
   const objs = scanObjects(text);
   for (const o of objs) {
