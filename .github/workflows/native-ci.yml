@@ -112,6 +112,12 @@ jobs:
           python3 scripts/dev/export_beo_fixtures.py --check
           python3 scripts/dev/export_bom_expand_fixtures.py --check
 
-      - name: swift test (LariatModel + LariatDB + LariatApp)
+      # LariatApp is an executableTarget with NO test target — Package.swift
+      # declares only LariatModelTests and LariatDBTests, and no test imports
+      # LariatApp. The old name claimed app-layer coverage that has never run;
+      # a reader of a green badge would reasonably believe the 48 ViewModels
+      # were gated. GateRuleDriftTests source-scans LariatApp, which is the
+      # only reach any test has into it.
+      - name: swift test (LariatModel + LariatDB)
         run: swift test
         working-directory: LariatNative
