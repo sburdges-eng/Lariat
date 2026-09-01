@@ -130,4 +130,71 @@ final class GateRuleDriftTests: XCTestCase {
             "the morning read gate must use the shared rule, not its own copy"
         )
     }
+
+    // #654 put the three manager rollup boards behind a PIN, and nothing has
+    // held them there since: `ManagerGatedBoard` appears in the whole repo only
+    // at its definition and its three call sites. LariatApp is an
+    // executableTarget with no test target, so a unit test cannot reach the
+    // wrapper at all — a source scan is the only mechanism that can see it, and
+    // this file is where that mechanism already lives.
+    //
+    // Without this, a commit that deleted the wrapper — plausibly a refactor
+    // "simplifying" the AnyView(ManagerGatedBoard(...) { ... }) nesting back to
+    // a plain AnyView(CommandView(...)) — would go green. FeatureRegistryTests
+    // names all three ids but asserts over FeatureCatalog descriptors in
+    // LariatModel; unwrapping leaves those byte-identical.
+    func testManagerRollupBoardsStayPinGated() throws {
+        let sources = try swiftSources()
+        guard let modules = sources.first(where: { $0.path == "ManagerFeatures.swift" })?.text else {
+            return XCTFail("ManagerFeatures.swift not found — did the manager modules move?")
+        }
+        let body = normalized(modules)
+
+        // Slice per module rather than scanning the whole file: a bare
+        // `contains("ManagerGatedBoard(")` stays green when only ONE of the
+        // three is unwrapped, which is the likelier accident.
+        for (id, board) in [
+            ("manager.command", "CommandView"),
+            ("manager.analytics", "AnalyticsView"),
+            ("manager.management", "ManagementRollupView"),
+        ] {
+            guard let start = body.range(of: "FeatureModule(id: \"\(id)\")") else {
+                XCTFail("\(id) module declaration not found — did the id change?")
+                continue
+            }
+            let rest = body[start.upperBound...]
+            let end = rest.range(of: "static let")?.lowerBound ?? rest.endIndex
+            let slice = String(rest[..<end])
+
+            XCTAssertTrue(
+                slice.contains("ManagerGatedBoard("),
+                "\(id) no longer mounts its board inside ManagerGatedBoard — a cook with no manager PIN would see rollup numbers"
+            )
+            XCTAssertTrue(
+                slice.contains(board),
+                "\(id) no longer renders \(board). If the view was renamed, update this test — this assertion is a swap-out signal, not a gate failure."
+            )
+        }
+
+        // The wrapper must still BRANCH on the gate, not merely mention it.
+        // Asserting only that it references ShowsGateModel would stay green
+        // over a body neutered to `if true { content() }`, which reads as
+        // gated and is not.
+        guard let gate = sources.first(where: { $0.path == "ManagerGatedBoard.swift" })?.text else {
+            return XCTFail("ManagerGatedBoard.swift not found — the manager rollup gate is gone")
+        }
+        let gateBody = normalized(gate)
+        XCTAssertTrue(
+            gateBody.contains("ShowsGateModel"),
+            "ManagerGatedBoard must reuse the shared gate rule, not a fourth copy"
+        )
+        XCTAssertTrue(
+            gateBody.contains("case .locked:"),
+            "ManagerGatedBoard must still handle the locked state — a wrapper that cannot lock is not a gate"
+        )
+        XCTAssertTrue(
+            gateBody.contains("case .open: content()"),
+            "ManagerGatedBoard must render its content ONLY in the .open case"
+        )
+    }
 }
