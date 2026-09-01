@@ -98,23 +98,61 @@ public enum AssistantActionExtractor {
     /// Port of `isDegenerateAnswer` in lib/extractAction.ts (2026-08-31 "pico"
     /// find): the model mimicked the CONTEXT's XML shape and looped
     /// (`<ingredient name="diced shallot" />` ×12) until the token cap.
-    /// Two cheap signals, either one disqualifies: markup tags (real answers
-    /// never emit XML/HTML), and the same long line repeated 4+ times.
+    ///
+    /// Two signals, either one disqualifies. Keep this byte-parallel with the
+    /// web twin — see that file for why each clause is shaped the way it is.
+    ///
+    /// Newlines are normalized before splitting. `split(separator: "\n")` does
+    /// NOT split CRLF, because "\r\n" is a single grapheme cluster in Swift: a
+    /// CRLF answer collapsed to one line and the repeat signal could never fire
+    /// here while it fired on web. That was a fail-open divergence on iPad.
+    ///
+    /// Line length is measured in UTF-16 units to match JS `String.length`;
+    /// `count` (grapheme clusters) disagreed with the web twin on emoji and
+    /// combining marks.
     public static func isDegenerateAnswer(_ text: String) -> Bool {
         if text.isEmpty { return false }
         let tagPattern = try! NSRegularExpression(
-            pattern: "</?[a-z][^<>]{0,80}/?>", options: [.caseInsensitive])
+            pattern: "</?[a-z][a-z0-9]*(?:[-:_][a-z0-9]+)*(?:\\s[^<>]{0,80})?/?>",
+            options: [.caseInsensitive])
         let tagCount = tagPattern.numberOfMatches(
             in: text, options: [], range: NSRange(text.startIndex..., in: text))
-        if tagCount >= 5 { return true }
+        if tagCount >= markupTagMin { return true }
+
+        let normalized = text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+
+        var prev: String? = nil
+        var run = 0
         var counts: [String: Int] = [:]
-        for raw in text.split(separator: "\n", omittingEmptySubsequences: false) {
+        var nonEmpty = 0
+        for raw in normalized.split(separator: "\n", omittingEmptySubsequences: false) {
             let line = raw.trimmingCharacters(in: .whitespaces)
-            if line.count < 8 { continue }
-            let n = (counts[line] ?? 0) + 1
-            if n >= 4 { return true }
-            counts[line] = n
+            if !line.isEmpty { nonEmpty += 1 }
+            if line.utf16.count < repeatLineMinLen || isTableRow(line) {
+                prev = nil
+                run = 0
+                continue
+            }
+            run = (line == prev) ? run + 1 : 1
+            prev = line
+            if run >= repeatRunMin { return true }
+            counts[line] = (counts[line] ?? 0) + 1
         }
-        return false
+
+        var repeated = 0
+        for n in counts.values where n >= repeatRunMin { repeated += n }
+        return nonEmpty > 0 && Double(repeated) / Double(nonEmpty) >= repeatDominanceMin
+    }
+
+    private static let markupTagMin = 5
+    private static let repeatLineMinLen = 8
+    private static let repeatRunMin = 4
+    private static let repeatDominanceMin = 0.5
+
+    /// A markdown table row — real data repeats these legitimately.
+    private static func isTableRow(_ line: String) -> Bool {
+        line.count > 1 && line.hasPrefix("|") && line.hasSuffix("|")
     }
 }
