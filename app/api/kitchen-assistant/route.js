@@ -1059,10 +1059,6 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
       }
     }
 
-    if (actionExecuted) {
-      finalAnswer = `⚡ ACTION EXECUTED: ${actionMsg}\n\n${finalAnswer}`;
-    }
-
     // Final guard: never let a raw action-JSON block or fence reach the cook.
     // extractAction already strips these, but a model that double-emits (KA v3
     // rollout hit exactly this) or any future code path could reintroduce one —
@@ -1073,6 +1069,17 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
     if (isDegenerateAnswer(finalAnswer)) {
       finalAnswer =
         'That answer came out garbled — ask me again, or ask for a recipe by name (like "pico de gallo recipe").';
+    }
+
+    // Both guards above clean MODEL prose only. The prefix goes on last and is
+    // server-authored: the guard replaces the whole answer, so prefixing first
+    // let a garbled epilogue swallow the confirmation of a write that already
+    // landed — leaving a cook told to "ask me again" for an 86 already in the
+    // ledger — and swallow the "Action blocked / show a manager" soft-rejects,
+    // the only signal that a write did NOT happen. LariatNative's
+    // KitchenAssistantEngine.swift has always guarded in this order.
+    if (actionExecuted) {
+      finalAnswer = `⚡ ACTION EXECUTED: ${actionMsg}\n\n${finalAnswer}`;
     }
 
     try {
