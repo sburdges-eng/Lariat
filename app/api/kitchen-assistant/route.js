@@ -1071,16 +1071,22 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
         'That answer came out garbled — ask me again, or ask for a recipe by name (like "pico de gallo recipe").';
     }
 
-    // Both guards above clean MODEL prose only. The prefix goes on last and is
-    // server-authored: the guard replaces the whole answer, so prefixing first
-    // let a garbled epilogue swallow the confirmation of a write that already
-    // landed — leaving a cook told to "ask me again" for an 86 already in the
-    // ledger — and swallow the "Action blocked / show a manager" soft-rejects,
-    // the only signal that a write did NOT happen. LariatNative's
+    // The degeneracy guard replaces the WHOLE answer, so it has to run on the
+    // model's prose BEFORE the confirmation is prepended — otherwise a garbled
+    // epilogue swallows the confirmation of a write that already landed (the
+    // cook is then told to "ask me again" for an 86 already in the ledger) and
+    // swallows the "Action blocked / show a manager" soft-rejects, the only
+    // signal that a write did NOT happen. LariatNative's
     // KitchenAssistantEngine.swift has always guarded in this order.
     if (actionExecuted) {
       finalAnswer = `⚡ ACTION EXECUTED: ${actionMsg}\n\n${finalAnswer}`;
     }
+    // Sanitize still has to see the ASSEMBLED answer, which is what it is
+    // documented to protect ("independent of which model or code path built the
+    // text"): actionMsg carries summarizeDbQueryResult's output, a SECOND LLM
+    // call, so model text rides in here too and would otherwise skip the strip.
+    // Idempotent over the prose half the pass above already cleaned.
+    finalAnswer = sanitizeRenderedAnswer(finalAnswer);
 
     try {
       storeConversationTurn(conversationDb, {
