@@ -27,6 +27,16 @@ final class AssistantDirectAnswersTests: XCTestCase {
             allergens: [], menuItems: ["Quesa Birria Tacos"], subRecipes: ["qb_seasoning"]
         ),
         AssistantRecipe(
+            slug: "pico_de_gallo", name: "Pico De Gallo", station: "garde",
+            yieldQty: .number(4), yieldUnit: "qt",
+            ingredients: [
+                .init(item: "roma tomatoes", qty: .number(10), unit: "lb"),
+                .init(item: "cilantro", qty: .number(2), unit: "bunch"),
+                .init(item: "white onion", qty: .number(3), unit: "each"),
+            ],
+            allergens: [], menuItems: ["Baja Fish Tacos"]
+        ),
+        AssistantRecipe(
             slug: "cornbread", name: "Jalapeño Cheddar Cornbread", station: "grill",
             yieldQty: .number(2), yieldUnit: "pan",
             ingredients: [
@@ -88,9 +98,10 @@ final class AssistantDirectAnswersTests: XCTestCase {
     func testRecipeBookListsByStation() {
         let a = answer("recipe book")
         XCTAssertNotNil(a)
-        XCTAssertTrue(a?.hasPrefix("3 recipes on file:") == true)
+        XCTAssertTrue(a?.hasPrefix("4 recipes on file:") == true)
         XCTAssertTrue(a?.contains("GRILL: Birria, Jalapeño Cheddar Cornbread") == true)
         XCTAssertTrue(a?.contains("EXPO: Green Chilli") == true)
+        XCTAssertTrue(a?.contains("GARDE: Pico De Gallo") == true)
         XCTAssertTrue(a?.contains("Reference board") == true)
     }
 
@@ -129,5 +140,23 @@ final class AssistantDirectAnswersTests: XCTestCase {
 
     func testCardIntentWithHeavyExtraContentFallsThrough() {
         XCTAssertNil(answer("birria recipe changes from the meeting yesterday about brisket"))
+    }
+
+    func testDistinctiveSingleWordFindsItsRecipeThePicoFind() {
+        let bare = answer("pico")
+        XCTAssertNotNil(bare)
+        XCTAssertTrue(bare?.hasPrefix("Pico De Gallo — makes 4 qt · garde") == true)
+        XCTAssertTrue(bare?.contains("roma tomatoes — 10 lb") == true)
+
+        let q = answer("whats in the pico")
+        XCTAssertTrue(q?.contains("cilantro — 2 bunch") == true)
+
+        XCTAssertEqual(
+            answer("how much cilantro in the pico"),
+            "Pico De Gallo: cilantro — 2 bunch (whole recipe makes 4 qt).")
+    }
+
+    func testSharedTokenStaysAmbiguous() {
+        XCTAssertNil(answer("tacos"))
     }
 }

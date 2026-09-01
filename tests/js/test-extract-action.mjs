@@ -18,7 +18,7 @@ import { register } from 'node:module';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
-const { extractAction, stripFences, sanitizeRenderedAnswer } = await import('../../lib/extractAction');
+const { extractAction, stripFences, sanitizeRenderedAnswer, isDegenerateAnswer } = await import('../../lib/extractAction');
 
 describe('extractAction — shared LLM action-JSON parser', () => {
   it('returns null payload when content has no JSON object', () => {
@@ -192,5 +192,32 @@ describe('stripFences', () => {
 
   it('leaves prose without fences alone (modulo trim)', () => {
     assert.equal(stripFences('  hello world  '), 'hello world');
+  });
+});
+
+describe('isDegenerateAnswer — degenerate-output guard (2026-08-31 "pico" find)', () => {
+  it('flags XML mimicry of the context block', () => {
+    const garbled = [
+      '<pico>', '  <ingredients>',
+      '    <ingredient name="green chile" />',
+      '    <ingredient name="thyme" />',
+      '    <ingredient name="pork rind" />',
+      '  </ingredients>', '</pico>',
+    ].join('\n');
+    assert.equal(isDegenerateAnswer(garbled), true);
+  });
+
+  it('flags a repetition loop', () => {
+    const loop = Array(6).fill('- diced shallot and garlic clove').join('\n');
+    assert.equal(isDegenerateAnswer(loop), true);
+  });
+
+  it('passes honest answers, bullets, and listings', () => {
+    assert.equal(isDegenerateAnswer('Walk-in is at 38F — inside the safe range.'), false);
+    assert.equal(
+      isDegenerateAnswer('Green Chilli — makes 8 qt · expo\n• pork butt — 10 lb\n• water — 5 cup\nTags: wheat'),
+      false,
+    );
+    assert.equal(isDegenerateAnswer(''), false);
   });
 });

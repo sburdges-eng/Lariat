@@ -122,3 +122,27 @@ export function sanitizeRenderedAnswer(text: string): string {
   const spans = scanTopLevelJsonObjects(text).filter(isActionSpan);
   return stripFences(removeSpans(text, spans));
 }
+
+/**
+ * 2026-08-31 venue find: asked about "pico", the KA v3 model mimicked the
+ * CONTEXT's XML shape and looped (`<ingredient name="diced shallot" />` ×12)
+ * until the token cap, fabricating ingredients along the way. Deterministic
+ * hygiene in the same spirit as the double-JSON strip above: degenerate
+ * output must never reach a cook. Two cheap signals, either one disqualifies:
+ * markup tags (real answers never emit XML/HTML), and the same long line
+ * repeated 4+ times (repetition-loop signature).
+ */
+export function isDegenerateAnswer(text: string): boolean {
+  if (!text) return false;
+  const tagCount = (text.match(/<\/?[a-z][^<>]{0,80}\/?>/gi) || []).length;
+  if (tagCount >= 5) return true;
+  const counts = new Map<string, number>();
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (line.length < 8) continue;
+    const n = (counts.get(line) || 0) + 1;
+    if (n >= 4) return true;
+    counts.set(line, n);
+  }
+  return false;
+}

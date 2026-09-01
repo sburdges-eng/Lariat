@@ -94,4 +94,27 @@ public enum AssistantActionExtractor {
             stripped: stripped
         )
     }
+
+    /// Port of `isDegenerateAnswer` in lib/extractAction.ts (2026-08-31 "pico"
+    /// find): the model mimicked the CONTEXT's XML shape and looped
+    /// (`<ingredient name="diced shallot" />` ×12) until the token cap.
+    /// Two cheap signals, either one disqualifies: markup tags (real answers
+    /// never emit XML/HTML), and the same long line repeated 4+ times.
+    public static func isDegenerateAnswer(_ text: String) -> Bool {
+        if text.isEmpty { return false }
+        let tagPattern = try! NSRegularExpression(
+            pattern: "</?[a-z][^<>]{0,80}/?>", options: [.caseInsensitive])
+        let tagCount = tagPattern.numberOfMatches(
+            in: text, options: [], range: NSRange(text.startIndex..., in: text))
+        if tagCount >= 5 { return true }
+        var counts: [String: Int] = [:]
+        for raw in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if line.count < 8 { continue }
+            let n = (counts[line] ?? 0) + 1
+            if n >= 4 { return true }
+            counts[line] = n
+        }
+        return false
+    }
 }

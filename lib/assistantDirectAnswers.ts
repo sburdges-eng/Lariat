@@ -100,11 +100,26 @@ interface RecipeMatch {
   matchedPhrase: string;
 }
 
+/** Candidate vocabulary of one recipe: name + menu items + slug, tokenized. */
+function recipeTokenVocab(r: Recipe): Set<string> {
+  const vocab = new Set<string>();
+  for (const c of [r.name || '', ...(r.menu_items || []), (r.slug || '').replace(/_/g, ' ')]) {
+    for (const t of normalizeText(c).split(' ')) {
+      if (t.length >= 4 && !STOPWORDS.has(t) && !UNIT_WORDS.has(t)) vocab.add(t);
+    }
+  }
+  return vocab;
+}
+
 /**
- * High-precision recipe resolution: a recipe's name, menu item, or slug must
- * appear whole (word-bounded, spelling-normalized) in the question. Longest
- * matched phrase wins; a length tie between DIFFERENT recipes is ambiguity —
- * return null and let the LLM take it.
+ * High-precision recipe resolution. First pass: a recipe's name, menu item,
+ * or slug appears whole (word-bounded, spelling-normalized) in the question;
+ * longest phrase wins, ties between different recipes are ambiguity → null.
+ *
+ * Second pass (2026-08-31 "pico" find): a distinctive token — one that lives
+ * in the candidate vocabulary of exactly ONE recipe — identifies it, so
+ * "pico" finds Pico De Gallo without typing the full name. Tokens shared by
+ * several recipes ("tacos") stay ambiguous and fall through to the LLM.
  */
 export function findRecipe(question: string, recipes: Recipe[]): RecipeMatch | null {
   const q = normalizeText(question);
@@ -127,7 +142,30 @@ export function findRecipe(question: string, recipes: Recipe[]): RecipeMatch | n
       }
     }
   }
-  return ambiguous ? null : best;
+  if (best || ambiguous) return ambiguous ? null : best;
+
+  const qTokens = q.split(' ').filter((t) => t.length >= 4 && !STOPWORDS.has(t) && !UNIT_WORDS.has(t));
+  const hits = new Map<string, { recipe: Recipe; tokens: string[] }>();
+  for (const t of qTokens) {
+    let owner: Recipe | null = null;
+    let unique = true;
+    for (const r of recipes) {
+      if (recipeTokenVocab(r).has(t)) {
+        if (owner && owner.slug !== r.slug) { unique = false; break; }
+        owner = r;
+      }
+    }
+    if (!owner || !unique) continue;
+    const key = owner.slug || owner.name || '';
+    const entry = hits.get(key) || { recipe: owner, tokens: [] };
+    entry.tokens.push(t);
+    hits.set(key, entry);
+  }
+  if (hits.size === 1) {
+    const only = [...hits.values()][0];
+    if (only) return { recipe: only.recipe, matchedPhrase: only.tokens.join(' ') };
+  }
+  return null;
 }
 
 function fmtQty(qty: unknown): string {
