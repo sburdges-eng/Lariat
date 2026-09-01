@@ -17,6 +17,7 @@
 import { getDb } from '../../../lib/db';
 import { getOllamaConfig } from '../../../lib/ollama';
 import { resolveDataDir } from '../../../lib/dataDir';
+import { resolveDataRootPath } from '../../../lib/datapackSearch';
 import { getReleaseInfo } from '../../../lib/release';
 import { managerPinGateConfigured } from '../../../lib/managerPins';
 import { locationIdFromEnv } from '../../../lib/location';
@@ -112,16 +113,16 @@ function probeCompliance(): Probe {
 
 function probeDatapack(): Probe {
   const t0 = Date.now();
-  const symlink = path.join(resolveDataDir(), 'lariat-data');
-  if (!fs.existsSync(symlink)) {
-    return { ok: false, error: 'datapack symlink missing (optional)', ms: Date.now() - t0 };
+  // Ask the search module where it would look, rather than re-deriving it.
+  // This probe used to check ONLY <dataDir>/lariat-data, so the supported
+  // wrapper config — LARIAT_DATA_ROOT set, no symlink — reported the pack
+  // missing while search worked perfectly. An operator chasing that saw a
+  // problem that was not there.
+  const root = resolveDataRootPath();
+  if (!root) {
+    return { ok: false, error: 'datapack not installed (optional)', ms: Date.now() - t0 };
   }
-  try {
-    fs.realpathSync(symlink);
-    return { ok: true, detail: 'datapack reachable', ms: Date.now() - t0 };
-  } catch {
-    return { ok: false, error: 'datapack symlink broken', ms: Date.now() - t0 };
-  }
+  return { ok: true, detail: 'datapack reachable', ms: Date.now() - t0 };
 }
 
 function probeToastConfig(): Probe {

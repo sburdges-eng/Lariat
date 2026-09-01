@@ -209,6 +209,50 @@ describe('GET /api/health — status roll-up', { concurrency: false }, () => {
     }
   });
 
+  // The desktop wrapper provisions the pack by setting LARIAT_DATA_ROOT
+  // straight at the directory (desktop-wrapper-design.md), with no symlink.
+  // The probe used to check ONLY <dataDir>/lariat-data, so that supported
+  // config reported the pack missing while datapack search worked perfectly —
+  // an operator chasing a green-to-red flip that had no problem behind it.
+  it('reports the datapack reachable when LARIAT_DATA_ROOT is set and no symlink exists', async () => {
+    const envRoot = path.join(TMP_DIR, 'wrapper-datapack');
+    const symlink = path.join(TMP_DIR, 'lariat-data');
+    fs.mkdirSync(envRoot, { recursive: true });
+    fs.rmSync(symlink, { recursive: true, force: true });
+    const prevRoot = process.env.LARIAT_DATA_ROOT;
+    process.env.LARIAT_DATA_ROOT = envRoot;
+
+    try {
+      assert.equal(fs.existsSync(symlink), false, 'premise: no symlink on this machine');
+      const body = await (await GET()).json();
+      assert.equal(
+        body.probes.datapack.ok,
+        true,
+        `env-var datapack config must read as reachable, got: ${JSON.stringify(body.probes.datapack)}`,
+      );
+    } finally {
+      if (prevRoot === undefined) delete process.env.LARIAT_DATA_ROOT;
+      else process.env.LARIAT_DATA_ROOT = prevRoot;
+      fs.rmSync(envRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('reports the datapack missing when neither the symlink nor LARIAT_DATA_ROOT resolves', async () => {
+    const symlink = path.join(TMP_DIR, 'lariat-data');
+    fs.rmSync(symlink, { recursive: true, force: true });
+    const prevRoot = process.env.LARIAT_DATA_ROOT;
+    process.env.LARIAT_DATA_ROOT = path.join(TMP_DIR, 'does-not-exist');
+
+    try {
+      const body = await (await GET()).json();
+      assert.equal(body.probes.datapack.ok, false, 'a truly absent pack must still read as absent');
+      assert.match(body.probes.datapack.error, /optional/, 'and stay marked optional');
+    } finally {
+      if (prevRoot === undefined) delete process.env.LARIAT_DATA_ROOT;
+      else process.env.LARIAT_DATA_ROOT = prevRoot;
+    }
+  });
+
   it('returns degraded (200) when only optional probes fail', async () => {
     // sqlite + cache reachable, PIN configured, no optional creds set.
     process.env.LARIAT_PIN = '1234';

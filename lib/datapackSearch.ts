@@ -39,7 +39,22 @@ function symlinkPath(): string {
   return path.join(resolveDataDir(), 'lariat-data');
 }
 
-function resolveDataRoot(): string | null {
+/**
+ * Where the data pack lives, or null if it is not installed on this machine.
+ *
+ * Two supported shapes, in this order: a `<dataDir>/lariat-data` symlink, or
+ * `LARIAT_DATA_ROOT` pointing straight at the directory — the desktop wrapper
+ * provisions the second (`settings.datapackDir`, unset if the operator skips
+ * the optional pack).
+ *
+ * Exported because /api/health must answer "is the pack reachable?" with the
+ * SAME answer search will give. It used to check only the symlink, so the
+ * env-var config reported "datapack symlink missing" while search worked
+ * perfectly — a false alarm pointing operators at a non-problem. Unlike
+ * `dataRoot()`, this opens no database connection and caches nothing, which is
+ * what a health probe wants.
+ */
+export function resolveDataRootPath(): string | null {
   try {
     const SYMLINK_PATH = symlinkPath();
     if (fs.existsSync(SYMLINK_PATH)) {
@@ -54,6 +69,8 @@ function resolveDataRoot(): string | null {
   }
   return null;
 }
+
+const resolveDataRoot = resolveDataRootPath;
 
 let _conn: DB | null = null;
 let _resolvedDataRoot: string | null = null;
