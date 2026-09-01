@@ -195,6 +195,12 @@ Note: `gh auth login` is interactive-only — stop and hand back to Sean rather 
 - **A broad suite pass does not substitute for the targeted contract suite** of whatever protected
   surface you touched (§5, and `docs/PROTECTED_CONTRACTS.md` §15 lists the exact commands).
 - `next build` catches a class of bug nothing else does — see §8.
+- **Packaged releases gate on `npm run verify:release`** (full verify → `desktop:dist` →
+  `scripts/smoke-day.sh`). A green `verify` alone does not prove the packaged app isn't
+  functionally empty — the smoke asserts the bundle's baked SHA matches HEAD, the recipebook is
+  seeded AND served, the PIN tier gate holds, BEO answers, and a service day's writes survive into
+  the close-out export. It is not part of `verify` because packaging is local-only for v1
+  (no `electron-builder` on CI — see `desktop-smoke.yml`).
 
 ### Verifying gate/CI results
 
