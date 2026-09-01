@@ -234,9 +234,15 @@ public struct KitchenAssistantEngine {
         // Degenerate model output (XML mimicry, repetition loops) never
         // reaches a cook — replaced with an honest, actionable line before it
         // is stored or prefixed. Web twin: route.js isDegenerateAnswer guard.
+        //
+        // Two variants, because "ask me again" is only safe when nothing
+        // happened. When an action ran, the confirmation prefixed below already
+        // states the outcome, so the replacement points AT it rather than
+        // inviting a re-ask that would re-issue a write already in the ledger.
         if AssistantActionExtractor.isDegenerateAnswer(finalAnswer) {
-            finalAnswer = "That answer came out garbled — ask me again, or ask for a recipe by name "
-                + "(like \"pico de gallo recipe\")."
+            finalAnswer = actionExecuted
+                ? "The rest of that answer came out garbled. Go by what is above."
+                : "That answer came out garbled. Ask me again, or ask for a recipe by name."
         }
 
         if actionExecuted {

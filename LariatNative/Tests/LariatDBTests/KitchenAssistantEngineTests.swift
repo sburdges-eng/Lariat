@@ -174,6 +174,54 @@ final class KitchenAssistantEngineTests: XCTestCase {
         }
     }
 
+    // MARK: - Degenerate output never swallows the confirmation
+    //
+    // Nothing asserted this copy or the guard-before-prefix order on the native
+    // side before. Mirrors tests/js/test-kitchen-assistant-garble-guard.mjs.
+
+    func testGarbledEpilogueKeepsTheWriteConfirmationAndDoesNotInviteReAsk() async throws {
+        let env = try makeEngine()
+        defer { cleanupAssistantDatabase(env.path) }
+        env.stub.stubbedAction = #"{"action":"eighty_six","item":"salmon","reason":"sold out"}"#
+        env.stub.prose = Array(repeating: "<ingredient name=\"diced shallot\" />", count: 12)
+            .joined(separator: "\n")
+
+        let res = try await env.engine.ask(
+            message: "eighty-six the salmon", locationId: LOC, cookId: COOK,
+            conversationSessionId: SESSION, hasPin: true
+        )
+
+        // The write landed, so the cook must still see it.
+        XCTAssertTrue(res.answer.hasPrefix("⚡ ACTION EXECUTED: "))
+        XCTAssertTrue(res.answer.contains("Marked salmon as 86'd."))
+        XCTAssertFalse(res.answer.contains("<ingredient"))
+        // …and must NOT be told to say it again, which would 86 the salmon twice.
+        XCTAssertFalse(res.answer.lowercased().contains("ask me again"))
+        XCTAssertTrue(res.answer.contains("Go by what is above."))
+        try inspect(env.writeDB) { db in
+            let n = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM eighty_six") ?? 0
+            XCTAssertEqual(n, 1, "exactly one 86 landed")
+        }
+    }
+
+    func testGarbledAnswerWithNoActionStillInvitesAReAsk() async throws {
+        let env = try makeEngine()
+        defer { cleanupAssistantDatabase(env.path) }
+        env.stub.plainAnswer = Array(repeating: "<ingredient name=\"diced shallot\" />", count: 12)
+            .joined(separator: "\n")
+
+        let res = try await env.engine.ask(
+            message: "how did service go last night", locationId: LOC, cookId: COOK,
+            conversationSessionId: SESSION, hasPin: false
+        )
+
+        XCTAssertFalse(res.actionExecuted)
+        XCTAssertFalse(res.answer.contains("<ingredient"))
+        // Nothing happened, so re-asking is free and is the useful instruction.
+        XCTAssertTrue(res.answer.lowercased().contains("ask me again"))
+        XCTAssertFalse(res.answer.contains("Go by what is above."))
+    }
+
     // ── question path hard-blocks hallucinated action JSON ──────────
 
     func testQuestionPathStripsHallucinatedActionJSON() async throws {
