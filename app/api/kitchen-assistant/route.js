@@ -1059,10 +1059,6 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
       }
     }
 
-    if (actionExecuted) {
-      finalAnswer = `⚡ ACTION EXECUTED: ${actionMsg}\n\n${finalAnswer}`;
-    }
-
     // Final guard: never let a raw action-JSON block or fence reach the cook.
     // extractAction already strips these, but a model that double-emits (KA v3
     // rollout hit exactly this) or any future code path could reintroduce one —
@@ -1074,6 +1070,23 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
       finalAnswer =
         'That answer came out garbled — ask me again, or ask for a recipe by name (like "pico de gallo recipe").';
     }
+
+    // The degeneracy guard replaces the WHOLE answer, so it has to run on the
+    // model's prose BEFORE the confirmation is prepended — otherwise a garbled
+    // epilogue swallows the confirmation of a write that already landed (the
+    // cook is then told to "ask me again" for an 86 already in the ledger) and
+    // swallows the "Action blocked / show a manager" soft-rejects, the only
+    // signal that a write did NOT happen. LariatNative's
+    // KitchenAssistantEngine.swift has always guarded in this order.
+    if (actionExecuted) {
+      finalAnswer = `⚡ ACTION EXECUTED: ${actionMsg}\n\n${finalAnswer}`;
+    }
+    // Sanitize still has to see the ASSEMBLED answer, which is what it is
+    // documented to protect ("independent of which model or code path built the
+    // text"): actionMsg carries summarizeDbQueryResult's output, a SECOND LLM
+    // call, so model text rides in here too and would otherwise skip the strip.
+    // Idempotent over the prose half the pass above already cleaned.
+    finalAnswer = sanitizeRenderedAnswer(finalAnswer);
 
     try {
       storeConversationTurn(conversationDb, {

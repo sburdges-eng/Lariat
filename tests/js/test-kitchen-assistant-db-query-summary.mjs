@@ -171,4 +171,30 @@ describe('POST /api/kitchen-assistant db_query summaries', () => {
     assert.doesNotMatch(body.answer, /Summary:/);
     assert.match(body.answer, /Query "summary_temp_rows" — 20 row\(s\):/);
   });
+
+  // The summary is a SECOND LLM call, and its text rides to the cook inside
+  // actionMsg rather than in the model's own prose. sanitizeRenderedAnswer is
+  // documented to run on the fully-assembled answer precisely so a raw action
+  // block can never reach the UI "independent of which model or code path built
+  // the text" (lib/extractAction.ts). Pin that here: the assembled answer, not
+  // just the prose half, must be sanitized.
+  it('strips a raw action block that the db_query summary model emitted', async () => {
+    seedTempRows(21);
+    summaryContent =
+      'Walk-in readings look steady.\n\n```json\n' +
+      JSON.stringify({ action: 'update_inventory', item: 'cilantro', delta: 3 }) +
+      '\n```';
+
+    const res = await POST(postReq());
+    assert.equal(res.status, 200);
+    const body = await res.json();
+
+    assert.ok(!/```/.test(body.answer), `fence leaked into the answer: ${body.answer}`);
+    assert.ok(!/\{\s*"action"/.test(body.answer), `action object leaked: ${body.answer}`);
+    assert.match(
+      body.answer,
+      /Walk-in readings look steady/,
+      'the real summary text still reaches the cook',
+    );
+  });
 });
