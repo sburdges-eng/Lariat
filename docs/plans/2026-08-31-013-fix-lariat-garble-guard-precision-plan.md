@@ -63,15 +63,36 @@ Two options are already disqualified by existing pinned tests: **raising the rep
 
 **Ship this alone.** It makes the repeat heuristic *more* active on native, so bundling it with Phase 2 narrowing makes a regression impossible to attribute.
 
-### Task 0.2: Close the deterministic front door on the incident phrasing
+### Task 0.2: Decide what "find my pico recipe" should do — NOT a STOPWORDS edit
 
-**Files:** Modify `lib/assistantDirectAnswers.ts` (STOPWORDS, :57-63); Modify the Swift `AssistantDirectAnswers` stopwords; Modify `tests/js/test-assistant-direct-answers.mjs`
+**Corrected 2026-08-31.** The original version of this task said to add `find`,
+`pull`, `get` to `STOPWORDS`. **That would not work, and the task as written
+should not be implemented.** `find` is not merely absent from `STOPWORDS`; it is
+matched by `RETRIEVAL_INTENT_RE` (`lib/assistantDirectAnswers.ts:51`), and
+`tryDirectRecipeAnswer` returns `null` at `:270` — *before* any token analysis —
+for any message containing `find`, `search`, or `look up/for`.
 
-- [ ] Add the lookup verbs that currently survive as leftover tokens: `find`, `pull`, `up`, `get`, `grab`, `where`, `got`.
-- [ ] Pin the literal incident question `"find my pico recipe"` asserting `model === 'direct-lookup'`.
-- [ ] **Add negative tests.** This widens a path documented to bail whenever unsure (`lib/assistantDirectAnswers.ts:253-255`). A compound question containing "find" must still fall through to the LLM rather than getting a recipe card.
+So the incident phrasing reaching the LLM is **deliberate**, shipped in
+`94d0b224` ("direct answers yield to retrieval phrasing"), with the stated
+rationale that retrieval phrasing "wants the semantic-search path, not a card
+dump". A STOPWORDS edit would be dead code sitting behind that early return.
 
-This is a pure widening of a deterministic path — it weakens no validation, and it shrinks the population of answers the guard has to judge at all, which lowers the stakes of Phase 2 rather than resolving it under pressure.
+The real question is narrower: *should retrieval phrasing yield even when the
+message names a specific recipe outright?* "find that pork thing we did last
+week" is a search. "find my pico recipe" is a card lookup wearing a search verb.
+
+- [ ] If pursued, the change is to move the `RETRIEVAL_INTENT_RE` bail to
+      **after** `findRecipe`, and yield only when the match is weak — not to
+      touch `STOPWORDS` at all.
+- [ ] **Negative tests are mandatory.** This narrows a deliberate yield on a path
+      documented to bail whenever unsure (`:253-255`). A vague "find that pork
+      thing" must still reach the LLM rather than getting a confident card.
+
+**Priority downgraded.** The original urgency was that this phrasing produced
+fabricated ingredients in front of a cook. With the guard fixed (#662) and the
+specials surface guarded (#663), that output is now caught and replaced, so the
+remaining cost is a worse answer, not a dangerous one. Treat this as a quality
+improvement to schedule, not a defect to rush.
 
 ### Task 0.3: Pin the scope invariant that currently exists only in a comment
 

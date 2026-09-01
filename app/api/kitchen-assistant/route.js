@@ -1066,9 +1066,18 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
     finalAnswer = sanitizeRenderedAnswer(finalAnswer);
     // Degenerate model output (XML mimicry, repetition loops) never reaches
     // a cook — replaced with an honest, actionable line. See isDegenerateAnswer.
+    //
+    // Two variants, because "ask me again" is only safe when nothing happened.
+    // When an action ran, the confirmation prepended below already states the
+    // outcome — "86'd the pico", or "blocked … nothing was logged" — so the
+    // replacement must point AT that line instead of inviting a re-ask. A cook
+    // told to "ask me again" under a successful 86 re-issues a write that is
+    // already in the ledger. This needs no new state: the confirmation carries
+    // the outcome, so the garbled line only has to stop contradicting it.
     if (isDegenerateAnswer(finalAnswer)) {
-      finalAnswer =
-        'That answer came out garbled — ask me again, or ask for a recipe by name (like "pico de gallo recipe").';
+      finalAnswer = actionExecuted
+        ? 'The rest of that answer came out garbled. Go by what is above.'
+        : 'That answer came out garbled. Ask me again, or ask for a recipe by name.';
     }
 
     // The degeneracy guard replaces the WHOLE answer, so it has to run on the

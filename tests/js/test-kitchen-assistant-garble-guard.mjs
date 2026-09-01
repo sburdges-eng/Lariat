@@ -54,6 +54,11 @@ const GARBLED_EPILOGUE = Array(12)
 const CLEAN_EPILOGUE = 'Logged it. Cilantro is down 3 bunch.';
 
 const GARBLED_COPY_RE = /came out garbled/i;
+// Pin the two variants by what makes them different, not by the phrase they
+// share: "ask me again" is safe only when nothing happened, and pointing at
+// the confirmation is the whole point when something did.
+const RE_ASK_RE = /ask me again/i;
+const POINTS_AT_CONFIRMATION_RE = /go by what is above/i;
 const CONFIRMATION_RE = /⚡ ACTION EXECUTED/;
 
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -175,6 +180,16 @@ describe('kitchen-assistant garble guard — executed write keeps its confirmati
       'no raw model garbage reaches the cook',
     );
     assert.equal(body.actionExecuted, true);
+
+    // The whole point of keeping the confirmation is undone if the line under
+    // it tells the cook to say it again — that is how an 86 already in the
+    // ledger gets written twice.
+    assert.doesNotMatch(
+      body.answer || '',
+      RE_ASK_RE,
+      'must never invite a re-ask under a write that already landed',
+    );
+    assert.match(body.answer || '', POINTS_AT_CONFIRMATION_RE);
   });
 
   it('stores the confirmation in conversation memory, not just in the response', async () => {
@@ -205,6 +220,9 @@ describe('kitchen-assistant garble guard — executed write keeps its confirmati
       /blocked/i,
       '"nothing was logged" is the only signal the cook gets that the write failed',
     );
+    // The soft-reject message already ends "Try again with just the count." —
+    // a second, contradicting instruction underneath would just add noise.
+    assert.match(body.answer || '', POINTS_AT_CONFIRMATION_RE);
   });
 });
 
@@ -230,6 +248,13 @@ describe('kitchen-assistant garble guard — unchanged behavior', () => {
       body.answer || '',
       CONFIRMATION_RE,
       'no action ran, so no confirmation is invented',
+    );
+    // Nothing happened, so re-asking is free and is the useful instruction.
+    assert.match(body.answer || '', RE_ASK_RE);
+    assert.doesNotMatch(
+      body.answer || '',
+      POINTS_AT_CONFIRMATION_RE,
+      'there is nothing above to go by',
     );
   });
 });
