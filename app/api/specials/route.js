@@ -10,10 +10,10 @@ import {
 import { locationFromBodyOrRequest } from '../../../lib/location';
 import { computeSandboxCost } from '../../../lib/computeEngine/sandboxCosting';
 import { withIdempotency } from '../../../lib/idempotency';
-import { extractAction } from '../../../lib/extractAction';
+import { extractAction, sanitizeRenderedAnswer, isDegenerateAnswer } from '../../../lib/extractAction';
 import { hasPinCookie } from '../../../lib/pin';
 import { formatDollars } from '../../../lib/formatMoney';
-import { MAX_MESSAGE, AI_DOWN_COPY } from '../../../lib/specialsShared';
+import { MAX_MESSAGE, AI_DOWN_COPY, SPECIALS_GARBLED_COPY } from '../../../lib/specialsShared';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -113,6 +113,37 @@ async function specialsPostHandler(req) {
     const { payload, stripped } = extractAction(content);
     if (payload && payload.action === 'cost_special' && Array.isArray(payload.ingredients)) {
       finalAnswer = stripped || '';
+    }
+
+    // The same two guards the kitchen assistant runs, for the same reason:
+    // specials shares buildGroundedContext and the model, so it shares the
+    // 2026-08-31 failure where the model mimicked the CONTEXT's XML and looped,
+    // fabricating ingredients. It matters MORE here than on the chat line — a
+    // specials answer is saved (app/api/specials/saved/route.js) and can be
+    // promoted into menu-item and vendor_ingredient rows
+    // (lib/specialsPromotion.ts), so a fabricated ingredient list can reach the
+    // recipe book instead of scrolling away.
+    //
+    // Both run on the model's prose only, before the deterministic cost block
+    // is appended below — that block is server-authored and its markdown table
+    // rows must never be judged as model output.
+    finalAnswer = sanitizeRenderedAnswer(finalAnswer);
+    const degenerate = isDegenerateAnswer(finalAnswer);
+    if (degenerate) {
+      finalAnswer = SPECIALS_GARBLED_COPY;
+      console.error('Specials: degenerate model output suppressed; costing skipped.');
+    }
+
+    // Skip costing outright rather than pricing a garbled generation's
+    // ingredient list. Fail loud (CLAUDE.md §5): a deterministic price next to
+    // fabricated ingredients reads as confirmation, which is worse than no
+    // answer at all.
+    if (
+      !degenerate &&
+      payload &&
+      payload.action === 'cost_special' &&
+      Array.isArray(payload.ingredients)
+    ) {
       // §6 P3 — guard payload.* field types before they flow into compute
       // code per docs/PATTERNS.md §10. Drop any ingredient whose item
       // isn't a non-empty string, whose unit isn't a string, or whose
