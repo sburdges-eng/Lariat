@@ -124,7 +124,7 @@ struct StaffCertsView: View {
                     }
                 }
                 if vm.staffUnavailable {
-                    Text("No staff on file — run the staff sync to create data/cache/staff.json.")
+                    Text("No staff on file yet. Get a manager.\nDetails for the office: data/cache/staff.json")
                         .font(.caption).foregroundStyle(.orange)
                 }
                 Picker("Type", selection: $vm.certType) {

@@ -24,7 +24,7 @@ struct StationsListView: View {
                 ProgressView("Loading stations…")
             } else if vm.rows.isEmpty {
                 EmptyState(
-                    message: "No stations configured — check data/cache/stations.json",
+                    message: "No stations set up yet. Get a manager.\nDetails for the office: data/cache/stations.json",
                     systemImage: "square.grid.2x2"
                 )
             } else {

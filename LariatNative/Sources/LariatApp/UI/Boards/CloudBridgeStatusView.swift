@@ -103,7 +103,7 @@ struct CloudBridgeStatusView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 // Board subtitle (CloudBridgeBoard.jsx).
-                Text("Outage queue for snapshots heading to the corp office. Read-only sync health — stuck batches are retried or dropped from the web cockpit.")
+                Text("Outage queue for snapshots heading to the corp office. Read-only — the office retries or drops stuck batches.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -161,7 +161,7 @@ struct CloudBridgeStatusView: View {
 
                 if let status = vm.status, status.deadLetterTotal > 0 {
                     Label(
-                        "\(status.deadLetterTotal) stuck batch\(status.deadLetterTotal == 1 ? "" : "es") need\(status.deadLetterTotal == 1 ? "s" : "") triage — inspect, requeue, or drop from the web cockpit at /management/cloud-bridge.",
+                        "\(status.deadLetterTotal) stuck batch\(status.deadLetterTotal == 1 ? "" : "es") need\(status.deadLetterTotal == 1 ? "s" : "") a look. The office can retry or drop them.\nDetails for the office: /management/cloud-bridge",
                         systemImage: "wrench.and.screwdriver"
                     )
                     .font(.callout)
