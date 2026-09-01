@@ -150,11 +150,11 @@ describe('sanitizeRenderedAnswer — final UI guard', () => {
 
   it('removes a residual raw action block that survived into the answer (the v2 UI leak)', () => {
     const leaked =
-      '⚡ ACTION EXECUTED: Scaled bacon jam ×3.\n\n```json\n{"action":"scale_recipe","recipe":"bacon_jam","multiplier":3}\n```';
+      '⚡ ACTION: Scaled bacon jam ×3.\n\n```json\n{"action":"scale_recipe","recipe":"bacon_jam","multiplier":3}\n```';
     const clean = sanitizeRenderedAnswer(leaked);
     assert.ok(!/```/.test(clean), `fence leaked: ${clean}`);
     assert.ok(!/\{\s*"action"/.test(clean), `action object leaked: ${clean}`);
-    assert.equal(clean, '⚡ ACTION EXECUTED: Scaled bacon jam ×3.');
+    assert.equal(clean, '⚡ ACTION: Scaled bacon jam ×3.');
   });
 
   it('preserves a rendered db_query table (pipes/braces that are not action JSON)', () => {

@@ -89,7 +89,7 @@ public struct AssistantActionRepository {
             // likely failure of a local fine-tune) or a known action missing
             // the companion field its case requires. This used to return
             // .unhandled, mirroring a web bug where the model's own prose
-            // ("Done.") went back to the cook with no ACTION EXECUTED prefix,
+            // ("Done.") went back to the cook with no ⚡ ACTION prefix,
             // reading exactly like a success. Both halves now say so.
             return .handled(
                 "Action blocked — I did not understand that command, so nothing was logged. Say it again, or use the board."

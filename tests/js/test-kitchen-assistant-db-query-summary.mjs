@@ -149,7 +149,7 @@ describe('POST /api/kitchen-assistant db_query summaries', () => {
     assert.match(summaryUser, /21 row/);
     assert.match(summaryUser, /point_id \| reading_f \| cook_id/);
 
-    assert.match(body.answer, /ACTION EXECUTED/);
+    assert.match(body.answer, /⚡ ACTION:/);
     assert.match(body.answer, /Summary:/);
     assert.match(body.answer, /Twenty-one temp rows show steady walk-in readings/);
     assert.match(body.answer, /Query "summary_temp_rows" — 21 row\(s\):/);

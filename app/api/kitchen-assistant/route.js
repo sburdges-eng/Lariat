@@ -1098,7 +1098,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
     // signal that a write did NOT happen. LariatNative's
     // KitchenAssistantEngine.swift has always guarded in this order.
     if (actionExecuted) {
-      finalAnswer = `⚡ ACTION EXECUTED: ${actionMsg}\n\n${finalAnswer}`;
+      finalAnswer = `⚡ ACTION: ${actionMsg}\n\n${finalAnswer}`;
     }
     // Sanitize still has to see the ASSEMBLED answer, which is what it is
     // documented to protect ("independent of which model or code path built the

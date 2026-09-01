@@ -12,7 +12,7 @@
 //      REJECTED — no row appears in beo_prep_tasks, the response
 //      surfaces the rejection in the `answer` field via the same
 //      "soft reject" pattern other handlers use (actionMsg embedded
-//      after the "⚡ ACTION EXECUTED:" prefix).
+//      after the "⚡ ACTION:" prefix).
 //   2. Same-location request (locationId=A, event lives at A) DOES
 //      succeed — the row lands and the response signals success.
 //   3. Unknown event_id (no row) is REJECTED — same shape as (1).
@@ -182,11 +182,11 @@ describe('POST /api/kitchen-assistant — beo_add_prep cross-location guard', ()
     // Surface check: matches the soft-reject convention used by
     // `maintenance` ("Could not find equipment …") and `eighty_six`
     // ("Hold on — order guide shows…"). The actionMsg lives inside
-    // `answer` after the "⚡ ACTION EXECUTED:" prefix the route
+    // `answer` after the "⚡ ACTION:" prefix the route
     // unconditionally prepends when actionExecuted=true.
     assert.match(
       body.answer,
-      /ACTION EXECUTED/,
+      /⚡ ACTION:/,
       'response should mark that an action attempt was processed',
     );
     assert.match(
@@ -240,7 +240,7 @@ describe('POST /api/kitchen-assistant — beo_add_prep happy path (control)', ()
       assert.equal(r.event_id, eventA, 'inserted row carries the validated event_id');
     }
 
-    assert.match(body.answer, /ACTION EXECUTED/);
+    assert.match(body.answer, /⚡ ACTION:/);
     assert.match(
       body.answer,
       /Added 2 .*side-prep tasks to BEO ID/,

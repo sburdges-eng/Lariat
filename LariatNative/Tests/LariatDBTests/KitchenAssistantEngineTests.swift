@@ -163,7 +163,7 @@ final class KitchenAssistantEngineTests: XCTestCase {
             conversationSessionId: SESSION, hasPin: true
         )
         XCTAssertTrue(res.answer.contains("Marked salmon as 86'd."))
-        XCTAssertTrue(res.answer.hasPrefix("⚡ ACTION EXECUTED: "))
+        XCTAssertTrue(res.answer.hasPrefix("⚡ ACTION: "))
         XCTAssertTrue(res.actionExecuted)
         XCTAssertNotNil(res.undo)
         XCTAssertEqual(res.disclaimer, "Check tags with a manager. Do not trust AI for allergies.")
@@ -192,7 +192,7 @@ final class KitchenAssistantEngineTests: XCTestCase {
         )
 
         // The write landed, so the cook must still see it.
-        XCTAssertTrue(res.answer.hasPrefix("⚡ ACTION EXECUTED: "))
+        XCTAssertTrue(res.answer.hasPrefix("⚡ ACTION: "))
         XCTAssertTrue(res.answer.contains("Marked salmon as 86'd."))
         XCTAssertFalse(res.answer.contains("<ingredient"))
         // …and must NOT be told to say it again, which would 86 the salmon twice.
@@ -372,7 +372,7 @@ final class KitchenAssistantEngineTests: XCTestCase {
         )
         XCTAssertTrue(res.actionExecuted)
         XCTAssertFalse(res.actionError)
-        XCTAssertTrue(res.answer.contains("⚡ ACTION EXECUTED: Semantic search for \"wedding cake cherry filling\""))
+        XCTAssertTrue(res.answer.contains("⚡ ACTION: Semantic search for \"wedding cake cherry filling\""))
         XCTAssertTrue(res.answer.contains("Tiered almond cake with cherry filling"))
         XCTAssertTrue(res.sources.contains { $0.type == "semantic_search" })
     }

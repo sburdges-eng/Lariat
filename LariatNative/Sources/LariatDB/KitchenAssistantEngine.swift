@@ -9,7 +9,7 @@ import LariatModel
 /// deterministic Q-vs-C classification → **PIN gate BEFORE the LLM (#248)** →
 /// grounded context (#247 tiering) → prompt → ollamaChat → extractAction →
 /// read-action branches → question-path JSON strip (defense-in-depth) →
-/// command-path action dispatch → `⚡ ACTION EXECUTED:` prefix → conversation
+/// command-path action dispatch → `⚡ ACTION:` prefix → conversation
 /// store → response envelope.
 ///
 /// Deferrals (Phase B plan, documented): `db_query` + `code_search` respond
@@ -246,7 +246,7 @@ public struct KitchenAssistantEngine {
         }
 
         if actionExecuted {
-            finalAnswer = "⚡ ACTION EXECUTED: \(actionMsg)\n\n\(finalAnswer)"
+            finalAnswer = "⚡ ACTION: \(actionMsg)\n\n\(finalAnswer)"
         }
 
         // Conversation store failures never fail the request (route parity).

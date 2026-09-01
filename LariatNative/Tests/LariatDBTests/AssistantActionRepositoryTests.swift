@@ -838,7 +838,7 @@ final class AssistantActionRepositoryTests: XCTestCase {
         let (repo, writeDB, path) = try makeRepo()
         defer { cleanupAssistantDatabase(path) }
         // Was .unhandled, mirroring a web bug: the model's own prose went back
-        // to the cook with no ACTION EXECUTED prefix, reading like a success.
+        // to the cook with no ⚡ ACTION prefix, reading like a success.
         let out = try await repo.execute(
             payload: payload("launch_rockets", ["target": .string("moon")]),
             hasPin: true, locationId: LOC

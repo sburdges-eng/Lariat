@@ -5,7 +5,7 @@
 // tests/js/test-extract-action.mjs already pins isDegenerateAnswer as a pure
 // function. What was never covered is WHERE the route runs it, and that
 // placement is the whole safety property: the guard replaces the entire
-// answer, so if it runs after the `⚡ ACTION EXECUTED:` prefix is prepended,
+// answer, so if it runs after the `⚡ ACTION:` prefix is prepended,
 // a garbled model epilogue swallows the confirmation of a write that already
 // landed. The cook is then told "ask me again" for an 86 / inventory move
 // that is already in the ledger, and re-issues it.
@@ -59,7 +59,7 @@ const GARBLED_COPY_RE = /came out garbled/i;
 // the confirmation is the whole point when something did.
 const RE_ASK_RE = /ask me again/i;
 const POINTS_AT_CONFIRMATION_RE = /go by what is above/i;
-const CONFIRMATION_RE = /⚡ ACTION EXECUTED/;
+const CONFIRMATION_RE = /⚡ ACTION:/;
 
 const ORIGINAL_FETCH = globalThis.fetch;
 let stubbedAction = null;
@@ -157,7 +157,7 @@ const GOOD_INVENTORY_ACTION = {
 // ── the regression: a garbled epilogue must not eat the confirmation ──
 
 describe('kitchen-assistant garble guard — executed write keeps its confirmation', () => {
-  it('keeps ⚡ ACTION EXECUTED when the model epilogue is degenerate', async () => {
+  it('keeps the ⚡ ACTION confirmation when the model epilogue is degenerate', async () => {
     const res = await POST(postReq(GOOD_INVENTORY_ACTION, GARBLED_EPILOGUE));
     assert.equal(res.status, 200);
     const body = await res.json();
