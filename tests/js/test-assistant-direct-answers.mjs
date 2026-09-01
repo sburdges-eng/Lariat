@@ -40,6 +40,20 @@ const RECIPES = [
     ],
   },
   {
+    slug: 'pico_de_gallo',
+    name: 'Pico De Gallo',
+    station: 'garde',
+    yield_qty: 4,
+    yield_unit: 'qt',
+    menu_items: ['Baja Fish Tacos'],
+    allergens: [],
+    ingredients: [
+      { item: 'roma tomatoes', qty: 10, unit: 'lb' },
+      { item: 'cilantro', qty: 2, unit: 'bunch' },
+      { item: 'white onion', qty: 3, unit: 'each' },
+    ],
+  },
+  {
     slug: 'cornbread',
     name: 'Jalapeño Cheddar Cornbread',
     station: 'grill',
@@ -100,10 +114,31 @@ test('quantity asked for an absent ingredient answers truthfully, not with a den
 test('recipe book request lists by station', () => {
   const r = tryDirectRecipeAnswer('recipe book', RECIPES);
   assert.ok(r);
-  assert.match(r.answer, /^3 recipes on file:/);
+  assert.match(r.answer, /^4 recipes on file:/);
   assert.match(r.answer, /GRILL: Birria, Jalapeño Cheddar Cornbread/);
   assert.match(r.answer, /EXPO: Green Chilli/);
+  assert.match(r.answer, /GARDE: Pico De Gallo/);
   assert.match(r.answer, /Reference board/);
+});
+
+test('a distinctive single word finds its recipe — the "pico" find', () => {
+  const bare = tryDirectRecipeAnswer('pico', RECIPES);
+  assert.ok(bare, 'bare "pico" should return the card');
+  assert.match(bare.answer, /^Pico De Gallo — makes 4 qt · garde/);
+  assert.match(bare.answer, /roma tomatoes — 10 lb/);
+
+  const q = tryDirectRecipeAnswer('whats in the pico', RECIPES);
+  assert.ok(q);
+  assert.match(q.answer, /cilantro — 2 bunch/);
+
+  const qty = tryDirectRecipeAnswer('how much cilantro in the pico', RECIPES);
+  assert.ok(qty);
+  assert.equal(qty.answer, 'Pico De Gallo: cilantro — 2 bunch (whole recipe makes 4 qt).');
+});
+
+test('a token shared across recipes stays ambiguous ("tacos")', () => {
+  // "Baja Fish Tacos" (pico) and "Quesa Birria Tacos" (birria) both own it.
+  assert.equal(tryDirectRecipeAnswer('tacos', RECIPES), null);
 });
 
 test('allergen-intent questions ALWAYS fall through to the LLM', () => {

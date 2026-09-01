@@ -89,6 +89,21 @@ public enum AssistantDirectAnswers {
         let matchedPhrase: String
     }
 
+    /// Candidate vocabulary of one recipe: name + menu items + slug, tokenized.
+    private static func recipeTokenVocab(_ r: AssistantRecipe) -> Set<String> {
+        var vocab = Set<String>()
+        var candidates = [r.name ?? ""]
+        candidates.append(contentsOf: r.menuItems ?? [])
+        candidates.append((r.slug ?? "").replacingOccurrences(of: "_", with: " "))
+        for c in candidates {
+            for t in normalizeText(c).split(separator: " ").map(String.init)
+            where t.count >= 4 && !stopwords.contains(t) && !unitWords.contains(t) {
+                vocab.insert(t)
+            }
+        }
+        return vocab
+    }
+
     static func findRecipe(question: String, recipes: [AssistantRecipe]) -> RecipeMatch? {
         let q = normalizeText(question)
         var best: RecipeMatch?
@@ -112,7 +127,31 @@ public enum AssistantDirectAnswers {
                 }
             }
         }
-        return ambiguous ? nil : best
+        if best != nil || ambiguous { return ambiguous ? nil : best }
+
+        // Distinctive-token fallback (2026-08-31 "pico" find): a token owned
+        // by exactly ONE recipe's vocabulary identifies it; shared tokens
+        // ("tacos") stay ambiguous and fall through to the LLM.
+        let qTokens = q.split(separator: " ").map(String.init)
+            .filter { $0.count >= 4 && !stopwords.contains($0) && !unitWords.contains($0) }
+        var hits: [String: (recipe: AssistantRecipe, tokens: [String])] = [:]
+        var order: [String] = []
+        for t in qTokens {
+            var owner: AssistantRecipe?
+            var unique = true
+            for r in recipes where recipeTokenVocab(r).contains(t) {
+                if let o = owner, o.slug != r.slug { unique = false; break }
+                owner = r
+            }
+            guard let owner, unique else { continue }
+            let key = owner.slug ?? owner.name ?? ""
+            if hits[key] == nil { order.append(key) }
+            hits[key, default: (owner, [])].tokens.append(t)
+        }
+        if hits.count == 1, let key = order.first, let only = hits[key] {
+            return RecipeMatch(recipe: only.recipe, matchedPhrase: only.tokens.joined(separator: " "))
+        }
+        return nil
     }
 
     // MARK: - Rendering (byte parity with the TS renderers)

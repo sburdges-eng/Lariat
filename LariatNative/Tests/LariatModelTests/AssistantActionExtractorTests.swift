@@ -145,4 +145,27 @@ final class AssistantActionExtractorTests: XCTestCase {
         XCTAssertNil(AssistantJSONValue.string("   ").clip(10))
         XCTAssertNil(AssistantJSONValue.number(5).clip(10), "clip only accepts strings — route parity")
     }
+
+    func testIsDegenerateAnswerFlagsXmlMimicry() {
+        let garbled = [
+            "<pico>", "  <ingredients>",
+            "    <ingredient name=\"green chile\" />",
+            "    <ingredient name=\"thyme\" />",
+            "    <ingredient name=\"pork rind\" />",
+            "  </ingredients>", "</pico>",
+        ].joined(separator: "\n")
+        XCTAssertTrue(AssistantActionExtractor.isDegenerateAnswer(garbled))
+    }
+
+    func testIsDegenerateAnswerFlagsRepetitionLoop() {
+        let loop = Array(repeating: "- diced shallot and garlic clove", count: 6).joined(separator: "\n")
+        XCTAssertTrue(AssistantActionExtractor.isDegenerateAnswer(loop))
+    }
+
+    func testIsDegenerateAnswerPassesHonestAnswers() {
+        XCTAssertFalse(AssistantActionExtractor.isDegenerateAnswer("Walk-in is at 38F — inside the safe range."))
+        XCTAssertFalse(AssistantActionExtractor.isDegenerateAnswer(
+            "Green Chilli — makes 8 qt · expo\n• pork butt — 10 lb\n• water — 5 cup\nTags: wheat"))
+        XCTAssertFalse(AssistantActionExtractor.isDegenerateAnswer(""))
+    }
 }

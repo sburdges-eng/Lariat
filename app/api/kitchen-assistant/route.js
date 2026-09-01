@@ -26,7 +26,7 @@ import {
   isImperativeCommand,
   requiresPinBeforeLlm,
 } from '../../../lib/cookMessageClassifier';
-import { extractAction, sanitizeRenderedAnswer } from '../../../lib/extractAction';
+import { extractAction, sanitizeRenderedAnswer, isDegenerateAnswer } from '../../../lib/extractAction';
 import {
   runDbQuery,
   renderQueryCatalog,
@@ -1068,6 +1068,12 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
     // rollout hit exactly this) or any future code path could reintroduce one —
     // this sanitize is model- and path-independent defense-in-depth.
     finalAnswer = sanitizeRenderedAnswer(finalAnswer);
+    // Degenerate model output (XML mimicry, repetition loops) never reaches
+    // a cook — replaced with an honest, actionable line. See isDegenerateAnswer.
+    if (isDegenerateAnswer(finalAnswer)) {
+      finalAnswer =
+        'That answer came out garbled — ask me again, or ask for a recipe by name (like "pico de gallo recipe").';
+    }
 
     try {
       storeConversationTurn(conversationDb, {
