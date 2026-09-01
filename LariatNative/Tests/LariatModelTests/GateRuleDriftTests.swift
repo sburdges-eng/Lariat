@@ -97,6 +97,51 @@ final class GateRuleDriftTests: XCTestCase {
         )
     }
 
+    // The test above pins the RULE but not its ADOPTION: it proves
+    // ShowsBoardSupport calls the shared gate, and says nothing about whether
+    // any given shows board actually uses it. Unlike the manager rollups, the
+    // shows boards are not wrapped by ManagerGatedBoard — each view carries its
+    // own ShowsGateModel — so a board added without one, or an existing gate
+    // deleted, is invisible to every other test. Same hole #654/#667 closed one
+    // tier up, in the shape this tier uses.
+    //
+    // Every shows surface is PIN-gated on the web (/shows + /api/shows
+    // SENSITIVE_PREFIXES); native must not be the softer door.
+    func testEveryShowsBoardCarriesTheGate() throws {
+        let sources = try swiftSources()
+        guard let features = sources.first(where: { $0.path == "ShowsFeatures.swift" })?.text else {
+            return XCTFail("ShowsFeatures.swift not found — did the shows modules move?")
+        }
+
+        // Pull the view each shows.* module renders, straight from the registry
+        // source, so a NEW board is covered the moment it is registered rather
+        // than when someone remembers to update a hardcoded list here.
+        let moduleRe = try NSRegularExpression(
+            pattern: #"FeatureModule\(id: "(shows\.[A-Za-z]+)"\)[^}]*?AnyView\(\s*([A-Za-z]+)"#,
+            options: [.dotMatchesLineSeparators]
+        )
+        let ns = features as NSString
+        let matches = moduleRe.matches(in: features, range: NSRange(location: 0, length: ns.length))
+
+        XCTAssertGreaterThanOrEqual(
+            matches.count, 7,
+            "expected to find the shows modules in ShowsFeatures.swift — did the registration shape change?"
+        )
+
+        for m in matches {
+            let id = ns.substring(with: m.range(at: 1))
+            let view = ns.substring(with: m.range(at: 2))
+            guard let viewSource = sources.first(where: { $0.path == "\(view).swift" })?.text else {
+                XCTFail("\(id) renders \(view) but \(view).swift was not found")
+                continue
+            }
+            XCTAssertTrue(
+                viewSource.contains("ShowsGateModel"),
+                "\(id) renders \(view), which carries no ShowsGateModel — a cook with no manager PIN would see shows data that the web gates"
+            )
+        }
+    }
+
     // The #401 stash pattern assumes a throw from `actorForWrite()` means a PIN
     // sheet is now up: it dismisses the open form and parks the write until a
     // successful verify replays it, reporting through `onCancel` if the sheet

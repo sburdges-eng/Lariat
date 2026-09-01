@@ -342,9 +342,17 @@ final class FeatureRegistryTests: XCTestCase {
     /// A5.4 option B (ratified 2026-07-03): the READ-ONLY cloud-bridge status
     /// board registers under `.manager`. Pure read — the web surface IS
     /// PIN-gated (/management SENSITIVE_PREFIX + requirePin in the routes),
-    /// but native manager-tier pure reads are not per-view PIN-gated today
-    /// (manager.auditLog / costing.depletionExceptions precedent). The
-    /// transport (peer crypto, sync-since, discovery, requeue/drop writes)
+    /// while THIS board stays ungated natively, as do manager.auditLog and
+    /// costing.depletionExceptions.
+    ///
+    /// Corrected 2026-09-01: this comment used to say native manager-tier pure
+    /// reads "are not per-view PIN-gated today" as a blanket rule. #654 ended
+    /// that — manager.command / .analytics / .management are each wrapped in
+    /// ManagerGatedBoard, pinned by GateRuleDriftTests. The exemption is now a
+    /// short list of specific boards, not a tier-wide policy, so do not read
+    /// this comment as licence to register a new ungated manager board.
+    ///
+    /// The transport (peer crypto, sync-since, discovery, requeue/drop writes)
     /// stays on the edge and must NEVER register a native tile.
     func testA54CloudBridgeStatusRegistered() {
         let d = FeatureCatalog.descriptor(id: "manager.cloudBridge")
