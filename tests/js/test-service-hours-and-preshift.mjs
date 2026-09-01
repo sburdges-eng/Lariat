@@ -159,8 +159,14 @@ describe('todayServiceLabel', () => {
     assert.strictEqual(todayServiceLabel(), null);
   });
 
+  // Pin seed and query to one fixed Date. Deriving dow from `new Date()`
+  // twice (once here, once inside todayServiceLabel) fails when the two
+  // calls straddle local midnight, and exercises whatever calendar day
+  // the host happens to be on.
+  const AT = new Date('2026-08-19T18:00:00');
+
   it('returns the first-opening service label for today', () => {
-    const dow = new Date().getDay();
+    const dow = AT.getDay();
     const ins = db.prepare(
       `INSERT INTO service_hours
          (location_id, day_of_week, opens_at, closes_at, service_label)
@@ -169,17 +175,17 @@ describe('todayServiceLabel', () => {
     // Two services today; the one opening first should win.
     ins.run('default', dow, '17:00', '21:00', 'Dinner');
     ins.run('default', dow, '11:00', '14:00', 'Lunch');
-    assert.strictEqual(todayServiceLabel(), 'Lunch');
+    assert.strictEqual(todayServiceLabel('default', AT), 'Lunch');
   });
 
   it('returns null when today is inactive even if a row exists', () => {
-    const dow = new Date().getDay();
+    const dow = AT.getDay();
     db.prepare(
       `INSERT INTO service_hours
          (location_id, day_of_week, opens_at, closes_at, service_label, active)
        VALUES (?, ?, ?, ?, ?, 0)`,
     ).run('default', dow, '17:00', '21:00', 'Dinner');
-    assert.strictEqual(todayServiceLabel(), null);
+    assert.strictEqual(todayServiceLabel('default', AT), null);
   });
 });
 

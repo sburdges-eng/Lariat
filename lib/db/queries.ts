@@ -28,9 +28,13 @@ export function getServiceHours(locationId = 'default'): ServiceHoursRow[] {
  * service_hours. Returns null when nothing is scheduled (prep day).
  * If multiple services exist on the same day, the one opening first
  * wins.
+ *
+ * `at` exists so tests can pin the day; the day-of-week is taken from
+ * the process-local clock either way, which matches production where
+ * the server runs at the venue.
  */
-export function todayServiceLabel(locationId = 'default'): string | null {
-  const dow = new Date().getDay();
+export function todayServiceLabel(locationId = 'default', at: Date = new Date()): string | null {
+  const dow = at.getDay();
   const row = getDb()
     .prepare(
       `SELECT service_label FROM service_hours

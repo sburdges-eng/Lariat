@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
 
-const ROOTS = ['app', 'lib', 'scripts'];
+const ROOTS = ['app', 'lib', 'scripts', 'tests'];
 const SKIP_DIR = new Set([
   'node_modules',
   '.git',
@@ -46,6 +46,9 @@ const TODAY_ISO_ALLOW = new Map([
   ['app/labor/certs/page.jsx', 'cert expires_on calendar math'],
   ['app/reservations/page.jsx', 'reservation calendar day'],
   ['scripts/phase-c-reconcile.mjs', 'C4 money checksums keyed to the UTC calendar day of the run'],
+  ['tests/js/test-service-date-coverage.mjs', 'this sweep names the pattern it scans for'],
+  ['tests/js/test-operator-analytics.mjs', 'asserts against the allowlisted UTC reporting window of the operators page'],
+  ['tests/js/test-service-date-symmetry.mjs', 'straggler guard: names todayISO() in test titles and probe strings, never calls it'],
 ]);
 
 /** Files allowed to inline `new Date().toISOString().slice(0, 10)`. */
@@ -60,6 +63,8 @@ const INLINE_NOW_ALLOW = new Map([
   ['app/api/wage-notices/route.js', 'same legal signed-on calendar day'],
   ['app/management/performance-reviews/PerformanceReviewBoard.tsx', 'HR review date is a calendar day'],
   ['scripts/phase-c-reconcile.mjs', 'C4 money checksums keyed to the UTC calendar day of the run'],
+  ['tests/js/test-service-date-coverage.mjs', 'this sweep names the pattern it scans for'],
+  ['tests/js/test-phase-c-reconcile.mjs', 'asserts against the allowlisted UTC checksum keys of phase-c-reconcile'],
 ]);
 
 const TODAY_ISO_RE = /\btodayISO\s*\(/;
