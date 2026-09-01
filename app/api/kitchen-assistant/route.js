@@ -26,7 +26,7 @@ import {
   isImperativeCommand,
   requiresPinBeforeLlm,
 } from '../../../lib/cookMessageClassifier';
-import { extractAction, sanitizeRenderedAnswer, isDegenerateAnswer } from '../../../lib/extractAction';
+import { extractAction, sanitizeRenderedAnswer, degeneracyReport } from '../../../lib/extractAction';
 import {
   runDbQuery,
   renderQueryCatalog,
@@ -1074,7 +1074,17 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
     // told to "ask me again" under a successful 86 re-issues a write that is
     // already in the ledger. This needs no new state: the confirmation carries
     // the outcome, so the garbled line only has to stop contradicting it.
-    if (isDegenerateAnswer(finalAnswer)) {
+    const degeneracy = degeneracyReport(finalAnswer);
+    if (degeneracy.degenerate) {
+      // Shape only, never the text — see degeneracyReport. Without this a trip
+      // leaves no trace at all: the answer is replaced, the original is never
+      // stored, and the turn self-deletes on an 8-hour TTL.
+      console.error(
+        `Kitchen assistant: degenerate answer suppressed (signal=${degeneracy.signal} ` +
+          `tags=${degeneracy.tagCount} maxRun=${degeneracy.maxRun} ` +
+          `repeatedShare=${degeneracy.repeatedShare.toFixed(2)} lines=${degeneracy.lines} ` +
+          `actionExecuted=${actionExecuted})`,
+      );
       finalAnswer = actionExecuted
         ? 'The rest of that answer came out garbled. Go by what is above.'
         : 'That answer came out garbled. Ask me again, or ask for a recipe by name.';

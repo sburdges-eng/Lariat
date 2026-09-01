@@ -10,7 +10,7 @@ import {
 import { locationFromBodyOrRequest } from '../../../lib/location';
 import { computeSandboxCost } from '../../../lib/computeEngine/sandboxCosting';
 import { withIdempotency } from '../../../lib/idempotency';
-import { extractAction, sanitizeRenderedAnswer, isDegenerateAnswer } from '../../../lib/extractAction';
+import { extractAction, sanitizeRenderedAnswer, degeneracyReport } from '../../../lib/extractAction';
 import { hasPinCookie } from '../../../lib/pin';
 import { formatDollars } from '../../../lib/formatMoney';
 import { MAX_MESSAGE, AI_DOWN_COPY, SPECIALS_GARBLED_COPY } from '../../../lib/specialsShared';
@@ -128,10 +128,17 @@ async function specialsPostHandler(req) {
     // is appended below — that block is server-authored and its markdown table
     // rows must never be judged as model output.
     finalAnswer = sanitizeRenderedAnswer(finalAnswer);
-    const degenerate = isDegenerateAnswer(finalAnswer);
+    const degeneracy = degeneracyReport(finalAnswer);
+    const degenerate = degeneracy.degenerate;
     if (degenerate) {
       finalAnswer = SPECIALS_GARBLED_COPY;
-      console.error('Specials: degenerate model output suppressed; costing skipped.');
+      // Shape only, never the text — see degeneracyReport.
+      console.error(
+        `Specials: degenerate model output suppressed, costing skipped ` +
+          `(signal=${degeneracy.signal} tags=${degeneracy.tagCount} ` +
+          `maxRun=${degeneracy.maxRun} repeatedShare=${degeneracy.repeatedShare.toFixed(2)} ` +
+          `lines=${degeneracy.lines})`,
+      );
     }
 
     // Skip costing outright rather than pricing a garbled generation's
