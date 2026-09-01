@@ -7,3 +7,9 @@ export const MAX_MESSAGE = 2000;
 
 export const AI_DOWN_COPY =
   "AI is down. Can't connect to Ollama on the office Mac. Ask a manager to start it.";
+
+// Shown when the model's answer trips the degenerate-output guard. Says the
+// cost was skipped because it is: a garbled generation's ingredient list is
+// not something to put a price on.
+export const SPECIALS_GARBLED_COPY =
+  'That answer came out garbled. No cost was figured. Ask again.';
