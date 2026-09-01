@@ -30,6 +30,9 @@ final class BeoBoardViewModel {
     private(set) var pastPrep: [BeoPrepHistoryMatch] = []
     private(set) var cascade: BeoCascadeOutcome?
     private(set) var cascadeLoading = false
+    /// Event id of the cascade run currently in flight, so two callers racing
+    /// for the same party do not both run the engine. See `loadCascade`.
+    private var cascadeInFlight: Int64?
     private(set) var fire: BeoFireScheduleCompute.FireSchedulePayload?
     private(set) var fireLoading = false
     /// Read-only per-event allergen picture (Allergens tab). No write path
@@ -275,8 +278,8 @@ final class BeoBoardViewModel {
             // call needed.
             break
         case .sheet, .orderGuide, .prep:
-            // .sheet loads it too, for the summary strip. loadCascade is
-            // guarded per event, so this is a no-op after the first run.
+            // .sheet loads it too, for the summary strip. loadCascade skips a
+            // party it already has, and dedupes a run already in flight for it.
             await loadCascade()
         case .fire:
             await loadFire()
@@ -292,10 +295,30 @@ final class BeoBoardViewModel {
     }
 
     private func loadCascade() async {
-        guard let selectedEventId, cascade?.eventId != selectedEventId else { return }
+        guard let eventId = selectedEventId, cascade?.eventId != eventId else { return }
+        // Switching parties from a non-Sheet tab reaches here twice —
+        // onEventChanged's `tab = .sheet` fires the didSet Task AND its own
+        // eager call, and both pass the guard above because `cascade` was just
+        // nilled. Two concurrent runs meant the first to finish flipped
+        // cascadeLoading false while the other was still going, so the strip
+        // dropped its spinner for the "Build the buy + prep lists" button
+        // mid-load and invited a press.
+        guard cascadeInFlight != eventId else { return }
+        cascadeInFlight = eventId
         cascadeLoading = true
-        defer { cascadeLoading = false }
-        cascade = try? await cascadeRepo.cascade(eventId: selectedEventId, locationId: locationId)
+        defer {
+            cascadeLoading = false
+            if cascadeInFlight == eventId { cascadeInFlight = nil }
+        }
+        let outcome = try? await cascadeRepo.cascade(eventId: eventId, locationId: locationId)
+        // The event may have changed while the (async) engine run was in
+        // flight — don't clobber a newer selection with a stale answer, the
+        // same way loadAllergenSummary does below. Without this, opening a big
+        // party and quickly tapping to a smaller one leaves the big party's
+        // counts on the strip: the drill-down tabs self-heal on the next tap,
+        // but the strip exists precisely so nobody has to tap.
+        guard selectedEventId == eventId else { return }
+        cascade = outcome
     }
 
     private func loadFire() async {
