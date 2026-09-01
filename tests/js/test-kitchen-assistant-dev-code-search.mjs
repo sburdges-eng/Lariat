@@ -136,7 +136,7 @@ describe('POST /api/kitchen-assistant code_search', () => {
     assert.match(lastUserPrompt(), /CODE SEARCH ACTION/);
     assert.equal(body.actionExecuted, true);
     assert.equal(body.actionError, false);
-    assert.match(body.answer, /ACTION EXECUTED/);
+    assert.match(body.answer, /⚡ ACTION:/);
     assert.match(body.answer, /Code search "ollamaChat"/);
     assert.equal(body.answer.includes(process.cwd()), false, 'answer must not leak absolute repo paths');
     assert.ok(

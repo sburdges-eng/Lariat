@@ -115,7 +115,7 @@ function undoAnswerResponse(expiresInMs = 30000) {
   return {
     ok: true,
     json: async () => ({
-      answer: '⚡ ACTION EXECUTED: done.',
+      answer: '⚡ ACTION: done.',
       model: 'lari-the-kitchen-assistant',
       location_id: 'west',
       sources: [],

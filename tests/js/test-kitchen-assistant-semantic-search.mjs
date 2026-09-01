@@ -143,7 +143,7 @@ describe('POST /api/kitchen-assistant semantic_search', () => {
     assert.equal(chatCalls.length, 1, 'semantic_search should not make a second model call');
     assert.equal(body.actionExecuted, true);
     assert.equal(body.actionError, false);
-    assert.match(body.answer, /ACTION EXECUTED/);
+    assert.match(body.answer, /⚡ ACTION:/);
     assert.match(body.answer, /Semantic search/);
     assert.match(body.answer, /Almond Celebration Cake/);
     assert.match(body.answer, /Parker Wedding/);
