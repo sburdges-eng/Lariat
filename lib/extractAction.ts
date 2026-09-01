@@ -128,21 +128,73 @@ export function sanitizeRenderedAnswer(text: string): string {
  * CONTEXT's XML shape and looped (`<ingredient name="diced shallot" />` ×12)
  * until the token cap, fabricating ingredients along the way. Deterministic
  * hygiene in the same spirit as the double-JSON strip above: degenerate
- * output must never reach a cook. Two cheap signals, either one disqualifies:
- * markup tags (real answers never emit XML/HTML), and the same long line
- * repeated 4+ times (repetition-loop signature).
+ * output must never reach a cook.
+ *
+ * Two signals, either one disqualifies. Both were re-derived from measurement
+ * on 2026-08-31 after the first cut destroyed truthful answers:
+ *
+ *  - MARKUP is the signal that actually caught the incident (48 tags against a
+ *    threshold of 5) — the CONTEXT is rendered as XML, so a model echoing its
+ *    own grounding is the observed failure. The tag name must be a bare
+ *    identifier, so vendor contacts (`<orders@shamrockfoods.com>`) and bare
+ *    URLs (`<https://fda.gov/haccp>`) are not mistaken for markup.
+ *
+ *  - REPETITION needs two clauses, because neither alone is honest. A
+ *    CONSECUTIVE run catches a loop appended to an otherwise good answer, which
+ *    a share-of-answer test misses. DOMINANCE catches a loop interleaved with
+ *    filler, which a run test misses. Counting a bare repeat anywhere — the
+ *    first cut — flagged 7 of 13 realistic answers: 23 of 79 real recipes are
+ *    untagged and emit an identical "Tags: none listed" line, so listing four
+ *    of them was enough to wipe the answer.
+ *
+ * The run resets on any line too short to score, which is deliberate: it is
+ * what keeps "Not logged yet." under four station headers (a truthful line
+ * check) out of the guard, because the station names break the run. A loop
+ * punctuated by short lines is left to the dominance clause.
  */
+const MARKUP_TAG_RE = /<\/?[a-z][a-z0-9]*(?:[-:_][a-z0-9]+)*(?:\s[^<>]{0,80})?\/?>/gi;
+const MARKUP_TAG_MIN = 5;
+const REPEAT_LINE_MIN_LEN = 8;
+const REPEAT_RUN_MIN = 4;
+const REPEAT_DOMINANCE_MIN = 0.5;
+
+/** A markdown table row — real data repeats these legitimately. */
+function isTableRow(line: string): boolean {
+  return line.length > 1 && line.startsWith('|') && line.endsWith('|');
+}
+
 export function isDegenerateAnswer(text: string): boolean {
   if (!text) return false;
-  const tagCount = (text.match(/<\/?[a-z][^<>]{0,80}\/?>/gi) || []).length;
-  if (tagCount >= 5) return true;
+
+  const tagCount = (text.match(MARKUP_TAG_RE) || []).length;
+  if (tagCount >= MARKUP_TAG_MIN) return true;
+
+  // Split on every newline flavor: a CRLF answer must score the same as an LF
+  // one. (The Swift twin collapsed CRLF input to a single line and could never
+  // trip — see AssistantActionExtractor.swift.)
+  const lines = text.split(/\r\n|\r|\n/).map((raw) => raw.trim());
+
+  let prev: string | null = null;
+  let run = 0;
   const counts = new Map<string, number>();
-  for (const raw of text.split('\n')) {
-    const line = raw.trim();
-    if (line.length < 8) continue;
-    const n = (counts.get(line) || 0) + 1;
-    if (n >= 4) return true;
-    counts.set(line, n);
+  let nonEmpty = 0;
+  for (const line of lines) {
+    if (line.length > 0) nonEmpty += 1;
+    if (line.length < REPEAT_LINE_MIN_LEN || isTableRow(line)) {
+      prev = null;
+      run = 0;
+      continue;
+    }
+    run = line === prev ? run + 1 : 1;
+    prev = line;
+    if (run >= REPEAT_RUN_MIN) return true;
+    counts.set(line, (counts.get(line) || 0) + 1);
   }
-  return false;
+
+  // Dominance is measured against every non-empty line, not just the scored
+  // ones. Short lines are content a cook reads — station names, headers — so
+  // they count toward "how much of this answer is the loop".
+  let repeated = 0;
+  for (const n of counts.values()) if (n >= REPEAT_RUN_MIN) repeated += n;
+  return nonEmpty > 0 && repeated / nonEmpty >= REPEAT_DOMINANCE_MIN;
 }

@@ -221,3 +221,98 @@ describe('isDegenerateAnswer — degenerate-output guard (2026-08-31 "pico" find
     assert.equal(isDegenerateAnswer(''), false);
   });
 });
+
+// The first cut of this guard counted a repeated line ANYWHERE, which flagged
+// 7 of 13 realistic answers when measured on 2026-08-31. Every case below is a
+// truthful answer a cook can receive; each one was destroyed before the
+// consecutive-run + dominance rewrite. Keep them green.
+describe('isDegenerateAnswer — truthful answers the guard must not eat', () => {
+  it('keeps a line check where stations share one status line', () => {
+    const lineCheck =
+      'Line check, 4:30 pm:\nGrill\nNot logged yet.\nSaute\nNot logged yet.\n' +
+      'Fry\nNot logged yet.\nExpo\nNot logged yet.';
+    assert.equal(isDegenerateAnswer(lineCheck), false);
+  });
+
+  it('keeps a listing of untagged recipes (23 of 79 share one Tags line)', () => {
+    const cards = [
+      ['Pico de Gallo — makes 4 qt · garde', '• roma tomato — 10 cup', '• red onion — 2 cup'],
+      ['Mexi Slaw — makes 2 qt · garde', '• green cabbage — 8 cup', '• lime juice — 1 cup'],
+      ['Birria Consomme — makes 6 qt · line', '• beef chuck — 12 lb', '• guajillo chile — 3 cup'],
+      ['Aji Verde — makes 1 qt · garde', '• cilantro — 4 cup', '• jalapeno — 6 ea'],
+    ]
+      .map((card) => `${card.join('\n')}\nTags: none listed — check with a manager.`)
+      .join('\n\n');
+    assert.equal(isDegenerateAnswer(cards), false);
+  });
+
+  it('keeps a par listing that repeats one item across four stations', () => {
+    const pars = [
+      'Par levels for tonight:',
+      'Grill station', '• pico de gallo — 2 qt',
+      'Saute station', '• pico de gallo — 2 qt',
+      'Fry station', '• pico de gallo — 2 qt',
+      'Expo station', '• pico de gallo — 2 qt',
+    ].join('\n');
+    assert.equal(isDegenerateAnswer(pars), false);
+  });
+
+  it('keeps four recipes that share an allergen line', () => {
+    const allergens = [
+      'Recipes with eggs:',
+      'Aioli', 'Tags: eggs', 'Caesar', 'Tags: eggs',
+      'Hollandaise', 'Tags: eggs', 'Mayo', 'Tags: eggs',
+    ].join('\n');
+    assert.equal(isDegenerateAnswer(allergens), false);
+  });
+
+  it('does not mistake vendor emails or URLs in angle brackets for markup', () => {
+    const contacts = [
+      'Vendor contacts:',
+      'Shamrock <orders@shamrockfoods.com>',
+      'Sysco <meat@sysco.com>',
+      'US Foods <dry@usfoods.com>',
+      'Borden <dairy@borden.com>',
+      'Bunzl <paper@bunzl.com>',
+    ].join('\n');
+    assert.equal(isDegenerateAnswer(contacts), false);
+
+    const urls = Array.from({ length: 5 }, (_, i) => `Rule ${i}: see <https://fda.gov/haccp/rule${i}>`).join('\n');
+    assert.equal(isDegenerateAnswer(urls), false);
+  });
+
+  it('keeps a markdown table whose rows legitimately repeat', () => {
+    const table = [
+      '| date | variance |', '| --- | --- |',
+      '| 2026-06-16 | 0 |', '| 2026-06-16 | 0 |',
+      '| 2026-06-16 | 0 |', '| 2026-06-16 | 0 |',
+    ].join('\n');
+    assert.equal(isDegenerateAnswer(table), false);
+  });
+});
+
+describe('isDegenerateAnswer — loops the guard must still catch', () => {
+  it('catches a loop appended to an otherwise good answer', () => {
+    const tail = [
+      ...Array.from({ length: 20 }, (_, i) => `Prep step ${i + 1}: dice and hold cold.`),
+      ...Array(5).fill('- diced shallot and garlic clove'),
+    ].join('\n');
+    assert.equal(isDegenerateAnswer(tail), true, 'a consecutive run trips even when the answer is mostly good');
+  });
+
+  it('catches a loop interleaved with filler', () => {
+    const interleaved = [
+      'Aji verde uses cilantro.', 'filler line one here',
+      'Aji verde uses cilantro.', 'filler line two here',
+      'Aji verde uses cilantro.', 'filler line three ok',
+      'Aji verde uses cilantro.', 'filler line four ok',
+    ].join('\n');
+    assert.equal(isDegenerateAnswer(interleaved), true, 'dominance trips when a run does not');
+  });
+
+  it('scores a CRLF answer the same as an LF one', () => {
+    const body = Array(6).fill('- diced shallot and garlic clove');
+    assert.equal(isDegenerateAnswer(body.join('\r\n')), true);
+    assert.equal(isDegenerateAnswer(body.join('\n')), true);
+  });
+});

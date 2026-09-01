@@ -168,4 +168,100 @@ final class AssistantActionExtractorTests: XCTestCase {
             "Green Chilli — makes 8 qt · expo\n• pork butt — 10 lb\n• water — 5 cup\nTags: wheat"))
         XCTAssertFalse(AssistantActionExtractor.isDegenerateAnswer(""))
     }
+
+    // MARK: - Truthful answers the guard must not eat
+    //
+    // Mirrors tests/js/test-extract-action.mjs. The first cut counted a
+    // repeated line anywhere, which destroyed 7 of 13 realistic answers.
+
+    func testKeepsLineCheckWhereStationsShareAStatusLine() {
+        let lineCheck = """
+        Line check, 4:30 pm:
+        Grill
+        Not logged yet.
+        Saute
+        Not logged yet.
+        Fry
+        Not logged yet.
+        Expo
+        Not logged yet.
+        """
+        XCTAssertFalse(AssistantActionExtractor.isDegenerateAnswer(lineCheck))
+    }
+
+    func testKeepsListingOfUntaggedRecipes() {
+        let cards = [
+            ["Pico de Gallo — makes 4 qt · garde", "• roma tomato — 10 cup", "• red onion — 2 cup"],
+            ["Mexi Slaw — makes 2 qt · garde", "• green cabbage — 8 cup", "• lime juice — 1 cup"],
+            ["Birria Consomme — makes 6 qt · line", "• beef chuck — 12 lb", "• guajillo chile — 3 cup"],
+            ["Aji Verde — makes 1 qt · garde", "• cilantro — 4 cup", "• jalapeno — 6 ea"],
+        ]
+        .map { $0.joined(separator: "\n") + "\nTags: none listed — check with a manager." }
+        .joined(separator: "\n\n")
+        XCTAssertFalse(AssistantActionExtractor.isDegenerateAnswer(cards))
+    }
+
+    func testKeepsParListingRepeatingOneItemAcrossStations() {
+        let pars = [
+            "Par levels for tonight:",
+            "Grill station", "• pico de gallo — 2 qt",
+            "Saute station", "• pico de gallo — 2 qt",
+            "Fry station", "• pico de gallo — 2 qt",
+            "Expo station", "• pico de gallo — 2 qt",
+        ].joined(separator: "\n")
+        XCTAssertFalse(AssistantActionExtractor.isDegenerateAnswer(pars))
+    }
+
+    func testDoesNotMistakeVendorEmailsOrUrlsForMarkup() {
+        let contacts = [
+            "Vendor contacts:",
+            "Shamrock <orders@shamrockfoods.com>",
+            "Sysco <meat@sysco.com>",
+            "US Foods <dry@usfoods.com>",
+            "Borden <dairy@borden.com>",
+            "Bunzl <paper@bunzl.com>",
+        ].joined(separator: "\n")
+        XCTAssertFalse(AssistantActionExtractor.isDegenerateAnswer(contacts))
+
+        let urls = (0...4).map { "Rule \($0): see <https://fda.gov/haccp/rule\($0)>" }.joined(separator: "\n")
+        XCTAssertFalse(AssistantActionExtractor.isDegenerateAnswer(urls))
+    }
+
+    func testKeepsMarkdownTableWithRepeatingRows() {
+        let table = [
+            "| date | variance |", "| --- | --- |",
+            "| 2026-06-16 | 0 |", "| 2026-06-16 | 0 |",
+            "| 2026-06-16 | 0 |", "| 2026-06-16 | 0 |",
+        ].joined(separator: "\n")
+        XCTAssertFalse(AssistantActionExtractor.isDegenerateAnswer(table))
+    }
+
+    // MARK: - Loops the guard must still catch
+
+    func testCatchesLoopAppendedToOtherwiseGoodAnswer() {
+        let tail = ((1...20).map { "Prep step \($0): dice and hold cold." }
+            + Array(repeating: "- diced shallot and garlic clove", count: 5))
+            .joined(separator: "\n")
+        XCTAssertTrue(AssistantActionExtractor.isDegenerateAnswer(tail))
+    }
+
+    func testCatchesLoopInterleavedWithFiller() {
+        let interleaved = [
+            "Aji verde uses cilantro.", "filler line one here",
+            "Aji verde uses cilantro.", "filler line two here",
+            "Aji verde uses cilantro.", "filler line three ok",
+            "Aji verde uses cilantro.", "filler line four ok",
+        ].joined(separator: "\n")
+        XCTAssertTrue(AssistantActionExtractor.isDegenerateAnswer(interleaved))
+    }
+
+    /// Regression: `split(separator: "\n")` does not split CRLF, because
+    /// "\r\n" is one grapheme cluster. A CRLF answer collapsed to a single
+    /// line here and the repeat signal could never fire, while the web twin's
+    /// did — a fail-open divergence on the iPad target.
+    func testScoresCrlfAnswerTheSameAsLf() {
+        let body = Array(repeating: "- diced shallot and garlic clove", count: 6)
+        XCTAssertTrue(AssistantActionExtractor.isDegenerateAnswer(body.joined(separator: "\r\n")))
+        XCTAssertTrue(AssistantActionExtractor.isDegenerateAnswer(body.joined(separator: "\n")))
+    }
 }
