@@ -163,11 +163,34 @@ function isTableRow(line: string): boolean {
   return line.length > 1 && line.startsWith('|') && line.endsWith('|');
 }
 
-export function isDegenerateAnswer(text: string): boolean {
-  if (!text) return false;
+/**
+ * What the guard saw, for logging. CONTAINS NO ANSWER TEXT — only shape.
+ *
+ * A trip is otherwise invisible: the answer is replaced, the original is never
+ * stored, and the conversation turn self-deletes on an 8-hour TTL. So nobody
+ * could answer "how often does this fire, and on what?" — the question every
+ * threshold decision needs. Counts answer it; storing the text would drag cook
+ * names and sick-note-adjacent prose into a new retention decision, so this
+ * deliberately carries none.
+ */
+export type DegeneracyReport = {
+  degenerate: boolean;
+  /** Which clause tripped first, for grouping logs. */
+  signal: 'markup' | 'run' | 'dominance' | null;
+  tagCount: number;
+  maxRun: number;
+  /** Share of non-empty lines belonging to a 4+-times repeated line. */
+  repeatedShare: number;
+  lines: number;
+};
+
+export function degeneracyReport(text: string): DegeneracyReport {
+  const empty: DegeneracyReport = {
+    degenerate: false, signal: null, tagCount: 0, maxRun: 0, repeatedShare: 0, lines: 0,
+  };
+  if (!text) return empty;
 
   const tagCount = (text.match(MARKUP_TAG_RE) || []).length;
-  if (tagCount >= MARKUP_TAG_MIN) return true;
 
   // Split on every newline flavor: a CRLF answer must score the same as an LF
   // one. (The Swift twin collapsed CRLF input to a single line and could never
@@ -176,6 +199,7 @@ export function isDegenerateAnswer(text: string): boolean {
 
   let prev: string | null = null;
   let run = 0;
+  let maxRun = 0;
   const counts = new Map<string, number>();
   let nonEmpty = 0;
   for (const line of lines) {
@@ -187,7 +211,7 @@ export function isDegenerateAnswer(text: string): boolean {
     }
     run = line === prev ? run + 1 : 1;
     prev = line;
-    if (run >= REPEAT_RUN_MIN) return true;
+    if (run > maxRun) maxRun = run;
     counts.set(line, (counts.get(line) || 0) + 1);
   }
 
@@ -196,5 +220,23 @@ export function isDegenerateAnswer(text: string): boolean {
   // they count toward "how much of this answer is the loop".
   let repeated = 0;
   for (const n of counts.values()) if (n >= REPEAT_RUN_MIN) repeated += n;
-  return nonEmpty > 0 && repeated / nonEmpty >= REPEAT_DOMINANCE_MIN;
+  const repeatedShare = nonEmpty > 0 ? repeated / nonEmpty : 0;
+
+  const markup = tagCount >= MARKUP_TAG_MIN;
+  const runTrip = maxRun >= REPEAT_RUN_MIN;
+  const dominance = nonEmpty > 0 && repeatedShare >= REPEAT_DOMINANCE_MIN;
+  const signal = markup ? 'markup' : runTrip ? 'run' : dominance ? 'dominance' : null;
+
+  return {
+    degenerate: markup || runTrip || dominance,
+    signal,
+    tagCount,
+    maxRun,
+    repeatedShare,
+    lines: nonEmpty,
+  };
+}
+
+export function isDegenerateAnswer(text: string): boolean {
+  return degeneracyReport(text).degenerate;
 }

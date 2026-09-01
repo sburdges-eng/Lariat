@@ -18,7 +18,7 @@ import { register } from 'node:module';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
-const { extractAction, stripFences, sanitizeRenderedAnswer, isDegenerateAnswer } = await import('../../lib/extractAction');
+const { extractAction, stripFences, sanitizeRenderedAnswer, isDegenerateAnswer, degeneracyReport } = await import('../../lib/extractAction');
 
 describe('extractAction — shared LLM action-JSON parser', () => {
   it('returns null payload when content has no JSON object', () => {
@@ -314,5 +314,55 @@ describe('isDegenerateAnswer — loops the guard must still catch', () => {
     const body = Array(6).fill('- diced shallot and garlic clove');
     assert.equal(isDegenerateAnswer(body.join('\r\n')), true);
     assert.equal(isDegenerateAnswer(body.join('\n')), true);
+  });
+});
+
+// A trip is otherwise invisible — the answer is replaced, the original never
+// stored, the turn gone in 8 hours. The report is what makes "how often, and on
+// what?" answerable, and it must stay answerable WITHOUT keeping the text.
+describe('degeneracyReport — shape for logging, never content', () => {
+  it('names which signal tripped', () => {
+    assert.equal(degeneracyReport(Array(12).fill('<ingredient name="x" />').join('\n')).signal, 'markup');
+    assert.equal(degeneracyReport(Array(6).fill('- diced shallot and garlic').join('\n')).signal, 'run');
+
+    const interleaved = [
+      'Aji verde uses cilantro.', 'filler line one here',
+      'Aji verde uses cilantro.', 'filler line two here',
+      'Aji verde uses cilantro.', 'filler line three ok',
+      'Aji verde uses cilantro.', 'filler line four ok',
+    ].join('\n');
+    assert.equal(degeneracyReport(interleaved).signal, 'dominance');
+
+    assert.equal(degeneracyReport('Walk-in is at 38F — inside the safe range.').signal, null);
+  });
+
+  it('carries counts, and no answer text at all', () => {
+    const secret = 'Gold star for Marisol on the fry station today.';
+    const report = degeneracyReport([secret, ...Array(6).fill('- diced shallot and garlic')].join('\n'));
+    assert.equal(report.degenerate, true);
+    assert.equal(report.maxRun, 6);
+    assert.ok(report.lines > 0);
+
+    // Anything logged must be safe to log: cook names and shift detail must not
+    // ride along in the report.
+    const serialized = JSON.stringify(report);
+    assert.doesNotMatch(serialized, /Marisol/, 'report must never carry answer text');
+    assert.doesNotMatch(serialized, /diced shallot/, 'not even the repeated line');
+    for (const value of Object.values(report)) {
+      assert.notEqual(typeof value, 'object', 'report is flat scalars only');
+    }
+  });
+
+  it('agrees with isDegenerateAnswer on every case', () => {
+    const cases = [
+      '', 'Nothing is 86 today.',
+      Array(12).fill('<ingredient name="x" />').join('\n'),
+      Array(6).fill('- diced shallot and garlic').join('\n'),
+      'Line check, 4:30 pm:\nGrill\nNot logged yet.\nSaute\nNot logged yet.\nFry\nNot logged yet.\nExpo\nNot logged yet.',
+      'Green Chilli — makes 8 qt · expo\n• pork butt — 10 lb\n• water — 5 cup\nTags: wheat',
+    ];
+    for (const text of cases) {
+      assert.equal(degeneracyReport(text).degenerate, isDegenerateAnswer(text));
+    }
   });
 });
