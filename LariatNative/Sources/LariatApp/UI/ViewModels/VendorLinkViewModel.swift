@@ -135,7 +135,7 @@ final class VendorLinkViewModel {
         do {
             let gateOn = try writeDB.pool.read { db in try PinVerifier().gateConfigured(db: db) }
             guard gateOn else {
-                errorMessage = "PIN not set up — add a manager PIN in web Settings"
+                errorMessage = "No manager PIN is set. Add one on the Manager → PINs board first."
                 return false
             }
             return true

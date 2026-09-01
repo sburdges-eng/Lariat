@@ -454,7 +454,7 @@ struct BeoBoardView: View {
     private var addMenuItemDropdown: some View {
         Menu {
             if vm.menu.isEmpty {
-                Text("Catering menu cache missing")
+                Text("No catering menu loaded.")
             } else {
                 ForEach(vm.menuGroups, id: \.category) { group in
                     Menu(group.category) {
@@ -495,7 +495,7 @@ struct BeoBoardView: View {
                 // Missing/corrupt cache is NOT a filter mismatch — say what
                 // actually broke and how to fix it.
                 EmptyState(
-                    message: "Catering menu cache missing — run the menu ingest to rebuild data/cache/catering_menu.json.",
+                    message: "No catering menu loaded. Get a manager.\nDetails for the office: data/cache/catering_menu.json",
                     systemImage: "exclamationmark.triangle"
                 )
             } else if vm.filteredMenu.isEmpty {
@@ -1163,7 +1163,7 @@ private struct BeoRecipeTreePanel: View {
             VStack(alignment: .leading, spacing: 14) {
                 if !available {
                     EmptyState(
-                        message: "Recipe tree cache missing — run scripts/ingest_beo_recipe_tree.py to rebuild data/cache/beo_recipe_tree.json.",
+                        message: "Recipe list isn't loaded. Get a manager.\nDetails for the office: data/cache/beo_recipe_tree.json",
                         systemImage: "exclamationmark.triangle"
                     )
                 } else if items.isEmpty {

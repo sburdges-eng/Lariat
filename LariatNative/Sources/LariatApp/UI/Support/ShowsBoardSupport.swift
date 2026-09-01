@@ -200,7 +200,7 @@ private struct ShowsLockedView: View {
                 Image(systemName: "lock.fill").font(.largeTitle).foregroundStyle(.secondary)
                 Text("\(title) requires a manager PIN")
                     .font(.headline)
-                Text("Shows surfaces are PIN-protected (parity with the web app).")
+                Text("Ask a manager to unlock it.")
                     .font(.callout).foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)

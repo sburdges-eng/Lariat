@@ -21,7 +21,7 @@ import Observation
             // Actionable degrade copy — point at the cache files the catalog
             // reads (stations.json / line_checks.json / recipes.json).
             let cacheDir = resolveCacheDirectory()
-            self.catalogError = "Station catalog missing — check \(cacheDir)/stations.json, line_checks.json, recipes.json (\(error.localizedDescription))"
+            self.catalogError = "Can't load the station list. Close the app and open it again. Still stuck? Get a manager.\nDetails for the office: \(cacheDir) — \(error.localizedDescription)"
         }
     }
 
