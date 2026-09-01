@@ -207,6 +207,67 @@ describe('runSemanticKitchenSearch', () => {
     assert.doesNotMatch(rendered, /Manager-only review/);
   });
 
+  // The reference library is an optional data pack. When it is absent,
+  // referenceRecipeHits returns [] — indistinguishable from "searched it and
+  // found nothing". The prompt used to render both as a flat "No semantic
+  // search matches", so a model handed that would report absence as fact when
+  // it had never opened half the shelves.
+  describe('says which shelves it actually searched', () => {
+    it('flags the reference library as unavailable and says so, with no hits', async () => {
+      const result = await semantic.runSemanticKitchenSearch({
+        db: testDb,
+        locationId: LOC,
+        query: 'a dish nobody here has ever made',
+        deps: { dataPackAvailable: () => false },
+      });
+
+      assert.equal(result.referenceUnavailable, true);
+      const rendered = semantic.formatSemanticKitchenSearchForPrompt(result);
+      assert.match(rendered, /reference library is not installed/i);
+      assert.match(
+        rendered,
+        /this kitchen's own records/i,
+        'the model must be told the absence claim is scoped, not absolute',
+      );
+    });
+
+    it('says so on the hits branch too, where the loss is easiest to miss', async () => {
+      const result = await semantic.runSemanticKitchenSearch({
+        db: testDb,
+        locationId: LOC,
+        query: 'that wedding cake recipe with the cherry filling',
+        limit: 8,
+        deps: { dataPackAvailable: () => false },
+      });
+
+      assert.ok(result.hits.length > 0, 'premise: local records did match');
+      assert.equal(result.referenceUnavailable, true);
+      assert.match(
+        semantic.formatSemanticKitchenSearchForPrompt(result),
+        /reference library is not installed/i,
+        'N hit(s) with no scope note reads as a complete search',
+      );
+    });
+
+    it('claims the full scope only when the library really was searched', async () => {
+      const result = await semantic.runSemanticKitchenSearch({
+        db: testDb,
+        locationId: LOC,
+        query: 'that wedding cake recipe with the cherry filling',
+        limit: 8,
+        deps: {
+          dataPackAvailable: () => true,
+          referenceHybrid: async () => [],
+        },
+      });
+
+      assert.equal(result.referenceUnavailable, false);
+      const rendered = semantic.formatSemanticKitchenSearchForPrompt(result);
+      assert.match(rendered, /reference library/i);
+      assert.doesNotMatch(rendered, /not installed/i);
+    });
+  });
+
   it('returns a quiet no-hit result for empty queries', async () => {
     const result = await semantic.runSemanticKitchenSearch({
       db: testDb,

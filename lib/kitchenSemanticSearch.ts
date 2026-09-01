@@ -51,6 +51,17 @@ export interface SemanticKitchenSearchResult {
   ok: true;
   query: string;
   hits: SemanticKitchenHit[];
+  /**
+   * True when the reference library (the optional data pack) is not installed
+   * on this machine, so ONLY this kitchen's own records were searched.
+   *
+   * Without this, `hits: []` means two different things — "searched everything
+   * and found nothing" and "never opened half the shelves" — and the prompt
+   * rendered both as "No semantic search matches". A model handed that will
+   * report absence as fact. The pack is optional by design; the search
+   * degrading is fine, the search not SAYING it degraded is not.
+   */
+  referenceUnavailable: boolean;
 }
 
 export interface SemanticKitchenSearchDeps {
@@ -118,7 +129,7 @@ export async function runSemanticKitchenSearch(
   args: SemanticKitchenSearchArgs
 ): Promise<SemanticKitchenSearchResult> {
   const query = clip(args.query, 240);
-  if (!query) return { ok: true, query: '', hits: [] };
+  if (!query) return { ok: true, query: '', hits: [], referenceUnavailable: false };
 
   const limit = normalizeLimit(args.limit);
   const deps = args.deps ?? {};
@@ -131,6 +142,7 @@ export async function runSemanticKitchenSearch(
     ...auditCorpus(args.db, args.locationId),
   ];
   const localHits = rankCorpus(query, corpus, limit);
+  const referenceAvailable = (deps.dataPackAvailable ?? datapackSearch.available)();
   const referenceHits = await referenceRecipeHits(query, limit, deps);
 
   const byId = new Map<string, SemanticKitchenHit>();
@@ -141,17 +153,25 @@ export async function runSemanticKitchenSearch(
     .sort((a, b) => b.score - a.score || a.type.localeCompare(b.type) || a.title.localeCompare(b.title))
     .slice(0, limit);
 
-  return { ok: true, query, hits };
+  return { ok: true, query, hits, referenceUnavailable: !referenceAvailable };
 }
 
 export function formatSemanticKitchenSearchForPrompt(
   result: SemanticKitchenSearchResult
 ): string {
   const query = result.query || 'blank query';
+  // Say which shelves were actually opened. "No matches" and "no matches in
+  // what I could reach" are different claims, and only one of them is true
+  // when the data pack is absent.
+  const scope = result.referenceUnavailable
+    ? " this kitchen's own records (the reference library is not installed on this machine)"
+    : ' this kitchen\'s records and the reference library';
   if (!result.hits.length) {
-    return `No semantic search matches for "${query}".`;
+    return `No semantic search matches for "${query}" in${scope}.`;
   }
-  const lines = [`Semantic search for "${query}" - ${result.hits.length} hit(s):`];
+  const lines = [
+    `Semantic search for "${query}" - ${result.hits.length} hit(s), searched${scope}:`,
+  ];
   result.hits.forEach((hit, idx) => {
     const source = hit.source ? ` (${hit.source})` : '';
     const excerpt = hit.excerpt ? ` - ${hit.excerpt}` : '';
