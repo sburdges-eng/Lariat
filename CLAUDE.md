@@ -18,9 +18,17 @@ This is food/restaurant ops. Do not confuse it with COOLIO (image API) despite o
 ## 1. Where you are
 
 **`~/Dev` is a symlink to `/Volumes/Sean's SSD/Dev`.** Everything below it lives on the
-external SSD and vanishes when that drive is unmounted — `ls ~/Dev` before trusting any
-path here. The mount point contains a space and an apostrophe, so always quote it in
-shell commands.
+external SSD and vanishes when that drive is unmounted — which is the normal state, not
+the exception. Check with **`test -d ~/Dev`** (exit 1 = the drive is gone), or
+`ls /Volumes`.
+
+**Do not use `ls ~/Dev`** — this section used to recommend it, and it does not work. On a
+dead symlink it prints the path and exits **0**, so the check reports success for a drive
+that is not mounted (measured 2026-09-01: `ls ~/Dev` → 0, `test -d ~/Dev` → 1, `df` →
+"No such file or directory"). Every SSD-resident row in the table below is unverifiable
+while it is unmounted; treat those rows as last-known state, not current fact.
+
+The mount point contains a space and an apostrophe, so always quote it in shell commands.
 
 | Path | Status |
 | --- | --- |
