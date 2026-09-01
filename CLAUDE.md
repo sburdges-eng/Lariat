@@ -18,9 +18,17 @@ This is food/restaurant ops. Do not confuse it with COOLIO (image API) despite o
 ## 1. Where you are
 
 **`~/Dev` is a symlink to `/Volumes/Sean's SSD/Dev`.** Everything below it lives on the
-external SSD and vanishes when that drive is unmounted — `ls ~/Dev` before trusting any
-path here. The mount point contains a space and an apostrophe, so always quote it in
-shell commands.
+external SSD and vanishes when that drive is unmounted — which is the normal state, not
+the exception. Check with **`test -d ~/Dev`** (exit 1 = the drive is gone), or
+`ls /Volumes`.
+
+**Do not use `ls ~/Dev`** — this section used to recommend it, and it does not work. On a
+dead symlink it prints the path and exits **0**, so the check reports success for a drive
+that is not mounted (measured 2026-09-01: `ls ~/Dev` → 0, `test -d ~/Dev` → 1, `df` →
+"No such file or directory"). Every SSD-resident row in the table below is unverifiable
+while it is unmounted; treat those rows as last-known state, not current fact.
+
+The mount point contains a space and an apostrophe, so always quote it in shell commands.
 
 | Path | Status |
 | --- | --- |
@@ -37,13 +45,24 @@ directory you are actually in before your first edit. Do not edit
 `.claude/worktrees/cadi-cxx-toolchain/**/Lariat*` (a foreign project's snapshot; do not
 delete it either).
 
-**Correction (2026-08-28).** This section previously stated that all non-canonical Lariat
-iterations were deleted 2026-07-22 after archiving to
-`~/Dev/_archive/lariat-iterations-20260722/`, and that its table was "the complete set".
-Neither holds on this machine: that archive path does not exist, and ten checkouts of the
-Lariat remote are present — including copies under `backup/`, `MacBackup-2026-08-07/`, and
-`Dev/_archives/lariat-pre-scrub-2026-04-18/`. Treat any checkout not listed above as a
-backup: read it if you must, but never edit it, and never delete one as "cleanup".
+**Correction (2026-08-30).** An earlier version of this section claimed all non-canonical
+Lariat iterations were deleted 2026-07-22 after archiving to
+`~/Dev/_archive/lariat-iterations-20260722/`; that path does not exist. The 2026-08-28 pass
+then counted ten checkouts of the Lariat remote. **Seven remain as of 2026-08-30:** this
+table's two, the four `lariat-pre-scrub-2026-04-18` copies, and one inside the SanDisk
+recovery dump under `~/Documents/Codex/`. The `MacBackup-2026-08-07/` and `MacRescue/`
+duplicates of `hospitality/Lariat`, `backup/Lariat`, and a standalone
+`MacBackup-2026-08-07/Dev/Lariat-KDS` were deleted on Sean's explicit instruction after every
+branch tip was verified present on `origin`; their 11 stashes, one orphaned commit
+(`c50eae9`, on no branch and no remote), and untracked `.codex/` configs were exported to
+`~/lariat_dev/stash-archive-2026-08-30/` first. Exactly one Lariat-KDS checkout now exists:
+`~/Dev/hospitality/Lariat/Lariat-KDS` — every KDS commit is on `origin`, which as of
+2026-08-28 is *ahead* of any local copy.
+
+Treat any checkout not listed above as a backup: read it if you must, but never edit it, and
+never delete one as "cleanup" absent an explicit instruction from Sean. The four pre-scrub
+copies are the only record of pre-scrub history (HEAD `b0c20f5` is on no branch and no
+remote) and still carry the PII the scrub removed.
 
 This table describes one machine at one point in time. Verify it rather than trusting it.
 
