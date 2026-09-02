@@ -12,8 +12,16 @@ import { serviceDate } from '../lib/serviceDate.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-const DB = path.join(ROOT, 'data', 'lariat.db');
-const OUT = path.join(ROOT, 'exports');
+// Same data-dir override the app honors (lib/dataDir.ts): the DB lives at
+// <LARIAT_DATA_DIR>/lariat.db. Lets the smoke harness export from an
+// isolated data dir instead of the live one.
+const DATA_DIR = process.env.LARIAT_DATA_DIR
+  ? path.resolve(process.env.LARIAT_DATA_DIR)
+  : path.join(ROOT, 'data');
+const DB = path.join(DATA_DIR, 'lariat.db');
+const OUT = process.env.LARIAT_EXPORT_DIR
+  ? path.resolve(process.env.LARIAT_EXPORT_DIR)
+  : path.join(ROOT, 'exports');
 
 if (!fs.existsSync(DB)) {
   console.error('No database yet — run the app first.');
