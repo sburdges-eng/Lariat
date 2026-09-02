@@ -39,6 +39,7 @@ const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
 const ctx = await import('../../lib/kitchenAssistantContext.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
@@ -63,7 +64,10 @@ const LOC = 'default';
 function seedSales() {
   // A small non-zero sales footprint so renderSalesVelocity and
   // renderDailySalesTrend would actually produce content if invoked.
-  const today = new Date().toISOString().slice(0, 10);
+  // Seed with serviceDate(): renderDailySalesTrend filters toast_sales_daily
+  // by the Denver service day, so a UTC-sliced seed lands outside the query
+  // window from ~18:00–02:00 Denver (the exact defect behind #646).
+  const today = serviceDate();
   testDb.prepare(
     `INSERT INTO sales_lines (location_id, period_label, item_name, quantity_sold, net_sales, source)
      VALUES (?, ?, ?, ?, ?, ?)`,
