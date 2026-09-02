@@ -7,7 +7,7 @@ The kitchen-facing dashboard for The Lariat.
 - **Live Line Checks** — every station's checklist on iPad with pass/fail/par/have, persists to a local SQLite database, sign-off per station per shift. Each item has a one-tap **86** button right on the row.
 - **Recipe Hub** — every recipe from the Lariat Recipe Book (Excel + PDF, deduped), searchable by name, ingredient, or allergen, with batch-scaler.
 - **86 Board** — cooks 86 items with reason and qty, KM resolves them when restocked. Active 86s show as a red banner on the Today page.
-- **Inventory Updates** — append-only log for mid-shift adjustments (prepped, received, used, counted). Recent updates surface on the Today page.
+- **Inventory Updates** — running log for mid-shift adjustments (prepped, received, used, counted). Recent updates surface on the Today page. Not strictly append-only: receiving-match resolution can re-link a row's `master_id`, and the kitchen-assistant undo flow can remove a row it just created.
 
 **v2 (loaded via ingest into SQLite)**
 
@@ -69,11 +69,9 @@ To export today's line checks, sign-offs, 86s, and inventory updates to a real `
 ```bash
 npm run export                  # today
 npm run export 2026-04-07       # specific date
-npm run export:v2               # snapshot v2 tables (costing, sales, BEO, …) to exports/
-npm run export:v2 2026-04-07    # same with dated filename
 ```
 
-Daily ops export lands in `exports/lariat_YYYY-MM-DD.xlsx` (4 sheets: Line Checks, Sign-offs, 86 Board, Inventory) along with the per-table CSVs. The **v2 snapshot** adds `lariat_v2_snapshot_YYYY-MM-DD.xlsx` (imported costing, sales, spend, BEO, order guide, etc.). The xlsx steps need `python3` with `openpyxl` (`pip install openpyxl`); if that fails the CSVs are still written.
+Daily ops export lands in `exports/lariat_YYYY-MM-DD.xlsx` (4 sheets: Line Checks, Sign-offs, 86 Board, Inventory) along with the per-table CSVs. The xlsx steps need `python3` with `openpyxl` (`pip install openpyxl`); if that fails the CSVs are still written. (A v2-tables snapshot export — costing, sales, spend, BEO, order guide — was documented here but never implemented; there is no `export:v2` script.)
 
 ## Architecture
 
