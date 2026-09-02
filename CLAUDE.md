@@ -15,6 +15,14 @@ This is food/restaurant ops. Do not confuse it with COOLIO (image API) despite o
 
 ---
 
+## Scope
+
+Lariat is used for **operations features only** (BEO/service day workflows). iPads, KDS, and
+front-of-house surfaces are NOT in scope — do not include them in audits, readiness checklists, or
+gap analyses unless explicitly asked.
+
+---
+
 ## 1. Where you are
 
 **`~/Dev` is a symlink to `/Volumes/Sean's SSD/Dev`.** Everything below it lives on the
@@ -124,6 +132,14 @@ complete in this tool environment — flag them for Sean to run manually.
 
 **Do not auto-start dev servers.** Ask first, and start only the specific one requested.
 
+### Environment bootstrap
+
+Required toolchain: Node 24 (see `.nvmrc`), gh, ripgrep, jq, and the repo venv
+(`.venv/bin/python`, Python 3.13 — the gate uses the venv, not a PATH python). On a bare machine
+run `npm run bootstrap` (= `scripts/bootstrap.sh`) before any gates: it is idempotent, installs
+what it can via Homebrew, and exits non-zero listing every step that needs interactive input.
+Note: `gh auth login` is interactive-only — stop and hand back to Sean rather than attempting it.
+
 ---
 
 ## 3. Git workflow
@@ -148,6 +164,14 @@ complete in this tool environment — flag them for Sean to run manually.
   `lariat-data-sources`.
 - Do not commit unless asked.
 
+### Before opening a PR
+
+1. Rebase/verify against the latest merged `main` — do not build or smoke-test from a stale branch.
+2. Run the full verify gate and confirm exit code 0.
+3. Self-review the diff for regressions in code you touched (sanitizers, cache-busters, barrel
+   exports are frequent offenders).
+4. Confirm any worktree/branch you reference actually exists before using it.
+
 ---
 
 ## 4. Verification — evidence before claims
@@ -171,6 +195,17 @@ complete in this tool environment — flag them for Sean to run manually.
 - **A broad suite pass does not substitute for the targeted contract suite** of whatever protected
   surface you touched (§5, and `docs/PROTECTED_CONTRACTS.md` §15 lists the exact commands).
 - `next build` catches a class of bug nothing else does — see §8.
+
+### Verifying gate/CI results
+
+Never infer a gate's result from stdout. Always capture and check the exit code directly, e.g.
+`npm run verify > /tmp/verify.log 2>&1; VERIFY_EXIT=$?; echo "exit=$VERIFY_EXIT"` and read
+`$VERIFY_EXIT` — a trailing `echo` will mask a non-zero status. Re-read the log tail before
+declaring green.
+
+Prefer `npm run verify:gate` (= `scripts/verify.sh`): it forces Node 24 via npx, runs
+`version:stamp` first (verify is not hermetic on a fresh checkout), prints `VERIFY_EXIT=` on its
+own line, and exits with the gate's real status.
 
 ---
 
@@ -207,6 +242,12 @@ Rules that apply whenever you're near these:
   Dynamic Type, high contrast, big targets, glanceability. iPad is the real deployment target.
 - **Vendor encodings:** Toast POS CSVs are **cp1252**, not UTF-8 (`encoding='cp1252'`). Shamrock
   `.xls` files are CDFV2 — read with `xlrd`, not `openpyxl`; its sector-size warning is benign.
+
+### Dates and timezones
+
+This codebase pins service dates to America/Denver. Any test asserting on dates must construct
+expectations in Denver time, never UTC or system-local. When a test fails only at certain hours,
+suspect a UTC-vs-Denver mismatch first.
 
 ---
 
