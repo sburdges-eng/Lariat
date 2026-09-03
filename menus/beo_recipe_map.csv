@@ -5,6 +5,8 @@ Battered Fish Taco,Beer Flour,0.06
 Battered Fish Taco,Chipotle Aioli,0.0375
 Battered Fish Taco,Mexi Slaw,0.1
 Battered Fish Taco,Pico de Gallo,0.025
+Battered Fish Taco,Fish Fillet,0.025
+Battered Fish Taco,Taco Setup,1
 Baja Fish Tacos,Fish Brine,0.05
 Baja Fish Tacos,Beer Batter,7.5
 Baja Fish Tacos,Beer Flour,0.06
@@ -12,6 +14,8 @@ Baja Fish Tacos,Chipotle Aioli,0.0375
 Baja Fish Tacos,Mexi Slaw,0.1
 Baja Fish Tacos,Pico de Gallo,0.025
 Baja Fish Tacos,Aji Verde,0.1
+Baja Fish Tacos,Fish Fillet,0.025
+Baja Fish Tacos,Flour Tortillas,1
 Baja Fish Taco,Fish Brine,0.05
 Baja Fish Taco,Beer Batter,7.5
 Baja Fish Taco,Beer Flour,0.06
@@ -19,10 +23,13 @@ Baja Fish Taco,Chipotle Aioli,0.0375
 Baja Fish Taco,Mexi Slaw,0.1
 Baja Fish Taco,Pico de Gallo,0.025
 Baja Fish Taco,Aji Verde,0.1
+Baja Fish Taco,Fish Fillet,0.025
+Baja Fish Taco,Flour Tortillas,1
 Baked Ziti,Baked Ziti
 Trio Dips,Blackened Tomato Salsa,0.5
 Trio Dips,Pico de Gallo,0.5
 Trio Dips,Queso / Mac Sauce,0.5
+Trio Dips,Tortilla Chips,0.05
 Mac Balls,Mac Balls
 Mini Rellenos,Mini Rellenos
 Caprese Skewers,Caprese Skewers
@@ -30,24 +37,34 @@ Churros,Churros,0.003333
 Philo Bites,Philo Bites
 Pig Wings,Alabama White Sauce
 Pig Wings,Lariat Rub
+Pig Wings,Pig Wings,1
 Green Chile Mac Buffet,Queso / Mac Sauce,5.5
 Green Chile Mac Buffet,Green Chilli,0
+Green Chile Mac Buffet,Mac Pasta
 Fish Taco Buffet,Fish Brine,1.0
 Fish Taco Buffet,Beer Batter,150
 Fish Taco Buffet,Beer Flour,1.2
 Fish Taco Buffet,Chipotle Aioli,0.75
 Fish Taco Buffet,Mexi Slaw,2.0
 Fish Taco Buffet,Pico de Gallo,0.5
+Fish Taco Buffet,Fish Fillet,0.5
+Fish Taco Buffet,Taco Setup,20
 Battered Avocado Taco Buffet,Beer Batter,150
 Battered Avocado Taco Buffet,Beer Flour,1.2
 Battered Avocado Taco Buffet,Chipotle Aioli,0.75
 Battered Avocado Taco Buffet,Mexi Slaw,2.0
+Battered Avocado Taco Buffet,Avocado,0.4167
+Battered Avocado Taco Buffet,Corn Tortillas,20
 Barbacoa Taco,Birria,0.2656
+Barbacoa Taco,Taco Setup,1
 Barbacoa Taco Buffet,Birria,8.5
+Barbacoa Taco Buffet,Taco Setup,32
 Braised Chicken Taco,Chicken Confit,0.0625
 Braised Chicken Taco,Aji Verde,0.1
+Braised Chicken Taco,Taco Setup,1
 Braised Chicken Taco Buffet,Chicken Confit,2
 Braised Chicken Taco Buffet,Aji Verde
+Braised Chicken Taco Buffet,Taco Setup,32
 Corn Dogs,Corn Dogs
 Rope Burger slider,Bacon Jam,0.0625
 Rope Burger slider,Rope Pickle,0.0625
@@ -61,6 +78,8 @@ Nashville Slider,Special Sauce,0.0625
 Nashville Slider,Coleslaw,0.0625
 Cob Salad Buffet,Cobb Dressing / Herb Bleu Cheese
 Cob Salad Buffet,Roasted Pepitas
+Cob Salad Buffet,Salad Greens,0.5
+Cob Salad Buffet,Cobb Salad Setup
 Roast Chicken Dinner,Chicken Confit
 Roast Chicken Dinner,Chicken Jus
 Chocolate Cake,Chocolate Cake
@@ -77,10 +96,13 @@ Spanish Artisanal Board,Artisanal Board
 Deviled Eggs,Deviled Eggs
 Pork Belly bao bun,Pork Belly Bao Bun
 Carnitas taco,Carnitas,0.0625
+Carnitas taco,Taco Setup,1
 Carnitas Tacos Buffet,Carnitas,2
+Carnitas Tacos Buffet,Taco Setup,32
 Low Country Boil,Low Country Boil
 Gazpacho,Gazpacho
 Chilled Corn Leek,Chilled Corn Leek
+Elote salad,Elote Salad
 Italian Dinner,Italian Dinner
 Mexican Dinner,Mexican Dinner
 Roasted Chicken Leg,Roasted Chicken Leg
@@ -88,6 +110,10 @@ Roasted root veg,Roasted Root Veg
 Bri and Raspberry Philo Bites,Philo Bites
 Rope Caesar Salad Buffet,Santa Fe Caesar Dressing
 Rope Caesar Salad Buffet,Roasted Pepitas
+Rope Caesar Salad Buffet,Salad Greens,0.5
+Rope Caesar Salad Buffet,Jalapeño Cheddar Cornbread,0.5
+Rope Caesar Salad Buffet,Cotija,0.167
+Rope Caesar Salad Buffet,Black Bean & Corn Succotash,1.5
 Prime Rib Carving Station,Prime Rib,0.083
 Breakfast Burrito,Breakfast Burrito
 Peach Cobbler,Peach Cobbler with Cheater Granola Crunch
