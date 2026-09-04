@@ -4,20 +4,32 @@
 // Run: node --experimental-strip-types --test tests/js/test-peers-route.mjs
 //
 // The helper is a thin wrapper around discover() + electHub() that exists
-// purely so we can stub the network seam in tests — discover() itself
-// returns [] in CI (no multicast), so without an injectable seam we couldn't
-// exercise the "with peers" code path. The route is then a thin wrapper
-// around the helper that parses + clamps the ?timeout=<ms> query param.
+// purely so we can stub the network seam in tests — helper tests pass their
+// own discoverFn, which is the only way to exercise the "with peers" code
+// path. The route is then a thin wrapper around the helper that parses +
+// clamps the ?timeout=<ms> query param.
 //
-// We register the project's test resolver so extensionless relative imports
-// inside the route/helper modules (Next.js convention) resolve under
-// node:test, matching what other tests in this directory do.
+// The route has nowhere to pass a discoverFn, so its tests reach the same
+// seam through mdns-discovery-mock-loader.mjs, which swaps
+// lib/mdnsDiscovery.ts for a mock. Left real, they report whatever is
+// advertising _lariat._tcp on the LAN — green on a CI runner with no
+// multicast, red on a developer Mac running scripts/start-hub.sh.
+//
+// We also register the project's test resolver so extensionless relative
+// imports inside the route/helper modules (Next.js convention) resolve
+// under node:test, matching what other tests in this directory do.
 
 import { register } from 'node:module';
+register(new URL('./mdns-discovery-mock-loader.mjs', import.meta.url));
 register(new URL('./resolver.mjs', import.meta.url));
 
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import {
+  __setDiscoveredPeers,
+  __discoverCalls,
+  __resetDiscoverMock,
+} from './mdns-discovery-mock.mjs';
 
 const { loadPeersAndHub } = await import('../../lib/peers.ts');
 const { electHub } = await import('../../lib/hubElection.ts');
@@ -158,42 +170,97 @@ describe('loadPeersAndHub helper', () => {
 });
 
 describe('GET /api/peers route', () => {
-  it('returns redacted empty-shape on un-PIN\'d default call (CI has no multicast)', async () => {
+  // Unlike the helper, the route has nowhere to pass a discoverFn — it
+  // calls loadPeersAndHub({ timeoutMs }) and gets the real discover().
+  // mdns-discovery-mock-loader.mjs swaps that module out, so these tests
+  // describe how the route shapes a KNOWN peer list instead of whatever
+  // happens to be advertising on the LAN while they run.
+  beforeEach(() => {
+    __resetDiscoverMock();
+  });
+
+  it('returns redacted empty-shape on un-PIN\'d default call (nothing discovered)', async () => {
     // Without a PIN cookie the route flips into redacted mode, even when
     // peers is empty. The flag is what un-PIN\'d UI surfaces key on to
     // know they cannot trust the host/version/pubkey_fp fields.
+    __setDiscoveredPeers([]);
     const res = await GET(reqWithQuery(''));
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.deepEqual(body, { peers: [], hub: null, redacted: true });
   });
 
-  it('accepts ?timeout=1500 and returns the redacted empty-state shape', async () => {
+  it('redacts a discovered peer and drops the hub on an un-PIN\'d call', async () => {
+    // The redaction redactPeerForUnauth/buildPeersResponse are unit tested
+    // for, asserted end to end through GET: an un-PIN\'d caller sees the
+    // name plus the two mDNS-public TXT fields and nothing else, and the
+    // elected hub is withheld even though there was one to elect.
+    __setDiscoveredPeers([
+      peer({
+        name: 'Lariat (POS Mac)',
+        host: 'host-a.local.',
+        addresses: ['192.168.1.10'],
+        port: 3000,
+        version: '2026.05',
+        started_at: '2026-05-05T12:00:00.000Z',
+        pubkey_fp: 'a1b2c3d4e5f60718',
+      }),
+    ]);
+    const res = await GET(reqWithQuery(''));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.deepEqual(body, {
+      peers: [
+        {
+          name: 'Lariat (POS Mac)',
+          txt: {
+            location_id: 'default',
+            started_at: '2026-05-05T12:00:00.000Z',
+          },
+        },
+      ],
+      hub: null,
+      redacted: true,
+    });
+  });
+
+  it('accepts ?timeout=1500, forwards it, and returns the redacted empty-state shape', async () => {
+    __setDiscoveredPeers([]);
     const res = await GET(reqWithQuery('timeout=1500'));
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.deepEqual(body, { peers: [], hub: null, redacted: true });
+    assert.deepEqual(__discoverCalls(), [{ timeoutMs: 1500 }]);
   });
 
   it('rejects ?timeout=-1 without crashing (clamps and returns shape)', async () => {
+    __setDiscoveredPeers([]);
     const res = await GET(reqWithQuery('timeout=-1'));
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.deepEqual(body, { peers: [], hub: null, redacted: true });
+    // undefined rather than -1 or 0 — discover() then applies its own
+    // 2000ms default instead of being handed a nonsense listen window.
+    assert.deepEqual(__discoverCalls(), [{ timeoutMs: undefined }]);
   });
 
   it('rejects ?timeout=foo without crashing (clamps and returns shape)', async () => {
+    __setDiscoveredPeers([]);
     const res = await GET(reqWithQuery('timeout=foo'));
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.deepEqual(body, { peers: [], hub: null, redacted: true });
+    assert.deepEqual(__discoverCalls(), [{ timeoutMs: undefined }]);
   });
 
-  it('clamps ?timeout=99999 to the cap and returns the shape', async () => {
+  it('clamps ?timeout=99999 to the 10000ms cap and returns the shape', async () => {
+    __setDiscoveredPeers([]);
     const res = await GET(reqWithQuery('timeout=99999'));
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.deepEqual(body, { peers: [], hub: null, redacted: true });
+    // The cap is what stops a caller pinning a worker on ?timeout=600000.
+    assert.deepEqual(__discoverCalls(), [{ timeoutMs: 10000 }]);
   });
 
   it('PIN\'d (legacy unsigned cookie, no LARIAT_PIN_SECRET) returns un-redacted shape', async () => {
@@ -201,6 +268,13 @@ describe('GET /api/peers route', () => {
     // only when LARIAT_PIN_SECRET is unset (pinCookie deployment-safety
     // fallback). CI runs with no env vars, so this exercises the auth path
     // without needing to sign an HMAC value.
+    const full = peer({
+      host: 'host-a.local.',
+      version: '2026.05',
+      started_at: '2026-05-05T12:00:00.000Z',
+      pubkey_fp: 'a1b2c3d4e5f60718',
+    });
+    __setDiscoveredPeers([full]);
     const prevSecret = process.env.LARIAT_PIN_SECRET;
     delete process.env.LARIAT_PIN_SECRET;
     try {
@@ -210,7 +284,9 @@ describe('GET /api/peers route', () => {
       const res = await GET(req);
       assert.equal(res.status, 200);
       const body = await res.json();
-      assert.deepEqual(body, { peers: [], hub: null });
+      // Identity + topology survive verbatim for a PIN'd caller, and no
+      // redaction flag is set.
+      assert.deepEqual(body, { peers: [full], hub: full });
       assert.equal(body.redacted, undefined);
     } finally {
       if (prevSecret !== undefined) process.env.LARIAT_PIN_SECRET = prevSecret;
