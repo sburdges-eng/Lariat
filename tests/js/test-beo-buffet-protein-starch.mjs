@@ -426,6 +426,55 @@ describe('beo_recipe_map — named regressions', () => {
   });
 });
 
+// `corndog_batter.csv` was deleted 2026-09-05: its `ap flour` and `baking soda`
+// rows were byte-identical to `beer_flour` and its salt was 32x the book's at the
+// same stated yield, so the CSV was cross-contaminated at ingest and could not be
+// re-derived (the book's own gram figures total ~2.2 qt against a stated 8 qt).
+//
+// Corn Dogs is still a live BEO line item and DATA.purchase shows the batter is
+// made from scratch, so the batter survives as a flat BOM line. Two things have
+// to hold for that to be safe, and neither is obvious from reading one file:
+// the line itself must not silently vanish, and the wheat + milk that used to be
+// derived through the deleted sub-recipe must stay declared. Allergens are
+// regulated; a battered fried item quietly losing two of the Big 9 is the exact
+// failure this pins.
+describe('corn_dogs — the batter survived its recipe', () => {
+  it('still lists a batter line', () => {
+    const leaves = [...leavesOf(manifest, 'corn_dogs')];
+    assert.ok(
+      leaves.some((leaf) => /batter/i.test(leaf)),
+      `corn_dogs lists no batter — leaves: ${leaves.sort().join(', ')}`,
+    );
+  });
+
+  it('no longer resolves through the deleted corndog_batter recipe', () => {
+    assert.ok(
+      !manifest.has('corndog_batter'),
+      'corndog_batter is back in recipe_index.csv — it was deleted for unreconcilable quantities',
+    );
+    const declared = manifest.get('corn_dogs')?.subSlugs ?? [];
+    assert.ok(
+      !declared.includes('corndog_batter'),
+      `corn_dogs still declares corndog_batter as a sub-recipe: ${declared.join(', ')}`,
+    );
+  });
+
+  it('keeps WHEAT and MILK declared in allergens/allergen_matrix.csv', () => {
+    const rows = readCsv(path.join(REPO_ROOT, 'allergens/allergen_matrix.csv')).filter(
+      (r) => (r.recipe_id ?? '').trim() === 'corn_dogs',
+    );
+    assert.ok(rows.length > 0, 'no corn_dogs row in allergens/allergen_matrix.csv');
+    for (const tag of ['wheat', 'milk']) {
+      assert.ok(
+        rows.some((r) => (r[tag] ?? '').trim().toUpperCase() === 'X'),
+        `corn_dogs no longer declares ${tag}. The deleted corndog_batter recipe was ` +
+          'what derived it (ap flour / buttermilk); allergen_matrix.csv is now the ' +
+          'only thing carrying it.',
+      );
+    }
+  });
+});
+
 // Root cause 1: the recipe, not the map. The book (Lariat Recipe Book MASTER
 // p27) opens Chicken Confit with "1 case chicken legs, frenched"; the CSV had
 // only the aromatics, so every board that expanded it ordered EVOO and herbs
