@@ -7,13 +7,41 @@ undercount them (AGENTS.md rule #4 — silence is not an option).
 
 ## Open
 
-(none — see "Pending chef review" and the "Resolved" lists below)
+What the 2026-09-03 sweep could not settle from a source. Each needs an
+operator decision, not a data entry:
+
+- **`corndog_batter` quantities are suspect.** Its `ap flour,17,cup` and
+  `baking soda,0.333,cup` rows are byte-identical to `beer_flour`, and its
+  `salt,3,cup` is 32× the book's 1½ Tbsp (MASTER p9) at the same 8 qt yield.
+  The CSV looks cross-contaminated at ingest. The missing baking powder landed
+  2026-09-03 (matched to the soda row, since the book gives both 20 g), but
+  **the quantities were deliberately NOT rewritten** — this recipe is costed,
+  and re-deriving it needs the book's own yield reconciled first (its gram
+  figures total ≈2.2 qt against a stated 8 qt yield).
+- **Rope Caesar Salad Buffet is missing the grilled onions** that winter menu
+  MI-SA01 names. No recipe exists for them and no source gives a quantity.
+- **`Pig Wings` sauce rows carry no `per_count`.** `Pig Wings` is priced per
+  piece ($5.00), so a 50-piece line resolves to 50 yield-units of Alabama
+  White Sauce. The pork shank landed 2026-09-03 with an explicit `per_count`;
+  the two sauce rows still need theirs.
+- **`baja_fish_tacos.csv` names its fish `catfish fillet`.** Winter menu MI-M07
+  says catfish, but the vendor guide's only white-fish fillet is Portico
+  pangasius, which is what the map now orders. Reconcile the wording so the
+  plate BOM and the purchase line stop disagreeing.
+- **The `baja_fish_tacos` plate BOM is bypassed by the map**, which lists its
+  six sub-recipes directly. The fish and the tortillas now agree with the plate
+  (`Fish Fillet,0.025` = 6 oz, `Flour Tortillas,3`), but the six SAUCE rows
+  still carry per-taco counts — e.g. `Fish Brine,0.05` against the plate's
+  0.25 qt. So one `Baja Fish Tacos` line now orders a plate of fish and
+  tortillas with a taco's worth of sauce. Settle what one unit of that $16
+  menu item is, then bring the sauce rows onto it or map the plate recipe.
 
 ## Pending chef review (USDA-default templates in place)
 
-The four items below moved out of STUB on the Phase 1 sweep — each got
-a starter ingredient list so the BEO order pull no longer loses them to
-the unmapped counter. Provenance is recorded per-row in the `notes`
+The items below each got a starter ingredient list so the BEO order pull
+no longer loses them to the unmapped counter — the first four on the Phase 1
+sweep (2026-04-28), Elote salad and Cob Salad Buffet on the buffet-BOM sweep
+(2026-09-03). Provenance is recorded per-row in the `notes`
 column of each CSV (`SOURCE: usda_myplate`, `SOURCE: chef_template`,
 `SOURCE: in-house`). Quantities are restaurant-scale defaults derived
 from the canonical USDA MyPlate publications (public domain) plus
@@ -26,6 +54,9 @@ before the next costing ingest treats these as authoritative.**
 | Gazpacho | USDA MyPlate (`whatscooking.fns.usda.gov/recipes/myplate-cnpp/gazpacho`) — combined classic + Farmers Market variants | Confirm yield (currently 4 qt), bread-vs-no-bread, cumin level |
 | Chilled Corn Leek | USDA MyPlate Corn Soup (`myplate.gov/recipes/corn-soup`) base + vichyssoise template (cream + leek + potato — no direct .gov match) | Confirm cream ratio, potato quantity, garnish (chives default) |
 | Italian Dinner | Composite — wires `baked_ziti` + `caprese_skewers` + `artisanal_board` sub-recipes; USDA does not publish multi-course menu plans | Confirm bread vendor + count, decide whether salad is its own sub-recipe |
+| Elote salad | `chef_template` — street-corn standard; the BEO Studio blob has no `DATA.purchase` entry and the recipe book has no page for it | Confirm yield (currently 1 hotel pan), corn form (fire-roasted kernels assumed), cotija and mayo levels |
+| Cob Salad Buffet | Composition from winter menu MI-SA02 (bacon + bleu cheese + avocado + tomato + egg); BEO Studio records "NEED — no recipe on file", so only the per-pan quantities are templated | Confirm quantities per pan and whether avocado is plated or sliced to order. Chicken is deliberately absent — MI-SA02 sells it as a $6.00 add-on |
+| Braised Chicken (taco line) | `DATA.purchase` names the cut and pack (Chicken Thigh Boneless Skinless, SYSCO 4x10 LB) but no per-pan weight; 8 lb/pan and the aromatics mirror `carnitas` | Confirm 8 lb of thigh per hotel pan and the onion/garlic ratio for a braise-and-shred |
 | Mexican Dinner | Composite — wires `birria` + `mexi_slaw` + `pico_de_gallo` + `tomatillo_salsa` + `mini_rellenos` sub-recipes | Confirm rice/beans recipes (currently UNMAPPED — need their own CSV+row), tortilla counts per cover |
 
 **Resolution path** for the remaining open item: decide whether
@@ -36,6 +67,85 @@ ingredient at a vendor SKU (see `mini_rellenos.csv`, `churros.csv`,
 `chocolate_cake.csv` for the whole-buy pattern).
 
 Close an item here with the PR that expands the recipe.
+
+## Resolved 2026-09-05
+
+Both found by review on PR #678, both real:
+
+- **The braised taco line was pulling the frenched-leg confit.** `Braised
+  Chicken Taco` and `Braised Chicken Taco Buffet` mapped through
+  `chicken_confit`, which is the whole-leg confit for Roast Chicken Dinner
+  (MASTER p27). Once p27's protein line was restored, that mapping started
+  ordering **6 cases of frenched chicken legs and 12 gallons of EVOO** for
+  event 10's three taco buffets — a costlier wrong answer than the missing
+  protein it replaced. `DATA.purchase` names the cut: boneless skinless
+  chicken thigh. New `braised_chicken` recipe (thigh + white onion + garlic,
+  8 lb per pan mirroring `carnitas`); both taco rows repointed at it with
+  their `per_count`s unchanged. `chicken_confit` keeps Roast Chicken Dinner.
+  Event 10: `chicken legs 6 case` → `chicken thigh 48 lb`, and the confit's
+  EVOO, green salt and herb sprigs drop out entirely (72 → 64 rows).
+- **`Baja Fish Taco(s)` allocated one flour tortilla against a full plate of
+  fish.** Those rows bill per plate — their `Fish Fillet,0.025` is 6 oz,
+  exactly the plate BOM's catfish line — so the tortilla count has to come off
+  the same plate. Now `Flour Tortillas,3`, asserted against
+  `baja_fish_tacos.csv` so the two cannot drift.
+
+## Resolved 2026-09-03
+
+The buffet mappings listed under "Resolved 2026-04-24" below were sauce-only:
+they named every brine, batter and aioli and none of the food. The order guide
+for a 150-cover buyout (event 10) came back with 60 rows and no chicken, fish,
+tortillas, cotija, chips or corn in any of them. Vendor products are from
+`docs/Lariat_BEO_Studio_5.html` → `DATA.purchase`.
+
+- **Chicken Confit** — `recipes/normalized/chicken_confit.csv` was missing
+  `1 case chicken legs, frenched` and the green salt, both of which the recipe
+  book opens the page with (MASTER p27). Every board that expanded it ordered
+  EVOO and herbs for a chicken dish with no chicken.
+- **Green Chilli** — was missing the roux (1 lb AP flour + 1 lb bacon fat) the
+  book calls for on p16 and the index note already described.
+- **Fish Taco Buffet** → + `Fish Fillet` (Portico pangasius) + `Taco Setup`.
+- **Braised Chicken / Barbacoa / Carnitas Taco Buffets** → + `Taco Setup`
+  (corn tortillas + cotija).
+- **Battered Avocado Taco Buffet** → + `Avocado` + `Corn Tortillas`. No cotija:
+  BEO Studio lists its allergens as "wheat, egg" with no milk.
+- **Trio Dips** → + `Tortilla Chips`.
+- **Green Chile Mac Buffet** → + `Mac Pasta` (cavatappi + panko). It had the
+  cheese sauce and no pasta.
+- **Rope Caesar Salad Buffet** → + `Salad Greens` + `Jalapeño Cheddar
+  Cornbread` (croutons). It had the dressing and no salad.
+- **Cob Salad Buffet** → + `Salad Greens` + `Cobb Salad Setup` (CHEF REVIEW).
+- **Elote salad** — had no row at all, so it landed in the cascade's `unmapped`
+  list. Now mapped to `Elote Salad` (CHEF REVIEW).
+
+Second pass, same day — the per-taco rows and the shareables had the identical
+defect, and the winter menu (`menus/lariat_winter_menu.csv`) turned out to be a
+better source than the chef template for both salads:
+
+- **Battered Fish Taco** → + `Fish Fillet` + `Taco Setup`. BEO Studio *does*
+  carry a BOM under the singular key `battered fish taco` (pangasius + corn
+  tortilla + cotija) — the first pass only checked the `…buffet` key, which
+  reads "— no BOM on file —".
+- **Baja Fish Taco / Baja Fish Tacos** → + `Fish Fillet` + `Flour Tortillas`.
+  Winter menu MI-M07 plates Baja on flour, and puts no cotija on it. Not a
+  conflict with the corn on the buffets — they are different dishes.
+- **Barbacoa Taco / Braised Chicken Taco / Carnitas taco** → + `Taco Setup`.
+  Eight of the map's eleven taco line items resolved to no tortilla at all.
+- **Pig Wings** → + `Pig Wings` (Sysco ham shank pig wing, 36 pieces a case).
+  Winter menu MI-S03. The map had the sauce and the rub and no pig.
+- **Rope Caesar Salad Buffet** → + `Cotija` + `Black Bean & Corn Succotash`,
+  both named by winter menu MI-SA01.
+- **Cob Salad Buffet** — `cobb_salad_setup` **lost its chicken**. MI-SA02 is
+  bacon + bleu cheese + avocado + tomato + egg; chicken is a $6.00 add-on, so
+  ordering it for every pan was an over-order.
+- **`corndog_batter`** — added the baking powder the book lists (p9). See
+  "Open" above for why its quantities were left alone.
+- **`baja_fish_tacos`** — `flour tortilla` → `flour tortillas` so it stops
+  splitting that row on the order guide against `mexican_dinner`.
+
+`tests/js/test-beo-buffet-protein-starch.mjs` now fails the gate if any buffet
+line item resolves to sauces alone, if any taco line item resolves to no
+tortilla or no filling, or if chicken reappears in the Cobb.
 
 ## Resolved 2026-04-28
 

@@ -3,6 +3,7 @@ ap flour,17,cup,1,
 cornmeal,12,cup,1,
 sugar,4,cup,1,
 salt,3,cup,1,
+baking powder,0.333,cup,1,book gives baking powder and baking soda the same 20 g — matched to the soda row. PDF p9; missing from this CSV until 2026-09-03
 baking soda,0.333,cup,1,
 pepper,0.5,cup,1,
 buttermilk,8,qt,1,add until proper batter consistency — baseline
