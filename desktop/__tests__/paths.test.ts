@@ -66,17 +66,25 @@ test('detectExistingDbDir accepts a real SQLite file and returns its dir', () =>
   assert.equal(detectExistingDbDir(home), path.dirname(dbPath));
 });
 
-test('detectExistingDbDir prefers lariat_dev over Dev checkouts', () => {
+test('detectExistingDbDir prefers ~/Lariat/Dev/Lariat over the legacy checkouts', () => {
   const home = tmpHome();
-  for (const base of [['lariat_dev', 'Lariat'], ['Dev', 'Lariat']]) {
+  for (const base of [['Lariat', 'Dev', 'Lariat'], ['lariat_dev', 'Lariat'], ['Dev', 'Lariat']]) {
     const dbPath = path.join(home, ...base, 'data', 'lariat.db');
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     fs.writeFileSync(dbPath, Buffer.concat([SQLITE_HEADER, Buffer.alloc(64)]));
   }
   assert.equal(
     detectExistingDbDir(home),
-    path.join(home, 'lariat_dev', 'Lariat', 'data'),
+    path.join(home, 'Lariat', 'Dev', 'Lariat', 'data'),
   );
+});
+
+test('detectExistingDbDir still finds the legacy ~/lariat_dev checkout', () => {
+  const home = tmpHome();
+  const dbPath = path.join(home, 'lariat_dev', 'Lariat', 'data', 'lariat.db');
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  fs.writeFileSync(dbPath, Buffer.concat([SQLITE_HEADER, Buffer.alloc(64)]));
+  assert.equal(detectExistingDbDir(home), path.dirname(dbPath));
 });
 
 test('isSqliteDatabase is false for a directory', () => {

@@ -92,10 +92,10 @@ Save as `~/Library/LaunchAgents/com.lariat.toast-weekly.plist`:
   <array>
     <string>/usr/bin/env</string>
     <string>node</string>
-    <string>/Users/seanburdges/Dev/Lariat/scripts/toast-weekly-pull.mjs</string>
+    <string>/Users/seanburdges/Lariat/Dev/Lariat/scripts/toast-weekly-pull.mjs</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>/Users/seanburdges/Dev/Lariat</string>
+  <string>/Users/seanburdges/Lariat/Dev/Lariat</string>
   <key>StartCalendarInterval</key>
   <dict>
     <key>Weekday</key><integer>1</integer>     <!-- Monday -->
@@ -103,9 +103,9 @@ Save as `~/Library/LaunchAgents/com.lariat.toast-weekly.plist`:
     <key>Minute</key><integer>0</integer>
   </dict>
   <key>StandardOutPath</key>
-  <string>/Users/seanburdges/Dev/Lariat/data/toast-api/last-run.log</string>
+  <string>/Users/seanburdges/Lariat/Dev/Lariat/data/toast-api/last-run.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/seanburdges/Dev/Lariat/data/toast-api/last-run.err.log</string>
+  <string>/Users/seanburdges/Lariat/Dev/Lariat/data/toast-api/last-run.err.log</string>
 </dict>
 </plist>
 ```
