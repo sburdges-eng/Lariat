@@ -36,6 +36,7 @@ export function isSqliteDatabase(filePath: string): boolean {
  */
 export function detectExistingDbDir(homeDir: string = os.homedir()): string | null {
   const candidates = [
+    path.join(homeDir, 'Lariat', 'Dev', 'Lariat', 'data', 'lariat.db'),
     path.join(homeDir, 'lariat_dev', 'Lariat', 'data', 'lariat.db'),
     path.join(homeDir, 'Dev', 'hospitality', 'Lariat', 'data', 'lariat.db'),
     path.join(homeDir, 'Dev', 'Lariat', 'data', 'lariat.db'),

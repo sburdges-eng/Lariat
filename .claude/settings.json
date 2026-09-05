@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /Users/seanburdges/lariat_dev/Lariat/scripts/cursor-precommit-gate.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/cursor-precommit-gate.sh\""
           }
         ]
       }
