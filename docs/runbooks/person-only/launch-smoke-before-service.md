@@ -1,0 +1,57 @@
+# Pre-service launch smoke on the venue Mac
+
+**Why this is yours:** `scripts/launch-smoke.sh` is the operator's go/no-go gate "before flipping the open sign" (`scripts/launch-smoke.sh:20-25`). It needs the production server and Ollama already up on the venue Mac — agents never start or stop either — and only you decide whether an amber is acceptable for tonight.
+**Unblocks:** opening for service on a service day (today: 2026-09-02). Note the documented one-liner `bash scripts/launch-smoke.sh && open -a Lariat` (`:21`) is wrong on this Mac twice over — see step 1 (port) and step 5 (`open -a`).
+**Where:** venue Mac — this laptop *is* the venue Mac (`docs/superpowers/plans/2026-08-31-app-lineage-salvage.md:63-64`; `go-live-serving-topology-and-data-root.md:5`).  **Time:** 1 min warm; 2–3 min if LaRi is cold.
+**Status:** recurring — per `scripts/launch-smoke.sh:20-25` (every service day, before opening). Live 2026-09-02 05:34 MDT: never run against the serving DB — `lari_conversation_turns` has 0 rows for the smoke session id `00000000-0000-4000-8000-000000000001` (`launch-smoke.sh:30`; the table holds 1 row total). Server: `npm run start` → `next-server` pid 35362 on :3000, `/api/health` = `ok` (test release). Ollama pid 46579 serves `lari-the-kitchen-assistant:latest`; model **not loaded** (`ollama ps` empty). All ten GET paths the script hits return 200 today; :3001 (the script's default) answers nothing. No row for this task exists in `ORCHESTRATOR_STATUS.md`, `.agent-sessions/handoff.md`, or `docs/runbooks/person-only/README.md:10-14` (grep 2026-09-02) — nobody has asked; run it anyway before every open.
+
+## Before you start
+- [ ] Production server up on :3000 — check: `lsof -nP -iTCP:3000 -sTCP:LISTEN; curl -s -m 5 http://127.0.0.1:3000/api/health | head -c 120` → a `node` LISTEN row and `"status":"ok"` (`"degraded"` is fine — optional integrations unset, `docs/OPERATIONS_HANDOFF.md:53-56`). `503`/`"down"` = a required probe (`sqlite`, `cache`, `pin_gate`) failed (`app/api/health/route.ts:233-236,248`). If nothing listens: the go-live session owns starting it (`go-live-serving-topology-and-data-root.md` step 7, mode A `npm run start` = `package.json:51`) — never `scripts/launch_lariat.sh` (kill -9 on :3000, then `npm run dev`; `:12-15,23`).
+- [ ] Ollama up with the LaRi model — check: `curl -s -m 5 "http://127.0.0.1:3000/api/kitchen-assistant?ping=1"` → `"ollamaReachable":true` (`app/api/kitchen-assistant/route.js:160-173`; URL/model defaults `lib/ollama.ts:5-6`). 2026-09-02: true. If false: "If something goes wrong".
+- [ ] Model warm (avoids a false red at check 8) — check: `ollama ps` → a `lari-the-kitchen-assistant:latest` row. Empty = cold: the first POST loads a 2.5 GB model and the script's `curl -m 30` (`launch-smoke.sh:48`) can expire before the server's 45 s Ollama timeout (`lib/ollama.ts:7-9`). Warm it once: `curl -s -m 120 -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:3000/api/kitchen-assistant -H 'content-type: application/json' -d '{"message":"hello","conversation_session_id":"00000000-0000-4000-8000-000000000001"}'` → `200`. It stays warm 30 min (`OLLAMA_KEEP_ALIVE=30m` on pid 46579; `training/gcp/README.md:54-58`).
+- [ ] `compliance.db` in the live data dir — check: `ls -la "$HOME/Library/Application Support/Lariat/data/cache/compliance.db"` → present (2026-09-02: 184,320 B, Aug 31). Path = `LARIAT_DATA_DIR` (`.env.local:13`) + `cache/compliance.db` (`lib/complianceSearch.ts:31`; health probe `app/api/health/route.ts:107-111`).
+- [ ] The two hard-coded slugs exist in the live cache — check: `C="$HOME/Library/Application Support/Lariat/data/cache"; grep -c '"aji_verde"' "$C/recipes.json"; grep -c '"grill_saute"' "$C/stations.json"` → both ≥ 1 (2026-09-02: `2`, `1`; the script asks for them at `launch-smoke.sh:81,87`). Re-check after any data swap (`go-live-venue-data.md` option 2): a missing recipe is only amber (`:82`), a missing station is red (`:88`).
+- [ ] `curl` on PATH — check: `command -v curl`.
+
+## Steps
+1. **Run the smoke against :3000 — not the script's default :3001.** `LARIAT_URL=http://127.0.0.1:3000 bash scripts/launch-smoke.sh; echo "exit=$?"` → expect ten ✓ lines, `PASS=10  WARN=0  FAIL=0`, `Ready for service.`, `exit=0` (`launch-smoke.sh:138-148`). Why the override: the default `http://127.0.0.1:3001` (`:4-5,29`) is wrong on this Mac — the serving process is `next start -p 3000` (`package.json:51`), and even the desktop wrapper the comment blames binds 3000 (`desktop/server-entry.cjs:16`, `desktop/README.md:64`; logged as item 49 at `STALE-DOCS-2026-09-01.md:55`). Without it every check reads `http=000` and the run fails. If not: read the ✗ line — step 3.
+2. **Read each ⚠ line, if any.** `WARN>0` still exits 0 with `Soft warnings present — review before opening.` (`:144-147`). Decide each:
+   - `recipe detail API (aji_verde)` (`:82`) — slug gone after a data swap; accept if `recipes browser` was ✓.
+   - `LaRi compliance grounding` (`:120-123`) — usually a *false* amber: the script greps only the first 200 chars of the body (`:54`) and `sources` comes after `answer` in the JSON (`app/api/kitchen-assistant/route.js:1125-1128`), so a long answer hides it. Verify by hand: `curl -s -m 60 -X POST http://127.0.0.1:3000/api/kitchen-assistant -H 'content-type: application/json' -d '{"message":"Quote the FDA Food Code rule on hand washing frequency.","conversation_session_id":"00000000-0000-4000-8000-000000000001"}' | grep -oE '"sources":\[.{0,200}'` → a non-empty array naming a `compliance`/`food_safety` source. Empty `[]` = real gap (`compliance.db` missing or unindexed — `lib/complianceSearch.ts:31`, `scripts/build-compliance-embeddings.mjs`); LaRi still answers, opening is your call.
+   - `KDS tickets` (`:132-133`) — informational only; KDS is out of scope (`CLAUDE.md:20-22`). Do not act on it.
+3. **On a ✗ line: fix or decide. Never open on `FAIL>0` without writing down why.** `exit=1` + `Fix the failing checks before opening for service.` (`:140-143`):
+   - any `http=000` — wrong URL or server down; redo the first pre-check.
+   - `/api/health reports DOWN` (`:72-73`) — `curl -s http://127.0.0.1:3000/api/health | python3 -m json.tool` and read the probe with `"ok": false`.
+   - `LaRi POST — Ollama unreachable (HTTP 502)` (`:109-110`; `route.js:1139`) — "If something goes wrong".
+   - `LaRi POST http=000` — cold-model timeout (`:48` vs `lib/ollama.ts:7-9`); warm as in Before-you-start, rerun step 1.
+   - `station detail (grill_saute)` (`:88`) — station cache changed; rebuilding it is an ingest job, not a service-day fix (`docs/OPERATIONS.md:38`). Open without it only if `stations browser` was ✓ and you accept it.
+4. **Rerun until clean or accepted.** Same command as step 1. Each run writes two turns under the smoke session id into `lari_conversation_turns` in the live DB (`lib/lariConversationMemory.ts:86-87`) — expected, harmless, append-only.
+5. **Open the app — but not with `open -a Lariat`.** The one-liner at `launch-smoke.sh:21` assumes the desktop wrapper. The only `Lariat.app` on this Mac is `LariatNative/build/Lariat.app` (native, mode B); launching it beside `npm run start` puts two writers on one WAL, which the topology runbook forbids on a service day (`go-live-serving-topology-and-data-root.md` step 4; `scripts/install-prod-data.sh:11-14`). The root-level `Lariat.app` that `README.md:29` names does not exist (`STALE-DOCS-2026-09-01.md:53`, item 47). Instead open `http://localhost:3000/` in the browser on this Mac → home page renders; then `http://localhost:3000/beo` → PIN gate → BEO board (login verified today, `go-live-pin-login.md`).
+
+## Pass / fail
+The script's own rule (`scripts/launch-smoke.sh:138-148`): **PASS** = `FAIL=0` and `exit=0`. With `WARN=0` it prints `Ready for service.`; with `WARN>0` it prints `Soft warnings present — review before opening.` and still exits 0 — "handled" means you read each ⚠ (step 2) and wrote your decision next to it. **FAIL** = any ✗ → `exit=1` → do not open until fixed, or until you have explicitly accepted the loss (step 3) and written that down. A KDS ⚠/✗ never blocks opening (out of scope, `CLAUDE.md:20-22`).
+
+## Record the result
+- Evidence: no template exists (`docs/superpowers/templates/` holds only `service-day-shutoff-log.md`, the G0 log — not this). Paste the script's tail — the `PASS=… WARN=… FAIL=…` line, the verdict line, `exit=`, every ✗/⚠ line and your decision on each — into `.agent-sessions/handoff.md` (the protocol location, `AGENTS.md:85,101`; append-only, gitignored) under:
+  ```
+  ## YYYY-MM-DD HH:MM MDT — Pre-service smoke (Sean)
+  - Target: LARIAT_URL=http://127.0.0.1:3000 (npm run start, next-server pid …)
+  - Result: PASS=… WARN=… FAIL=…  exit=…  ("Ready for service." | "Soft warnings present …")
+  - Ambers/fails accepted: … | none
+  - Opened for service: yes/no at HH:MM
+  ```
+  If an agent is waiting in chat for the go/no-go, reply one line: `smoke pass` or `smoke fail <first ✗ line>` (the form G0 uses, `docs/superpowers/plans/2026-08-05-g0-gui-smoke-and-shutoff.md:77,175`).
+- Then update: `docs/runbooks/person-only/README.md:10-14` — add `| [launch-smoke-before-service](launch-smoke-before-service.md) | Pre-service launch smoke on the venue Mac | recurring — last run YYYY-MM-DD PASS/FAIL |` (the go-live session owns README today — do it at close-out, not mid-service); this runbook's **Status** line → `recurring — last run YYYY-MM-DD …`. Pre-do for an agent, in the same PR: default `URL` to `http://127.0.0.1:3000` at `scripts/launch-smoke.sh:29`, fix the comment at `:4-6`, drop `&& open -a Lariat` from `:21`, then strike item 49 at `STALE-DOCS-2026-09-01.md:55`. An agent may also pre-run steps 1–2 against the running server and paste the tail into handoff — the go/no-go stays yours.
+
+## Close out
+```bash
+scripts/worktree.sh new sean chore/launch-smoke-before-service
+```
+Commit the evidence and doc updates on that branch and open a PR (the repo's /ship skill runs the verify gate). Never push to main. (`.agent-sessions/handoff.md` is gitignored — only the README row, this runbook's Status line, and any script fix travel in the PR.)
+
+## If something goes wrong
+- **502 / `ollamaReachable:false`:** `pgrep -fl "ollama serve"`; if absent, start it yourself in a spare terminal with the serving env `OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q8_0 OLLAMA_KEEP_ALIVE=30m ollama serve` (`training/gcp/README.md:54-58`), then rerun step 1. Everything except `/kitchen-assistant` and `/specials` works without it (`docs/OPERATIONS.md:78`) — you may open with LaRi down if you accept and record it.
+- **Health `model … not loaded`:** `ollama list` must show `lari-the-kitchen-assistant`; if not, `ollama create lari-the-kitchen-assistant -f training/Modelfile` (`training/SETUP.md:10`).
+- **Server not listening / EADDRINUSE:** do not reach for `scripts/launch_lariat.sh`, `scripts/Lariat Cockpit.command`, or `npm run restart` — each kills whatever holds :3000 (`launch_lariat.sh:12-15`, `package.json:52`). The go-live session owns the server today; restart `npm run start` yourself only between services.
+- **Rollback:** nothing to roll back — the script is GETs plus two assistant turns (append-only `lari_conversation_turns` rows). Never edit the live DB; never open it without `sqlite3 -readonly` while the server runs.
+- **Who to tell:** nobody outside — owner-only. If you open on an accepted ✗, say so in the same handoff entry.

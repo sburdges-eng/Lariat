@@ -78,6 +78,14 @@ The shared session board lives at `.agent-sessions/` (gitignored).
 
 See also: `scripts/worktree.sh` (commands and locking semantics), `scripts/check-session-branch.mjs` (the pre-commit guard), `scripts/agent-session.mjs` (the coordination utility).
 
+## Person-only operations (owner gate)
+
+Some steps only Sean can close: a human at the venue Mac or a pilot iPad, a live service day, a product or identity decision, credentials or interactive auth, a manual review/merge, a vendor-console export, or anything a hook blocks. When you reach one:
+
+1. Do not work around it. Stop at the step, leave the request where the protocol says (`ORCHESTRATOR_STATUS.md`, `.agent-sessions/handoff.md`, or chat) with exact instructions.
+2. Point Sean at the runbook: `docs/runbooks/person-only/<slug>.md` (index: `docs/runbooks/person-only/README.md`). If none exists for the step, write one in the same template before handing off.
+3. In Claude Code, `/person-only` builds his live queue and `/person-only <slug>` walks him through one step at a time; other tools use the runbook directly.
+
 ## Trio orchestration (Codex + Gemini + Claude)
 
 **Codex is the orchestrator** — prompts start in the Codex terminal; Gemini and Claude are specialists. Canonical policy (shared with Cursor, Antigravity, Claude): [`../../workspace-scaffold/docs/TRIO_ORCHESTRATION.md`](../../workspace-scaffold/docs/TRIO_ORCHESTRATION.md).
