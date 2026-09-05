@@ -209,9 +209,10 @@ function loadBeoItems(manifest) {
     const perCountRaw = (row.per_count ?? '').trim();
     const perCount = perCountRaw === '' ? null : Number(perCountRaw);
 
-    if (!items.has(beoItem)) items.set(beoItem, { slugs: [], live: [] });
+    if (!items.has(beoItem)) items.set(beoItem, { slugs: [], live: [], perCount: new Map() });
     const entry = items.get(beoItem);
     entry.slugs.push(slug);
+    entry.perCount.set(slug, perCount);
     if (perCount !== 0) entry.live.push(slug);
   }
 
@@ -343,7 +344,8 @@ describe('beo_recipe_map — named regressions', () => {
     ['Fish Taco Buffet', 'pangasius'],
     ['Battered Fish Taco', 'pangasius'],
     ['Baja Fish Tacos', 'pangasius'],
-    ['Braised Chicken Taco Buffet', 'chicken'],
+    ['Braised Chicken Taco Buffet', 'chicken thigh'],
+    ['Braised Chicken Taco', 'chicken thigh'],
     ['Barbacoa Taco Buffet', 'beef'],
     ['Carnitas Tacos Buffet', 'pork'],
     ['Battered Avocado Taco Buffet', 'avocado'],
@@ -363,6 +365,49 @@ describe('beo_recipe_map — named regressions', () => {
     ['Cob Salad Buffet', 'hard boiled eggs'],
   ]) {
     it(`${beoItem} carries ${needle}`, () => assertCarries(beoItem, needle));
+  }
+
+  // The braised taco line is shredded thigh (DATA.purchase: "Chicken Thigh
+  // Boneless Skinless Controlled Vac"). `chicken_confit` is the frenched-leg
+  // confit for Roast Chicken Dinner. Mapping the tacos through the confit is
+  // how the first pass at this bug ordered six cases of frenched legs for a
+  // taco buffet — a costlier wrong answer than the missing protein it replaced.
+  for (const beoItem of ['Braised Chicken Taco', 'Braised Chicken Taco Buffet']) {
+    it(`${beoItem} does NOT pull the frenched-leg confit`, () => {
+      const entry = items.get(beoItem);
+      assert.ok(entry, `${beoItem} has no row in menus/beo_recipe_map.csv`);
+      assert.ok(
+        !entry.slugs.includes('chicken_confit'),
+        `${beoItem} maps through chicken_confit — that is the frenched-leg ` +
+          'confit for Roast Chicken Dinner, not the taco braise.\n' +
+          report(beoItem),
+      );
+      assert.deepEqual(
+        [...entry.leaves].filter((leaf) => /chicken legs/i.test(leaf)),
+        [],
+        `${beoItem} resolves to whole chicken legs.\n${report(beoItem)}`,
+      );
+    });
+  }
+
+  // The map bills these rows per plate, not per taco: their `Fish Fillet,0.025`
+  // is 0.025 of a 15 lb case = 6 oz, exactly the plate BOM's catfish line. The
+  // tortilla count on the same row has to come off the same plate.
+  for (const beoItem of ['Baja Fish Tacos', 'Baja Fish Taco']) {
+    it(`${beoItem} allocates the plate BOM's tortilla count`, () => {
+      const plateRow = readCsv(path.join(NORMALIZED_DIR, 'baja_fish_tacos.csv')).find((r) =>
+        /^flour tortillas$/i.test((r.ingredient ?? '').trim()),
+      );
+      assert.ok(plateRow, 'baja_fish_tacos.csv has no flour tortillas row');
+      const entry = items.get(beoItem);
+      assert.ok(entry, `${beoItem} has no row in menus/beo_recipe_map.csv`);
+      assert.equal(
+        entry.perCount.get('flour_tortillas'),
+        Number(plateRow.qty),
+        `${beoItem} allocates a different tortilla count than the plate BOM ` +
+          `(${plateRow.qty} per ea). Both are one plate's worth — keep them in step.`,
+      );
+    });
   }
 
   it('Cob Salad Buffet does NOT carry chicken', () => {

@@ -29,10 +29,12 @@ operator decision, not a data entry:
   pangasius, which is what the map now orders. Reconcile the wording so the
   plate BOM and the purchase line stop disagreeing.
 - **The `baja_fish_tacos` plate BOM is bypassed by the map**, which lists its
-  six sub-recipes directly with per-taco `per_count`s. The plate says 3 flour
-  tortillas and 6 oz fish per `1 ea`; the map's counts say one taco. Mapping
-  the plate recipe instead would over-order roughly 5×, so it was left alone —
-  but the two should agree on what one unit is.
+  six sub-recipes directly. The fish and the tortillas now agree with the plate
+  (`Fish Fillet,0.025` = 6 oz, `Flour Tortillas,3`), but the six SAUCE rows
+  still carry per-taco counts — e.g. `Fish Brine,0.05` against the plate's
+  0.25 qt. So one `Baja Fish Tacos` line now orders a plate of fish and
+  tortillas with a taco's worth of sauce. Settle what one unit of that $16
+  menu item is, then bring the sauce rows onto it or map the plate recipe.
 
 ## Pending chef review (USDA-default templates in place)
 
@@ -54,6 +56,7 @@ before the next costing ingest treats these as authoritative.**
 | Italian Dinner | Composite — wires `baked_ziti` + `caprese_skewers` + `artisanal_board` sub-recipes; USDA does not publish multi-course menu plans | Confirm bread vendor + count, decide whether salad is its own sub-recipe |
 | Elote salad | `chef_template` — street-corn standard; the BEO Studio blob has no `DATA.purchase` entry and the recipe book has no page for it | Confirm yield (currently 1 hotel pan), corn form (fire-roasted kernels assumed), cotija and mayo levels |
 | Cob Salad Buffet | Composition from winter menu MI-SA02 (bacon + bleu cheese + avocado + tomato + egg); BEO Studio records "NEED — no recipe on file", so only the per-pan quantities are templated | Confirm quantities per pan and whether avocado is plated or sliced to order. Chicken is deliberately absent — MI-SA02 sells it as a $6.00 add-on |
+| Braised Chicken (taco line) | `DATA.purchase` names the cut and pack (Chicken Thigh Boneless Skinless, SYSCO 4x10 LB) but no per-pan weight; 8 lb/pan and the aromatics mirror `carnitas` | Confirm 8 lb of thigh per hotel pan and the onion/garlic ratio for a braise-and-shred |
 | Mexican Dinner | Composite — wires `birria` + `mexi_slaw` + `pico_de_gallo` + `tomatillo_salsa` + `mini_rellenos` sub-recipes | Confirm rice/beans recipes (currently UNMAPPED — need their own CSV+row), tortilla counts per cover |
 
 **Resolution path** for the remaining open item: decide whether
@@ -64,6 +67,28 @@ ingredient at a vendor SKU (see `mini_rellenos.csv`, `churros.csv`,
 `chocolate_cake.csv` for the whole-buy pattern).
 
 Close an item here with the PR that expands the recipe.
+
+## Resolved 2026-09-05
+
+Both found by review on PR #678, both real:
+
+- **The braised taco line was pulling the frenched-leg confit.** `Braised
+  Chicken Taco` and `Braised Chicken Taco Buffet` mapped through
+  `chicken_confit`, which is the whole-leg confit for Roast Chicken Dinner
+  (MASTER p27). Once p27's protein line was restored, that mapping started
+  ordering **6 cases of frenched chicken legs and 12 gallons of EVOO** for
+  event 10's three taco buffets — a costlier wrong answer than the missing
+  protein it replaced. `DATA.purchase` names the cut: boneless skinless
+  chicken thigh. New `braised_chicken` recipe (thigh + white onion + garlic,
+  8 lb per pan mirroring `carnitas`); both taco rows repointed at it with
+  their `per_count`s unchanged. `chicken_confit` keeps Roast Chicken Dinner.
+  Event 10: `chicken legs 6 case` → `chicken thigh 48 lb`, and the confit's
+  EVOO, green salt and herb sprigs drop out entirely (72 → 64 rows).
+- **`Baja Fish Taco(s)` allocated one flour tortilla against a full plate of
+  fish.** Those rows bill per plate — their `Fish Fillet,0.025` is 6 oz,
+  exactly the plate BOM's catfish line — so the tortilla count has to come off
+  the same plate. Now `Flour Tortillas,3`, asserted against
+  `baja_fish_tacos.csv` so the two cannot drift.
 
 ## Resolved 2026-09-03
 

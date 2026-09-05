@@ -15,7 +15,7 @@ Baja Fish Tacos,Mexi Slaw,0.1
 Baja Fish Tacos,Pico de Gallo,0.025
 Baja Fish Tacos,Aji Verde,0.1
 Baja Fish Tacos,Fish Fillet,0.025
-Baja Fish Tacos,Flour Tortillas,1
+Baja Fish Tacos,Flour Tortillas,3
 Baja Fish Taco,Fish Brine,0.05
 Baja Fish Taco,Beer Batter,7.5
 Baja Fish Taco,Beer Flour,0.06
@@ -24,7 +24,7 @@ Baja Fish Taco,Mexi Slaw,0.1
 Baja Fish Taco,Pico de Gallo,0.025
 Baja Fish Taco,Aji Verde,0.1
 Baja Fish Taco,Fish Fillet,0.025
-Baja Fish Taco,Flour Tortillas,1
+Baja Fish Taco,Flour Tortillas,3
 Baked Ziti,Baked Ziti
 Trio Dips,Blackened Tomato Salsa,0.5
 Trio Dips,Pico de Gallo,0.5
@@ -59,10 +59,10 @@ Barbacoa Taco,Birria,0.2656
 Barbacoa Taco,Taco Setup,1
 Barbacoa Taco Buffet,Birria,8.5
 Barbacoa Taco Buffet,Taco Setup,32
-Braised Chicken Taco,Chicken Confit,0.0625
+Braised Chicken Taco,Braised Chicken,0.0625
 Braised Chicken Taco,Aji Verde,0.1
 Braised Chicken Taco,Taco Setup,1
-Braised Chicken Taco Buffet,Chicken Confit,2
+Braised Chicken Taco Buffet,Braised Chicken,2
 Braised Chicken Taco Buffet,Aji Verde
 Braised Chicken Taco Buffet,Taco Setup,32
 Corn Dogs,Corn Dogs
