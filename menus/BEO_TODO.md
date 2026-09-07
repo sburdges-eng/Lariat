@@ -10,6 +10,13 @@ undercount them (AGENTS.md rule #4 — silence is not an option).
 What the 2026-09-03 sweep could not settle from a source. Each needs an
 operator decision, not a data entry:
 
+- **`Braised Chicken,2` and `Carnitas,2` mean two pans of filling per one
+  buffet pan.** The event-10 note pins one BEO count to one hotel pan on the
+  line, so these only reconcile if prep pans outnumber service pans. Confirm
+  which the `per_count` is counting.
+- **No BEO in the DB has ever carried `Baja Fish Taco`, `Battered Fish Taco`,
+  `Pig Wings` or `Carnitas`.** Those map rows have never been exercised in
+  production, which is worth knowing before trusting their `per_count`s.
 - **Rope Caesar Salad Buffet is missing the grilled onions** that winter menu
   MI-SA01 names. No recipe exists for them and no source gives a quantity.
 - **`Pig Wings` sauce rows carry no `per_count`.** `Pig Wings` is priced per
@@ -58,6 +65,36 @@ ingredient at a vendor SKU (see `mini_rellenos.csv`, `churros.csv`,
 `chocolate_cake.csv` for the whole-buy pattern).
 
 Close an item here with the PR that expands the recipe.
+
+## Resolved 2026-09-06
+
+- **Every taco line allocated tortillas for one taco instead of one plate.**
+  The map bills taco lines per PLATE — `Fish Fillet,0.025` of a 15 lb case is
+  6 oz, exactly `baja_fish_tacos.csv`'s fish line — but the tortilla counts
+  were written per taco, so every taco item ordered a third of the tortillas
+  and cotija it needed. Same off-by-3 review caught on the Baja rows; it was on
+  all nine of the others too. Four independent checks agreed:
+  - the plate BOM builds 6 oz to 3 tortillas (2 oz per taco); the old counts
+    implied 4.8-6.0 oz per tortilla across all four taco buffets;
+  - `Fish Taco Buffet` priced out at **$17.50 a taco against $5.33 a la carte**
+    ($16.00 plate / 3). At plate counts it is $5.83 — just over menu, with the
+    three buffets ranking correctly by protein cost;
+  - birria, whose quantities come from the book and whose `per_count`s predate
+    all of this, gave 4.5 oz a taco at the old count and 1.5 oz at the new;
+  - event 10 carries 126 lb of raw protein for 150 guests — about 10% food cost
+    on $3,650 of taco buffets. Cutting protein instead would leave 4.5 oz raw a
+    guest (one taco each) at ~3% food cost, so the protein was right.
+
+  Event 10: corn tortillas **272 -> 816** (5.4 a guest, matching the protein),
+  cotija **200 -> 472 oz**. Cotija is not a flat 3x because elote's 64 oz does
+  not scale. `tests/js/test-beo-buffet-protein-starch.mjs` now reads the
+  tortillas-per-plate figure out of `baja_fish_tacos.csv` and checks every taco
+  line against it, so the two cannot drift again.
+
+  Confirmed while working on this, from `beo_line_items` in the seeded DB: one
+  BEO count is one hotel pan on the line (event 10's note, "14 hotel pans",
+  matches its 14 buffet counts exactly), and Elote salad's $200 is now read
+  directly rather than inferred by subtraction.
 
 ## Resolved 2026-09-05
 

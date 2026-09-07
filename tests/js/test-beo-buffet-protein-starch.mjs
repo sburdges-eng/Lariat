@@ -426,6 +426,66 @@ describe('beo_recipe_map — named regressions', () => {
   });
 });
 
+// Every taco line item allocates tortillas off the same build.
+//
+// `baja_fish_tacos.csv` is the only authoritative taco build in the repo: 6 oz
+// of fish to 3 tortillas. The map bills taco lines per PLATE, not per taco —
+// `Fish Fillet,0.025` of a 15 lb case is 6 oz, exactly that plate's fish line —
+// so a line's tortilla count has to be its plate count times the plate's own
+// tortilla count.
+//
+// This was wrong on every taco line at once. At the original counts a buffet
+// pan implied a 5-6 oz taco against the plate's 2 oz, and Fish Taco Buffet
+// priced out at $17.50 a taco against $5.33 a la carte — a buffet costing 3x
+// menu price per unit, which is backwards. Corrected 2026-09-06 after the
+// event-10 protein volume (126 lb raw for 150 guests, ~10% food cost on $3,650
+// of taco buffets) confirmed the protein was right and the tortillas were short.
+//
+// The ratio is READ from the plate BOM rather than hardcoded, so if the build
+// changes from 3 tortillas the expected counts move with it.
+describe('beo_recipe_map — taco lines allocate tortillas off the plate build', () => {
+  // Plates per BEO count. Each is the line's own protein per_count expressed in
+  // 6 oz plates, which is how those rows were already written.
+  const PLATES = new Map([
+    ['Battered Fish Taco', ['taco_setup', 1]],
+    ['Fish Taco Buffet', ['taco_setup', 20]],
+    ['Battered Avocado Taco Buffet', ['corn_tortillas', 20]],
+    ['Barbacoa Taco', ['taco_setup', 1]],
+    ['Barbacoa Taco Buffet', ['taco_setup', 32]],
+    ['Braised Chicken Taco', ['taco_setup', 1]],
+    ['Braised Chicken Taco Buffet', ['taco_setup', 32]],
+    ['Carnitas taco', ['taco_setup', 1]],
+    ['Carnitas Tacos Buffet', ['taco_setup', 32]],
+    ['Baja Fish Tacos', ['flour_tortillas', 1]],
+    ['Baja Fish Taco', ['flour_tortillas', 1]],
+  ]);
+
+  const plateRow = readCsv(path.join(NORMALIZED_DIR, 'baja_fish_tacos.csv')).find((r) =>
+    /^flour tortillas$/i.test((r.ingredient ?? '').trim()),
+  );
+
+  it('reads the tortillas-per-plate figure off baja_fish_tacos.csv', () => {
+    assert.ok(plateRow, 'baja_fish_tacos.csv has no flour tortillas row');
+    assert.ok(Number(plateRow.qty) > 0, `unusable tortilla qty: ${plateRow?.qty}`);
+  });
+
+  for (const [beoItem, [slug, plates]] of PLATES) {
+    it(`${beoItem} allocates ${slug.replace(/_/g, ' ')} for ${plates} plate(s)`, () => {
+      const entry = items.get(beoItem);
+      assert.ok(entry, `${beoItem} has no row in menus/beo_recipe_map.csv`);
+      const expected = plates * Number(plateRow.qty);
+      assert.equal(
+        entry.perCount.get(slug),
+        expected,
+        `${beoItem} allocates ${entry.perCount.get(slug)} tortillas for ${plates} ` +
+          `plate(s). The plate BOM builds ${plateRow.qty} per plate, so it wants ` +
+          `${expected}. A short count here is a party that runs out of tortillas ` +
+          'partway through service.',
+      );
+    });
+  }
+});
+
 // `corndog_batter.csv` was deleted 2026-09-05: its `ap flour` and `baking soda`
 // rows were byte-identical to `beer_flour` and its salt was 32x the book's at the
 // same stated yield, so the CSV was cross-contaminated at ingest and could not be
