@@ -410,6 +410,29 @@ describe('beo_recipe_map — named regressions', () => {
     });
   }
 
+  // Every taco line item plates 3 tortillas, and every filling is sized to
+  // them: 8 oz of raw meat or 6 oz of fish per 3-taco order, i.e. 2.0-2.7 oz
+  // per taco. The Battered Avocado buffet is the one item whose filling is
+  // counted in units rather than weight, so it does not fall out of the same
+  // arithmetic — and it silently fell out of step when the tortilla count moved
+  // from per-taco to per-plate, leaving one avocado per six tacos. Half a Hass
+  // is ~2.5 oz of flesh, which is the same plate as its siblings.
+  it('Battered Avocado Taco Buffet fills its tortillas', () => {
+    const entry = items.get('Battered Avocado Taco Buffet');
+    assert.ok(entry, 'Battered Avocado Taco Buffet has no row in the map');
+    const tortillas = entry.perCount.get('corn_tortillas');
+    const avocadoCases = entry.perCount.get('avocado');
+    assert.ok(tortillas && avocadoCases, 'buffet is missing its tortilla or avocado row');
+    const perTaco = (avocadoCases * 24) / tortillas; // 24 ct per PROPACK case
+    assert.ok(
+      perTaco >= 0.4 && perTaco <= 0.75,
+      `Battered Avocado Taco Buffet allocates ${perTaco.toFixed(2)} avocado per taco ` +
+        `(${avocadoCases} case = ${(avocadoCases * 24).toFixed(0)} ea across ${tortillas} ` +
+        'tortillas). Its siblings plate 2.0-2.7 oz of filling per taco; half a Hass ' +
+        'is ~2.5 oz. Move the filling whenever the tortilla count moves.',
+    );
+  });
+
   it('Cob Salad Buffet does NOT carry chicken', () => {
     // Winter menu MI-SA02 sells chicken as a $6.00 add-on, not a component.
     // Ordering chicken for every cobb pan is an over-order nothing absorbs.

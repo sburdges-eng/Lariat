@@ -19,6 +19,14 @@ operator decision, not a data entry:
   production, which is worth knowing before trusting their `per_count`s.
 - **Rope Caesar Salad Buffet is missing the grilled onions** that winter menu
   MI-SA01 names. No recipe exists for them and no source gives a quantity.
+- **`Pig Wings` sauce rows carry no `per_count` — quantified 2026-09-08.**
+  A 50-piece order resolves `Alabama White Sauce` to **50 gallons** (the route
+  reads a missing `per_count` as 50 yield-units; the bare CLI reads it as
+  50 batches = 75 gal) and `Lariat Rub` to **50 cups**. No BEO currently
+  carries a Pig Wings line, so this is a landmine rather than a live
+  over-order. Left unfixed because nothing in the recipe book, the winter menu
+  or `DATA.purchase` gives a sauce-per-wing figure — the numbers would be pure
+  invention. Original note follows.
 - **`Pig Wings` sauce rows carry no `per_count`.** `Pig Wings` is priced per
   piece ($5.00), so a 50-piece line resolves to 50 yield-units of Alabama
   White Sauce. The pork shank landed 2026-09-03 with an explicit `per_count`;
@@ -96,6 +104,36 @@ Close an item here with the PR that expands the recipe.
   matches its 14 buffet counts exactly), and Elote salad's $200 is now read
   directly rather than inferred by subtraction.
 
+- **The fish taco sauces are allocated 2.5-10x under the plate BOM.** The
+  a-la-carte rows are exactly `Fish Taco Buffet` divided by 20 on all eight
+  components, so the buffet is 20 orders and the two sets agree with each
+  other. They do not agree with `baja_fish_tacos.csv`, which is the
+  authoritative plate BOM for winter menu MI-M07:
+
+  | per order | map | plate BOM | plate/map |
+  |---|---|---|---|
+  | fish brine | 0.05 qt | 0.25 qt | 5.0x |
+  | beer batter | 7.5 g | 75 g | 10.0x |
+  | chipotle aioli | 0.0375 qt | 0.1 qt | 2.7x |
+  | mexi slaw | 0.1 lb | 0.25 lb | 2.5x |
+  | pico de gallo | 0.025 qt | 0.125 qt | 5.0x |
+  | aji verde | 0.1 qt | 0.05 qt | 0.5x |
+  | fish fillet | 6 oz | 6 oz | 1.0x |
+  | tortillas | 3 ea | 3 ea | 1.0x |
+
+  The fish and the tortillas agree exactly, so the portion size is not in
+  dispute — one line item is one 6 oz, 3-taco order either way. Two of the
+  disagreements are not judgement calls: 0.05 qt of brine cannot submerge a
+  6 oz fillet for the 7-minute soak, and 7.5 g of wet batter cannot coat one
+  (that is one 600 g batch across **80** orders, against the plate's 8).
+
+  Not fixed here, because the batter cannot be settled from the data. The
+  `beer_batter` wet mix (600 g) and the `beer_flour` dry mix (18 cup) are
+  separate preps combined at service, and **nothing records the ratio**. The
+  plate's 75 g of wet scales to 2.25 cup of dry per order, which is as
+  implausible as the map's 1 tbsp. Reconcile the wet:dry pairing first, then
+  the whole column can be rebuilt from the plate.
+
 ## Resolved 2026-09-05
 
 The first two came out of review on PR #678; the third is an operator call:
@@ -114,6 +152,13 @@ The first two came out of review on PR #678; the third is an operator call:
   sburdges** — no longer pending review.
   Event 10: `chicken legs 6 case` → `chicken thigh 48 lb`, and the confit's
   EVOO, green salt and herb sprigs drop out entirely (72 → 64 rows).
+- **The Battered Avocado buffet lost its filling when the tortillas moved.**
+  `b5efea94` moved every taco line to 3 tortillas per order without carrying
+  the avocado through, leaving `Avocado,0.4167` (10 ea) against 60 tortillas —
+  one avocado per six tacos, ~0.8 oz of flesh, where every sibling plates
+  2.0-2.7 oz. Live on event 7 (GOODE), which ordered 30 avocados for 180
+  tacos. Now `1.25` (half a Hass, ~2.5 oz, per taco) and pinned by a test that
+  fails outside a 0.4-0.75 band.
 - **`Baja Fish Taco(s)` allocated one flour tortilla against a full plate of
   fish.** Those rows bill per plate — their `Fish Fillet,0.025` is 6 oz,
   exactly the plate BOM's catfish line — so the tortilla count has to come off
