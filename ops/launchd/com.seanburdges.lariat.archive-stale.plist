@@ -20,10 +20,10 @@
   <key>RunAtLoad</key>
   <false/>
   <key>WorkingDirectory</key>
-  <string>/Users/seanburdges/Dev/Lariat</string>
+  <string>/Users/seanburdges/Lariat/Dev/Lariat</string>
   <key>StandardOutPath</key>
-  <string>/Users/seanburdges/Dev/Lariat/logs/archive-stale.out.log</string>
+  <string>/Users/seanburdges/Lariat/Dev/Lariat/logs/archive-stale.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/seanburdges/Dev/Lariat/logs/archive-stale.err.log</string>
+  <string>/Users/seanburdges/Lariat/Dev/Lariat/logs/archive-stale.err.log</string>
 </dict>
 </plist>

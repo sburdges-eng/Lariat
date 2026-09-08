@@ -2,7 +2,7 @@
 
 Purpose: give Claude, Cursor, Antigravity, and Xcode sessions one current map for finishing the macOS-native Lariat app without re-porting completed work or destabilizing the live restaurant database.
 
-This document is project-local to `~/Dev/hospitality/Lariat`. Do not apply it from bare `~/Dev` except as routing metadata.
+This document is project-local to the Lariat checkout (`~/Lariat/Dev/Lariat` as of 2026-09-05; formerly `~/Dev/hospitality/Lariat`). Do not apply it from any parent folder except as routing metadata.
 
 ## Taxonomy (2026-07) — read before L1 work
 

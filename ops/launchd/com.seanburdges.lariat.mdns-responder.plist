@@ -32,7 +32,7 @@
   </array>
 
   <key>WorkingDirectory</key>
-  <string>/Users/seanburdges/Dev/Lariat</string>
+  <string>/Users/seanburdges/Lariat/Dev/Lariat</string>
 
   <!-- Daemon posture: come up at login, restart on crash, but throttle
        restarts so a host with no multicast doesn't burn CPU on retries. -->
@@ -44,9 +44,9 @@
   <integer>30</integer>
 
   <key>StandardOutPath</key>
-  <string>/Users/seanburdges/Dev/Lariat/logs/mdns-responder.out.log</string>
+  <string>/Users/seanburdges/Lariat/Dev/Lariat/logs/mdns-responder.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/seanburdges/Dev/Lariat/logs/mdns-responder.err.log</string>
+  <string>/Users/seanburdges/Lariat/Dev/Lariat/logs/mdns-responder.err.log</string>
 
   <!-- The advertise script reads PORT and LARIAT_LOCATION_ID from the
        environment. PORT must match whatever Lariat is bound to (3000
