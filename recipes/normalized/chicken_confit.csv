@@ -1,4 +1,6 @@
 ingredient,qty,unit,portions_per_batch,notes
+chicken legs,1,case,1,frenched — PDF p27. The protein line was missing from this CSV until 2026-09-03
+green salt,50,g,1,(sub-recipe=green_salt) — PDF p27 seasons both sides; qty mirrors roasted_chicken_leg
 garlic cloves,8,ea,1,
 rosemary sprigs,2,ea,1,
 thyme sprigs,2,ea,1,
