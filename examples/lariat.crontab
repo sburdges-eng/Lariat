@@ -4,7 +4,7 @@
 # markers so scripts/install-cron.sh can update it idempotently. Do not
 # remove the markers; they are how the installer knows what to replace.
 #
-# Adjust REPO_ROOT to match your install path. Default: ~/Dev/Lariat.
+# Adjust REPO_ROOT to match your install path. Default: ~/Lariat/Dev/Lariat.
 # Each job name maps to an entry in data/scheduled-jobs.json.
 
 # Routes job-failure stderr to your inbox via local mail. Comment out
@@ -13,29 +13,29 @@
 
 # LARIAT_CRON_BEGIN — managed block; do not edit by hand
 # Daily costing ingest from XL workbook (vendor_prices, recipe_costs, bom_lines).
-0 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-costing >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
+0 6 * * * "$HOME/Lariat/Dev/Lariat/scripts/cron-wrapper.sh" ingest-costing >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Toast weekly sales + labor timeseries pull.
-15 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-toast >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
+15 6 * * * "$HOME/Lariat/Dev/Lariat/scripts/cron-wrapper.sh" ingest-toast >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Prism / DICE event ingest into shows + showStatus.
-30 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-shows >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
+30 6 * * * "$HOME/Lariat/Dev/Lariat/scripts/cron-wrapper.sh" ingest-shows >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Sync recipes/normalized/*.csv into entities_recipes + bom_lines.
-45 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" sync-normalized >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
+45 6 * * * "$HOME/Lariat/Dev/Lariat/scripts/cron-wrapper.sh" sync-normalized >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Daily Toast analytics ingest. Auto-runs sales depletion at the end.
-0 7 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-analytics >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
+0 7 * * * "$HOME/Lariat/Dev/Lariat/scripts/cron-wrapper.sh" ingest-analytics >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Refresh data/cache/*.json from source CSVs every 30 min.
-*/30 * * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" rebuild-cache >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
+*/30 * * * * "$HOME/Lariat/Dev/Lariat/scripts/cron-wrapper.sh" rebuild-cache >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Nightly DB snapshot.
-0 1 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" backup >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
+0 1 * * * "$HOME/Lariat/Dev/Lariat/scripts/cron-wrapper.sh" backup >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Nightly sick-note retention report (report-only; never deletes).
-30 1 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" sick-note-retention >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
+30 1 * * * "$HOME/Lariat/Dev/Lariat/scripts/cron-wrapper.sh" sick-note-retention >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Monday 8am — weekly settlement digest for the Mon→Sun week that just ended.
-0 8 * * 1 "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" weekly-settlement-digest >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
+0 8 * * 1 "$HOME/Lariat/Dev/Lariat/scripts/cron-wrapper.sh" weekly-settlement-digest >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 # LARIAT_CRON_END
