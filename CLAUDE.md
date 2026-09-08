@@ -38,8 +38,9 @@ gap analyses unless explicitly asked.
 | `~/Lariat/Dev/lariat-jvm/`, `lariat-ops-mcp-server/`, `experiments-*/` | Adjacent projects and one-offs. |
 | `~/lariat_dev` | **Compatibility symlink → `~/Lariat/Dev`.** Kept so old paths in editors, hooks, and notes keep resolving. Do not write new references to it. |
 
-**`~/Dev` no longer exists.** It was a symlink to `/Volumes/Sean's SSD/Dev`; the SSD failed in
-Aug 2026 and is kept unplugged as a fallback. What was recovered from it (661 GB) is at
+**`~/Dev` no longer exists.** It was a symlink to `/Volumes/Sean's SSD/Dev`. The SSD is simply
+not attached; the machine that failed in Aug 2026 was the old Mac, not the drive. What was
+copied off it (661 GB) is at
 `~/Archive/SanDisk SSD Recovery 2026-08-24/` — read its `RECOVERY STATUS.md`. Every old
 `~/Dev/hospitality/Lariat`, `~/Dev/Lariat`, `backup/Lariat` checkout referenced in older docs
 is a **backup inside that archive**: read it if you must, never edit it, never delete one as
