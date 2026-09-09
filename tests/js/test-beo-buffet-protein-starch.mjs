@@ -391,7 +391,7 @@ describe('beo_recipe_map — named regressions', () => {
   }
 
   // The map bills these rows per plate, not per taco: their `Fish Fillet,0.025`
-  // is 0.025 of a 15 lb case = 6 oz, exactly the plate BOM's catfish line. The
+  // is 0.025 of a 15 lb case = 6 oz, exactly the plate BOM's pangasius line. The
   // tortilla count on the same row has to come off the same plate.
   for (const beoItem of ['Baja Fish Tacos', 'Baja Fish Taco']) {
     it(`${beoItem} allocates the plate BOM's tortilla count`, () => {

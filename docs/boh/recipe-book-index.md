@@ -73,5 +73,15 @@ Check the box when the printed card is in the book; initial when a cook is signe
 | Herbal butter | ☐ | |
 | Honey butter | ☐ | |
 | Roasted pepitas | ☐ | |
+| Elote salad | ☐ | |
+
+## Taco line
+
+| Recipe | In book | Signed |
+|--------|---------|--------|
+| Braised chicken | ☐ | |
+| Carnitas | ☐ | |
+| Fish fillet (pangasius) | ☐ | |
+| Taco setup | ☐ | |
 
 **Missing a card?** Write it on the line-check sheet and flag the KM — no recipe cooks from memory.
