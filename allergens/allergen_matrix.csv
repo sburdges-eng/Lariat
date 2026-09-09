@@ -166,3 +166,4 @@ three_cheese_grilled_cheese,garlic,,,,,,,,,,
 three_cheese_grilled_cheese,artisan bread slices,,,,,,,,,,
 three_cheese_grilled_cheese,cheddar cheese slices,X,,,,,,,,,
 three_cheese_grilled_cheese,provolone slices,X,,,,,,,,,
+corn_dogs,corndog batter,X,,,,,,X,,,"Re-declared 2026-09-05: corndog_batter.csv was deleted, so the wheat (ap flour) and milk (buttermilk) rows in allergens/discovered_2026-03-29.csv no longer resolve. Batter is still made in-house per DATA.purchase - these must not lapse."

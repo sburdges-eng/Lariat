@@ -11,7 +11,7 @@
 #   - exec's `npm run job <name>` so signals propagate
 #
 # Usage (from crontab):
-#   0 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-costing >> "$TMPDIR/lariat-cron.log" 2>&1
+#   0 6 * * * "$HOME/Lariat/Dev/Lariat/scripts/cron-wrapper.sh" ingest-costing >> "$TMPDIR/lariat-cron.log" 2>&1
 #
 # Exit codes are forwarded from `npm run job`:
 #   0  — job ok

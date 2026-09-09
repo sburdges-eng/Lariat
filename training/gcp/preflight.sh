@@ -5,7 +5,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
-CANON="${LARIAT_CANONICAL_REPO:-$HOME/Dev/hospitality/Lariat}"
+CANON="${LARIAT_CANONICAL_REPO:-$HOME/Lariat/Dev/Lariat}"
 fail() { echo "PREFLIGHT FAIL: $1" >&2; exit 1; }
 
 command -v node >/dev/null || fail "node not on PATH"

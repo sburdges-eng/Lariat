@@ -41,13 +41,23 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MAP_CSV = ROOT / "menus" / "beo_recipe_map.csv"
 RECIPES = ROOT / "data" / "cache" / "recipes.json"
-SRC_DIR = Path.home() / "Dev" / "lariat-data-sources" / "Menu & Recipes"
+
+# Raw business exports the app ingests. Local disk since the 2026-09-05 root
+# reorganization; this used to be ~/Dev/lariat-data-sources on the external
+# SSD, and ~/Dev no longer exists at all. Override for a different install.
+DATA_SOURCES = Path(
+    os.environ.get("LARIAT_DATA_SOURCES")
+    or Path.home() / "Lariat" / "Dev" / "lariat-data-sources"
+).expanduser()
+SRC_DIR = DATA_SOURCES / "Menu & Recipes"
 OUT = ROOT / "data" / "cache" / "beo_recipe_tree.json"
 
 
@@ -130,6 +140,14 @@ GAP_META = {
 }
 
 
+class SourceRecipesMissing(RuntimeError):
+    """A recipe the map references is in neither the cache nor the source CSVs."""
+
+    def __init__(self, slugs: list[str]) -> None:
+        self.slugs = slugs
+        super().__init__(", ".join(slugs))
+
+
 def build() -> dict:
     recipes = json.loads(RECIPES.read_text(encoding="utf-8"))
     by_slug: dict[str, dict] = {}
@@ -139,14 +157,23 @@ def build() -> dict:
         by_slug[slug] = r
         by_name[norm(r["name"])] = slug
 
-    # Fill gaps from source CSVs (or a minimal stub so the map still resolves).
+    # Fill gaps from source CSVs. A gap recipe that cannot be read would be
+    # written as a node with no ingredients — the BEO prep board would then
+    # show nothing to make for Birria, which is worse than not building the
+    # tree at all. Collect them and fail loud rather than stub them out.
+    stubbed: list[str] = []
     for slug, meta in GAP_META.items():
         if slug in by_slug:
             continue
-        r = load_gap_recipe(slug) or {"slug": slug, "name": meta["name"], "ingredients": [], "sub_recipes": []}
+        r = load_gap_recipe(slug)
+        if r is None:
+            stubbed.append(slug)
+            continue
         r.update(meta)
         by_slug[slug] = r
         by_name[norm(r["name"])] = slug
+    if stubbed:
+        raise SourceRecipesMissing(stubbed)
 
     def resolve_slug(name: str) -> str | None:
         n = norm(name)
@@ -241,7 +268,20 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=OUT)
     args = ap.parse_args()
 
-    tree = build()
+    try:
+        tree = build()
+    except SourceRecipesMissing as exc:
+        found = "" if SRC_DIR.is_dir() else "  (this folder does not exist)"
+        print(
+            f"no source recipe CSV for: {', '.join(exc.slugs)}\n"
+            f"  looked in: {SRC_DIR}{found}\n"
+            "  Writing them anyway would put recipes with no ingredients on the BEO\n"
+            "  prep board. Point LARIAT_DATA_SOURCES at the lariat-data-sources\n"
+            "  folder, or add these slugs to data/cache/recipes.json.",
+            file=sys.stderr,
+        )
+        return 1
+
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(tree, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"wrote {len(tree['menu_items'])} menu items, "
