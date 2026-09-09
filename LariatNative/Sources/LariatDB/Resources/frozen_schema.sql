@@ -61,6 +61,42 @@ CREATE TABLE IF NOT EXISTS inventory_updates (
       created_at TEXT DEFAULT (datetime('now')),
       location_id TEXT DEFAULT 'default'
     , receiving_log_id INTEGER REFERENCES receiving_log(id));
+CREATE TABLE IF NOT EXISTS waste_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      logged_at TEXT NOT NULL DEFAULT (datetime('now')),
+      station_id TEXT,
+
+      -- what was thrown away, at whichever level applies
+      item TEXT NOT NULL,
+      master_id TEXT,                    -- ingredient_masters.master_id, soft ref
+      recipe_id TEXT,                    -- recipe_costs.recipe_id, soft ref
+      menu_item_uuid TEXT,               -- entities_menu_items.uuid, soft ref
+
+      -- how much, in a unit that is fixed per item
+      quantity REAL NOT NULL CHECK(quantity > 0),
+      unit TEXT NOT NULL CHECK(unit IN ('portion','lb','oz','each','pan','qt')),
+
+      -- why, from the closed set in SOP 12
+      reason TEXT NOT NULL CHECK(reason IN ('SPOIL','OVERPREP','ERROR','EVENT')),
+      note TEXT,
+      event_name TEXT,                   -- required when reason = 'EVENT' (SOP 16)
+
+      -- cost snapshot AT LOG TIME, never recomputed
+      unit_cost REAL,
+      extended_cost REAL,
+      cost_source TEXT CHECK(cost_source IN ('recipe_costs','vendor_prices','manual')),
+
+      -- the instrument that tests SOP 12's own timing rule
+      entered_during TEXT CHECK(entered_during IN ('service','close')),
+
+      cook_id TEXT,
+      sync_source_host TEXT,
+      sync_source_started_at TEXT,
+      sync_source_pk TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      location_id TEXT NOT NULL DEFAULT 'default'
+    );
 CREATE TABLE IF NOT EXISTS inventory_counts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       count_date TEXT NOT NULL,
@@ -1711,6 +1747,10 @@ CREATE INDEX IF NOT EXISTS idx_lce_loc_date ON line_check_entries(location_id, s
 CREATE INDEX IF NOT EXISTS idx_signoff_loc ON station_signoffs(location_id, shift_date);
 CREATE INDEX IF NOT EXISTS idx_86_loc_date ON eighty_six(location_id, shift_date);
 CREATE INDEX IF NOT EXISTS idx_inv_loc_date ON inventory_updates(location_id, shift_date);
+CREATE INDEX IF NOT EXISTS idx_waste_loc_date ON waste_entries(location_id, shift_date);
+CREATE INDEX IF NOT EXISTS idx_waste_reason ON waste_entries(location_id, reason, shift_date);
+CREATE INDEX IF NOT EXISTS idx_waste_item ON waste_entries(item, location_id);
+CREATE INDEX IF NOT EXISTS idx_waste_recipe ON waste_entries(recipe_id) WHERE recipe_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_gold_stars_live ON gold_stars(location_id, id DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_psc_vendor_sku ON pack_size_changes(vendor, sku);
 CREATE INDEX IF NOT EXISTS idx_psc_ack ON pack_size_changes(acknowledged, detected_at);
@@ -1759,5 +1799,5 @@ CREATE INDEX IF NOT EXISTS idx_kds_tickets_active
       WHERE bumped_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_kds_ticket_lines_ticket
       ON kds_ticket_lines(ticket_id, sort_order, id);
-INSERT OR IGNORE INTO "locations" ("id", "name", "created_at", "capacity", "tax_rate", "service_fee_pct", "phone", "address") VALUES ('default', 'The Lariat', '2026-08-29 05:41:22', NULL, 0.0675, 20, NULL, NULL);
-INSERT OR IGNORE INTO "schema_migrations" ("version", "applied_at") VALUES (6, '1970-01-01 00:00:00');
+INSERT OR IGNORE INTO "locations" ("id", "name", "created_at", "capacity", "tax_rate", "service_fee_pct", "phone", "address") VALUES ('default', 'The Lariat', '2026-09-09 12:11:10', NULL, 0.0675, 20, NULL, NULL);
+INSERT OR IGNORE INTO "schema_migrations" ("version", "applied_at") VALUES (7, '2026-09-09 12:11:10');

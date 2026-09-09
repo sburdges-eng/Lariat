@@ -64,8 +64,9 @@ public struct SchemaMigrator {
     /// Parity with `SCHEMA_VERSION` in `lib/db.ts` (the web's monotonic marker
     /// recorded in the `schema_migrations` table, replayed by the seed rows in
     /// `frozen_schema.sql`). v6: day-plan spine (`ops_run_templates`,
-    /// `ops_run_template_steps`, `ops_run_steps`).
-    public static let webSchemaVersion = 6
+    /// `ops_run_template_steps`, `ops_run_steps`). v7: `waste_entries`
+    /// (SOP 12 waste log).
+    public static let webSchemaVersion = 7
 
     public init() {}
 

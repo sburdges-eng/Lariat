@@ -14,6 +14,13 @@ export function ensureIndexes(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_signoff_loc ON station_signoffs(location_id, shift_date);
     CREATE INDEX IF NOT EXISTS idx_86_loc_date ON eighty_six(location_id, shift_date);
     CREATE INDEX IF NOT EXISTS idx_inv_loc_date ON inventory_updates(location_id, shift_date);
+    -- SOP 12 waste log. The reason index backs the "what did we throw away
+    -- last week and what did it cost" rollup; the partial recipe index stays
+    -- small because most rows are logged against an uncosted item.
+    CREATE INDEX IF NOT EXISTS idx_waste_loc_date ON waste_entries(location_id, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_waste_reason ON waste_entries(location_id, reason, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_waste_item ON waste_entries(item, location_id);
+    CREATE INDEX IF NOT EXISTS idx_waste_recipe ON waste_entries(recipe_id) WHERE recipe_id IS NOT NULL;
     CREATE INDEX IF NOT EXISTS idx_gold_stars_live ON gold_stars(location_id, id DESC) WHERE deleted_at IS NULL;
     CREATE INDEX IF NOT EXISTS idx_psc_vendor_sku ON pack_size_changes(vendor, sku);
     CREATE INDEX IF NOT EXISTS idx_psc_ack ON pack_size_changes(acknowledged, detected_at);
