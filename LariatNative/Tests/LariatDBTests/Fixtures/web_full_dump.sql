@@ -74,7 +74,10 @@ CREATE TABLE waste_entries (
       menu_item_uuid TEXT,               -- entities_menu_items.uuid, soft ref
 
       -- how much, in a unit that is fixed per item
-      quantity REAL NOT NULL CHECK(quantity > 0),
+      -- typeof() guard, not just > 0: REAL affinity keeps a value it cannot
+      -- convert (an empty form field, '2 qt') as TEXT, and SQLite sorts every
+      -- TEXT value above every number, so a bare 'quantity > 0' accepts it.
+      quantity REAL NOT NULL CHECK(typeof(quantity) IN ('integer','real') AND quantity > 0),
       unit TEXT NOT NULL CHECK(unit IN ('portion','lb','oz','each','pan','qt')),
 
       -- why, from the closed set in SOP 12
@@ -1731,6 +1734,11 @@ CREATE UNIQUE INDEX idx_inventory_updates_sync_source
          WHERE sync_source_host IS NOT NULL
            AND sync_source_started_at IS NOT NULL
            AND sync_source_pk IS NOT NULL;
+CREATE UNIQUE INDEX idx_waste_entries_sync_source
+         ON waste_entries(sync_source_host, sync_source_started_at, sync_source_pk)
+         WHERE sync_source_host IS NOT NULL
+           AND sync_source_started_at IS NOT NULL
+           AND sync_source_pk IS NOT NULL;
 CREATE INDEX idx_idempotency_created
         ON idempotency_keys(created_at);
 CREATE INDEX idx_sales_service_date
@@ -1749,8 +1757,8 @@ CREATE INDEX idx_86_loc_date ON eighty_six(location_id, shift_date);
 CREATE INDEX idx_inv_loc_date ON inventory_updates(location_id, shift_date);
 CREATE INDEX idx_waste_loc_date ON waste_entries(location_id, shift_date);
 CREATE INDEX idx_waste_reason ON waste_entries(location_id, reason, shift_date);
-CREATE INDEX idx_waste_item ON waste_entries(item, location_id);
-CREATE INDEX idx_waste_recipe ON waste_entries(recipe_id) WHERE recipe_id IS NOT NULL;
+CREATE INDEX idx_waste_item ON waste_entries(location_id, item, shift_date);
+CREATE INDEX idx_waste_recipe ON waste_entries(location_id, recipe_id) WHERE recipe_id IS NOT NULL;
 CREATE INDEX idx_gold_stars_live ON gold_stars(location_id, id DESC) WHERE deleted_at IS NULL;
 CREATE INDEX idx_psc_vendor_sku ON pack_size_changes(vendor, sku);
 CREATE INDEX idx_psc_ack ON pack_size_changes(acknowledged, detected_at);
@@ -1799,5 +1807,5 @@ CREATE INDEX idx_kds_tickets_active
       WHERE bumped_at IS NULL;
 CREATE INDEX idx_kds_ticket_lines_ticket
       ON kds_ticket_lines(ticket_id, sort_order, id);
-INSERT INTO "locations" ("id", "name", "created_at", "capacity", "tax_rate", "service_fee_pct", "phone", "address") VALUES ('default', 'The Lariat', '2026-09-09 12:11:09', NULL, 0.0675, 20, NULL, NULL);
-INSERT INTO "schema_migrations" ("version", "applied_at") VALUES (7, '2026-09-09 12:11:09');
+INSERT INTO "locations" ("id", "name", "created_at", "capacity", "tax_rate", "service_fee_pct", "phone", "address") VALUES ('default', 'The Lariat', '1970-01-01 00:00:00', NULL, 0.0675, 20, NULL, NULL);
+INSERT INTO "schema_migrations" ("version", "applied_at") VALUES (7, '1970-01-01 00:00:00');

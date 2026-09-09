@@ -160,7 +160,10 @@ function initCoreSchema(db: DB): void {
       menu_item_uuid TEXT,               -- entities_menu_items.uuid, soft ref
 
       -- how much, in a unit that is fixed per item
-      quantity REAL NOT NULL CHECK(quantity > 0),
+      -- typeof() guard, not just > 0: REAL affinity keeps a value it cannot
+      -- convert (an empty form field, '2 qt') as TEXT, and SQLite sorts every
+      -- TEXT value above every number, so a bare 'quantity > 0' accepts it.
+      quantity REAL NOT NULL CHECK(typeof(quantity) IN ('integer','real') AND quantity > 0),
       unit TEXT NOT NULL CHECK(unit IN ('portion','lb','oz','each','pan','qt')),
 
       -- why, from the closed set in SOP 12

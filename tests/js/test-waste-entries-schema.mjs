@@ -141,6 +141,14 @@ describe('waste_entries — the closed sets', () => {
     assert.throws(() => logWaste({ quantity: 0 }), /CHECK constraint failed/);
     assert.throws(() => logWaste({ quantity: -3 }), /CHECK constraint failed/);
   });
+
+  it('refuses a quantity that is not a number at all', () => {
+    // REAL affinity keeps a value it cannot convert as TEXT, and SQLite sorts
+    // every TEXT value above every number — so a bare `quantity > 0` would
+    // accept both of these and SUM() would later read them as 0 and 2.
+    assert.throws(() => logWaste({ quantity: '' }), /CHECK constraint failed/);
+    assert.throws(() => logWaste({ quantity: '2 qt' }), /CHECK constraint failed/);
+  });
 });
 
 describe('waste_entries — defaults', () => {
@@ -154,6 +162,33 @@ describe('waste_entries — defaults', () => {
 });
 
 describe('waste_entries — indexes', () => {
+  it('leads every read-path index with location_id', () => {
+    // The boards are location-scoped; an item-leading index cannot serve
+    // `WHERE location_id = ? AND shift_date >= ? GROUP BY item`.
+    const sql = db
+      .prepare("SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='waste_entries' AND sql IS NOT NULL")
+      .all();
+    for (const row of sql) {
+      if (row.name.endsWith('_sync_source')) continue; // dedup index, keyed by provenance
+      assert.match(
+        row.sql,
+        /waste_entries\(location_id/,
+        `${row.name} does not lead with location_id: ${row.sql}`,
+      );
+    }
+  });
+
+  it('has a dedup index for replayed rows', () => {
+    // Family-1 replay applies `INSERT OR IGNORE`; with no UNIQUE constraint
+    // over the provenance triple there is nothing for it to ignore against,
+    // and a re-served sync window would double every row.
+    const row = db
+      .prepare("SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_waste_entries_sync_source'")
+      .get();
+    assert.ok(row, 'idx_waste_entries_sync_source missing');
+    assert.match(row.sql, /UNIQUE/);
+  });
+
   it('has the read-path indexes', () => {
     const names = db
       .prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='waste_entries'")
@@ -190,9 +225,19 @@ describe('waste_entries — the questions it was built to answer', () => {
       shift_date: '2026-09-07',
     });
 
+    // An uncosted entry: most rows will look like this, because only a
+    // fraction of recipes are costed.
+    logWaste({
+      item: 'Fryer Oil', quantity: 1, unit: 'each', reason: 'SPOIL',
+      shift_date: '2026-09-08',
+    });
+
     const rows = db
       .prepare(
-        `SELECT reason, ROUND(SUM(extended_cost), 2) AS cost, COUNT(*) AS entries
+        `SELECT reason,
+                ROUND(COALESCE(SUM(extended_cost), 0), 2) AS cost,
+                COUNT(*)                                  AS entries,
+                SUM(extended_cost IS NULL)                AS uncosted
            FROM waste_entries
           WHERE location_id = ?
             AND shift_date >= ?
@@ -201,10 +246,12 @@ describe('waste_entries — the questions it was built to answer', () => {
       )
       .all('default', '2026-09-02');
 
+    // The uncosted count has to travel with the dollar figure: 'SPOIL $25.00,
+    // 2 entries' alone reads as $25 of spoilage across both of them.
     assert.deepStrictEqual(rows, [
-      { reason: 'OVERPREP', cost: 24.0, entries: 2 },
-      { reason: 'SPOIL', cost: 25.0, entries: 1 },
-    ].sort((a, b) => b.cost - a.cost));
+      { reason: 'SPOIL', cost: 25.0, entries: 2, uncosted: 1 },
+      { reason: 'OVERPREP', cost: 24.0, entries: 2, uncosted: 0 },
+    ]);
   });
 
   it('counts service-vs-close entries, which is how SOP 12 grades its own rule', () => {
@@ -213,17 +260,62 @@ describe('waste_entries — the questions it was built to answer', () => {
     logWaste({ shift_date: '2026-09-08', entered_during: 'close', item: 'Salad Greens' });
     logWaste({ shift_date: '2026-09-08', entered_during: 'close', item: 'Mac Pasta' });
 
+    // A row nobody answered the question on. SUM(col = 'x') yields NULL for
+    // it and is skipped, so without its own bucket it vanishes from both
+    // counts and a night of missing data reads as a clean, small sample.
+    logWaste({ shift_date: '2026-09-08', entered_during: null, item: 'Pork Green Chile' });
+
     const row = db
       .prepare(
         `SELECT SUM(entered_during = 'service') AS at_discard,
-                SUM(entered_during = 'close')   AS at_close
+                SUM(entered_during = 'close')   AS at_close,
+                SUM(entered_during IS NULL)     AS unrecorded,
+                COUNT(*)                        AS entries
            FROM waste_entries
-          WHERE shift_date = ?`,
+          WHERE location_id = ? AND shift_date = ?`,
       )
-      .get('2026-09-08');
+      .get('default', '2026-09-08');
 
     assert.strictEqual(row.at_discard, 1);
     assert.strictEqual(row.at_close, 2);
+    assert.strictEqual(row.unrecorded, 1);
+    // Every row is accounted for in exactly one bucket.
+    assert.strictEqual(row.at_discard + row.at_close + row.unrecorded, row.entries);
+  });
+
+  it('joins toast_sales_daily on the columns that exist', () => {
+    // The first draft of the design doc joined on t.business_date, which does
+    // not exist, and omitted comparison_group — toast_sales_daily is
+    // UNIQUE(shift_date, comparison_group, location_id), so a date-only join
+    // fans out and multiplies the counts.
+    db.prepare('DELETE FROM waste_entries').run();
+    db.prepare('DELETE FROM toast_sales_daily').run();
+    logWaste({ shift_date: '2026-09-08', entered_during: 'close', item: 'Elote' });
+    for (const group of [0, 1, 2]) {
+      db.prepare(
+        `INSERT INTO toast_sales_daily (shift_date, guests, comparison_group, location_id)
+         VALUES (?, ?, ?, 'default')`,
+      ).run('2026-09-08', 180, group);
+    }
+
+    const rows = db
+      .prepare(
+        `SELECT w.shift_date,
+                SUM(w.entered_during = 'close') AS at_close,
+                t.guests
+           FROM waste_entries w
+           LEFT JOIN toast_sales_daily t
+                  ON t.shift_date       = w.shift_date
+                 AND t.location_id      = w.location_id
+                 AND t.comparison_group = 0
+          WHERE w.location_id = ?
+          GROUP BY w.shift_date`,
+      )
+      .all('default');
+
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].at_close, 1, 'comparison_group fan-out multiplied the count');
+    assert.strictEqual(rows[0].guests, 180);
   });
 
   it('keeps the cost snapshot as written — a later price move must not change it', () => {

@@ -105,6 +105,12 @@ export interface WasteEntryRow {
   entered_during: 'service' | 'close' | null;
 
   cook_id: string | null;
+
+  // Replay provenance, present on the table and carried through sync.
+  sync_source_host: string | null;
+  sync_source_started_at: string | null;
+  sync_source_pk: string | null;
+
   created_at: string;
   location_id: string;
 }

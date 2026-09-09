@@ -154,16 +154,34 @@ export interface WasteEntryRow {
 
 ## The two questions it is built to answer
 
+Both queries take the window boundary as a **bound parameter**, never
+`date('now')`. `shift_date` holds an America/Denver service date and SQLite's
+`date('now')` is UTC, so from ~18:00 Denver onward it already returns tomorrow
+— the seven-day window would silently gain or lose a whole service day
+depending on the hour the board was opened. Compute the boundary with the
+venue-timezone helper (`VENUE_TIME_ZONE` in `lib/boh/index.ts`) and bind it.
+
 **What did we throw away last week and what did it cost?**
 
 ```sql
-SELECT reason, ROUND(SUM(extended_cost), 2) AS cost, COUNT(*) AS entries
+SELECT reason,
+       ROUND(COALESCE(SUM(extended_cost), 0), 2) AS cost,
+       COUNT(*)                                  AS entries,
+       SUM(extended_cost IS NULL)                AS uncosted
   FROM waste_entries
- WHERE location_id = 'default'
-   AND shift_date >= date('now', '-7 days')
+ WHERE location_id = ?
+   AND shift_date >= ?      -- Denver service date, bound by the caller
  GROUP BY reason
  ORDER BY cost DESC;
 ```
+
+`uncosted` is not decoration. Most rows will carry a NULL `extended_cost` —
+that is the direct consequence of the soft-reference decision above. Reporting
+`SUM(extended_cost)` beside a bare `COUNT(*)` would render nine spoilage
+entries of which one is costed as "SPOIL — $25.00, 9 entries", which reads as
+$25 of spoilage across nine items. That is precisely the confidently-wrong
+number this table exists to avoid, so the count of what is *not* in the dollar
+figure travels with it.
 
 **Is SOP 12's timing rule survivable on a busy night?**
 
@@ -171,14 +189,38 @@ SELECT reason, ROUND(SUM(extended_cost), 2) AS cost, COUNT(*) AS entries
 SELECT w.shift_date,
        SUM(w.entered_during = 'service') AS at_discard,
        SUM(w.entered_during = 'close')   AS at_close,
+       SUM(w.entered_during IS NULL)     AS unrecorded,
        t.guests
   FROM waste_entries w
   LEFT JOIN toast_sales_daily t
-         ON t.business_date = w.shift_date
- WHERE w.shift_date >= date('now', '-30 days')
+         ON t.shift_date        = w.shift_date
+        AND t.location_id       = w.location_id
+        AND t.comparison_group  = 0
+ WHERE w.location_id = ?
+   AND w.shift_date >= ?     -- Denver service date, bound by the caller
  GROUP BY w.shift_date
  ORDER BY t.guests DESC;
 ```
+
+Three things this join has to get right, each of which was wrong in the first
+draft of this document:
+
+- The column is `toast_sales_daily.shift_date`, **not** `business_date`. There
+  is no `business_date` column; the query failed at first call.
+- `toast_sales_daily` is `UNIQUE(shift_date, comparison_group, location_id)`,
+  so one service date has several rows. Joining on date alone matches each
+  waste row against every one of them and multiplies both counts. Pin
+  `comparison_group` and join on `location_id`.
+- Without `WHERE w.location_id = ?` a second deployment's waste is folded into
+  the same totals.
+
+`unrecorded` matters for the same reason `uncosted` does: `entered_during` is
+nullable, and `SUM(col = 'value')` evaluates to NULL for a NULL row and is
+skipped by `SUM`. Any writer that omits the field — an import, a form field
+nobody touched — would otherwise make a night of missing data look like a
+clean, small sample. This column exists solely to decide whether SOP 12's
+at-discard rule survives a busy night; it must not be graded on rows that
+never recorded an answer.
 
 If the top of that list is all `at_close`, the rule changes and SOP 12 gets one
 sentence rewritten.
