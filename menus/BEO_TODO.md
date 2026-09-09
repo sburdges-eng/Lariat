@@ -31,10 +31,10 @@ operator decision, not a data entry:
   piece ($5.00), so a 50-piece line resolves to 50 yield-units of Alabama
   White Sauce. The pork shank landed 2026-09-03 with an explicit `per_count`;
   the two sauce rows still need theirs.
-- **`baja_fish_tacos.csv` names its fish `catfish fillet`.** Winter menu MI-M07
-  says catfish, but the vendor guide's only white-fish fillet is Portico
-  pangasius, which is what the map now orders. Reconcile the wording so the
-  plate BOM and the purchase line stop disagreeing.
+- ~~**`baja_fish_tacos.csv` names its fish `catfish fillet`.**~~ **Done 2026-09-09.**
+  Plate BOM now says `pangasius fillet` (Portico Imperial IQF) so it matches
+  `fish_fillet.csv` and the purchase line. Winter menu MI-M07 still says
+  catfish — change the menu card when you reprint.
 - **The `baja_fish_tacos` plate BOM is bypassed by the map**, which lists its
   six sub-recipes directly. The fish and the tortillas now agree with the plate
   (`Fish Fillet,0.025` = 6 oz, `Flour Tortillas,3`), but the six SAUCE rows
@@ -73,6 +73,19 @@ ingredient at a vendor SKU (see `mini_rellenos.csv`, `churros.csv`,
 `chocolate_cake.csv` for the whole-buy pattern).
 
 Close an item here with the PR that expands the recipe.
+
+## Resolved 2026-09-09
+
+- **Plate BOM said catfish; we buy pangasius.** `baja_fish_tacos.csv` now
+  names `pangasius fillet` so it matches `fish_fillet.csv`.
+- **`Braised Chicken Taco Buffet` Aji Verde had no `per_count`.** Same
+  landmine as Pig Wings: a missing factor is read as one full yield-unit
+  per BEO count. Set to `3.2` (96 tortillas / 3 per plate × 0.1 qt aji).
+  Fish Taco Buffet now also maps Aji Verde at `2.0` (60 tortillas, same math).
+- **Elote salad dressed with house chipotle aioli** instead of a separate
+  mayo pail. Quantities still CHEF REVIEW.
+- **Chicken confit protein line uses `redbird chicken legs`**, same string
+  as `roasted_chicken_leg`, so the order guide does not split one case.
 
 ## Resolved 2026-09-06
 

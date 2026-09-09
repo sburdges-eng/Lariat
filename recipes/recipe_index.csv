@@ -86,7 +86,7 @@ avocado,Avocado,prep,1,case,1,,fry,Battered Avocado Taco Buffet (BEO),Whole-buy 
 tortilla_chips,Tortilla Chips,prep,1,case,1,,fry,Trio Dips (BEO);The Trio,Whole-buy — LA BANDERITA yellow 4 in cut 1x30 LB. The dips do not go out without chips,
 mac_pasta,Mac Pasta,prep,1,hotel pan,2,,saute,Green Chile Mac Buffet (BEO),Cavatappi + panko crust for the baked mac pan — the sauce is queso_mac_sauce. Source: docs/Lariat_BEO_Studio_5.html DATA.purchase,
 salad_greens,Salad Greens,prep,1,case,1,,salad,Rope Caesar Salad Buffet (BEO);Cob Salad Buffet,Whole-buy — SYSCO/FRESHPOINT NATURAL leaf 4x6 CT. Washed and cut cold,
-elote_salad,Elote Salad,side,1,hotel pan,6,,salad,Elote salad (BEO),CHEF REVIEW — starter list only. No BEO Studio BOM and no recipe-book page; quantities are a street-corn standard,
+elote_salad,Elote Salad,side,1,hotel pan,6,chipotle_aioli,salad,Elote salad (BEO),Fire-roast corn; dress with chipotle aioli + cotija + lime. CHEF REVIEW on the 1 hotel pan yield,
 cobb_salad_setup,Cobb Salad Setup,side,1,hotel pan,4,,salad,Cob Salad Buffet (BEO),Composition from winter menu MI-SA02 — bacon + egg + tomato + avocado. NO chicken: the menu sells it as a $6.00 add-on. Dressing is cobb_dressing. CHEF REVIEW on the per-pan quantities,
 cotija,Cotija,prep,1,case,1,,salad,Rope Caesar Salad Buffet (BEO);taco buffets,Whole-buy — QUESO CAMPESINO random cut 12x1#AVG. Held in oz so it aggregates with taco_setup on the order guide,
 pig_wings,Pig Wings,protein,36,ea,1,,fry,The Pig Wings (MI-S03);Pig Wings (BEO),Whole-buy — SYSCO CLASSIC ham shank pig wing 4 oz 2x4.5LB = 36 pieces. Sauce is alabama_white_sauce + lariat_rub,
