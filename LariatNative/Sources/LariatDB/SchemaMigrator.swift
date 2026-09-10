@@ -50,11 +50,20 @@ public enum SchemaMigratorError: Error, LocalizedError {
 /// and only happen after the C4 reconciliation window.
 public struct SchemaMigrator {
 
-    /// Ordered GRDB migration identifiers. One migration: replay the frozen
-    /// web schema. (Grows if the post-freeze granular-migration refinement
-    /// lands; `expectedVersion` tracks the count.)
+    /// Ordered GRDB migration identifiers, each replaying the frozen web
+    /// schema as it stood when that identifier was added.
+    ///
+    /// **A new identifier is required every time `frozen_schema.sql` changes.**
+    /// `DatabaseMigrator` records applied identifiers in `grdb_migrations` and
+    /// skips them forever after; editing the resource behind an
+    /// already-applied identifier is a silent no-op on every existing
+    /// database, which then reports the new `webSchemaVersion` while missing
+    /// the tables that version is *about*. Replaying is safe and cheap — every
+    /// statement in the dump is `IF NOT EXISTS` / `INSERT OR IGNORE`, so a
+    /// database that already has the objects is unchanged.
     public static let migrationIdentifiers: [String] = [
         "c2-001-web-frozen-schema",
+        "c2-002-web-frozen-schema-v7",  // waste_entries (web SCHEMA_VERSION 7)
     ]
 
     /// The version this build stamps into `PRAGMA user_version` after a
@@ -106,8 +115,10 @@ public struct SchemaMigrator {
         // enforcement during the migration and runs a full `foreign_key_check`
         // at the end. The only seed rows (default location, schema_migrations)
         // have no FK dependencies, so the end check has nothing to fault.
-        migrator.registerMigration("c2-001-web-frozen-schema", foreignKeyChecks: .deferred) { db in
-            try db.execute(sql: Self.frozenSchemaSQL())
+        for identifier in Self.migrationIdentifiers {
+            migrator.registerMigration(identifier, foreignKeyChecks: .deferred) { db in
+                try db.execute(sql: Self.frozenSchemaSQL())
+            }
         }
     }
 
