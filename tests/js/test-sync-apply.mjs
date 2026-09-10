@@ -97,6 +97,13 @@ describe('familyOf', () => {
     assert.equal(familyOf('line_check_entries'), 'family1');
     assert.equal(familyOf('audit_events'), 'family1');
   });
+  it('classifies waste_entries as family-1, like the table it replaces', () => {
+    // A table carrying sync_source_* but belonging to no family returns
+    // 'unknown', which SKIPs the row and still advances the checkpoint: waste
+    // logged on one host would never reach another, silently and permanently.
+    assert.equal(familyOf('waste_entries'), 'family1');
+    assert.equal(familyOf('inventory_updates'), 'family1');
+  });
   it('classifies family-2 tables', () => {
     assert.equal(familyOf('vendor_prices'), 'family2');
     assert.equal(familyOf('spend_monthly'), 'family2');

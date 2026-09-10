@@ -14,6 +14,15 @@ export function ensureIndexes(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_signoff_loc ON station_signoffs(location_id, shift_date);
     CREATE INDEX IF NOT EXISTS idx_86_loc_date ON eighty_six(location_id, shift_date);
     CREATE INDEX IF NOT EXISTS idx_inv_loc_date ON inventory_updates(location_id, shift_date);
+    -- SOP 12 waste log. The reason index backs the "what did we throw away
+    -- last week and what did it cost" rollup. Every one of these leads with
+    -- location_id, like their siblings above: the boards are location-scoped,
+    -- and an item-leading index cannot serve
+    -- 'WHERE location_id = ? AND shift_date >= ? GROUP BY item'.
+    CREATE INDEX IF NOT EXISTS idx_waste_loc_date ON waste_entries(location_id, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_waste_reason ON waste_entries(location_id, reason, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_waste_item ON waste_entries(location_id, item, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_waste_recipe ON waste_entries(location_id, recipe_id) WHERE recipe_id IS NOT NULL;
     CREATE INDEX IF NOT EXISTS idx_gold_stars_live ON gold_stars(location_id, id DESC) WHERE deleted_at IS NULL;
     CREATE INDEX IF NOT EXISTS idx_psc_vendor_sku ON pack_size_changes(vendor, sku);
     CREATE INDEX IF NOT EXISTS idx_psc_ack ON pack_size_changes(acknowledged, detected_at);
@@ -197,6 +206,19 @@ export function migrateLegacyColumns(db: DB): void {
     db.exec(
       `CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_updates_sync_source
          ON inventory_updates(sync_source_host, sync_source_started_at, sync_source_pk)
+         WHERE sync_source_host IS NOT NULL
+           AND sync_source_started_at IS NOT NULL
+           AND sync_source_pk IS NOT NULL`,
+    );
+  } catch { /* ignore */ }
+  // waste_entries carries the same provenance triple as the table it replaces.
+  // Family-1 replay applies INSERT OR IGNORE, which needs a UNIQUE constraint
+  // to ignore against; without one a re-served sync window doubles every row
+  // and the waste cost rollup doubles with it.
+  try {
+    db.exec(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_waste_entries_sync_source
+         ON waste_entries(sync_source_host, sync_source_started_at, sync_source_pk)
          WHERE sync_source_host IS NOT NULL
            AND sync_source_started_at IS NOT NULL
            AND sync_source_pk IS NOT NULL`,

@@ -97,6 +97,36 @@ final class SchemaMigratorTests: XCTestCase {
         XCTAssertEqual(first, second)
     }
 
+    /// Regression: a database that already applied an earlier frozen-schema
+    /// identifier must still receive objects added to the resource later.
+    ///
+    /// `DatabaseMigrator` skips identifiers recorded in `grdb_migrations`, so
+    /// editing `frozen_schema.sql` behind an already-applied identifier is a
+    /// silent no-op — the database keeps the old schema while `migrate()`
+    /// stamps the new `expectedVersion`. `testMigrateAgainstAlreadyMigratedWebDb\
+    /// IsNoop` cannot catch it: that test seeds from the CURRENT dump, which
+    /// already contains everything.
+    func testAppliedEarlierIdentifierStillReceivesLaterSchema() throws {
+        let dbq = try DatabaseQueue()
+        // Simulate a database migrated by an older build: the first identifier
+        // is on record, but none of its objects were ever created here.
+        try dbq.write { db in
+            try db.execute(sql: """
+                CREATE TABLE IF NOT EXISTS grdb_migrations (identifier TEXT NOT NULL PRIMARY KEY);
+                INSERT OR IGNORE INTO grdb_migrations (identifier) VALUES ('c2-001-web-frozen-schema');
+                """)
+        }
+
+        try SchemaMigrator().migrate(dbq)
+
+        let hasWasteEntries = try dbq.read { try $0.tableExists("waste_entries") }
+        XCTAssertTrue(
+            hasWasteEntries,
+            "a database that already applied c2-001 never received waste_entries — "
+                + "frozen_schema.sql changed without a new migration identifier"
+        )
+    }
+
     func testMigrateAgainstAlreadyMigratedWebDbIsNoop() throws {
         // Reconstruct a web-built DB from the committed full dump, then run the
         // native migrator over it: every step is `IF NOT EXISTS`/re-entrant, so
