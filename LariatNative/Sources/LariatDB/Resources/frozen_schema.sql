@@ -80,8 +80,17 @@ CREATE TABLE IF NOT EXISTS waste_entries (
       quantity REAL NOT NULL CHECK(typeof(quantity) IN ('integer','real') AND quantity > 0),
       unit TEXT NOT NULL CHECK(unit IN ('portion','lb','oz','each','pan','qt')),
 
-      -- why, from the closed set in SOP 12
-      reason TEXT NOT NULL CHECK(reason IN ('SPOIL','OVERPREP','ERROR','EVENT')),
+      -- why, from the closed set in SOP 12. Lowercase to match every other
+      -- CHECK enum in this schema (and the three below it in this table) —
+      -- a per-column casing rule buys nothing and every consumer pays for it.
+      --
+      -- 'unknown' is not one of SOP 12's reasons. It exists for rows migrated
+      -- out of inventory_updates, which recorded only that a count went down
+      -- and carries no reason at all. Inventing SPOIL for those would put a
+      -- confidently wrong number in the one rollup this table exists to make
+      -- trustworthy; 'unknown' groups them into a bucket that visibly cannot
+      -- be acted on. Nothing entered by a cook should ever be 'unknown'.
+      reason TEXT NOT NULL CHECK(reason IN ('spoil','overprep','error','event','unknown')),
       note TEXT,
       event_name TEXT,                   -- required when reason = 'EVENT' (SOP 16)
 

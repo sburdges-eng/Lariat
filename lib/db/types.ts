@@ -94,9 +94,12 @@ export interface WasteEntryRow {
   quantity: number;
   unit: 'portion' | 'lb' | 'oz' | 'each' | 'pan' | 'qt';
 
-  reason: 'SPOIL' | 'OVERPREP' | 'ERROR' | 'EVENT';
+  /** SOP 12's four reasons, plus 'unknown' for rows migrated out of
+   *  inventory_updates, which carried no reason at all. Never write
+   *  'unknown' from a cook-facing path. */
+  reason: 'spoil' | 'overprep' | 'error' | 'event' | 'unknown';
   note: string | null;
-  event_name: string | null;       // set when reason === 'EVENT'
+  event_name: string | null;       // set when reason === 'event'
 
   unit_cost: number | null;        // snapshot, never recomputed
   extended_cost: number | null;    // quantity * unit_cost at log time

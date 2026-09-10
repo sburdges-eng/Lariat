@@ -47,7 +47,7 @@ const logWaste = (over = {}) => {
     menu_item_uuid: null,
     quantity: 2,
     unit: 'qt',
-    reason: 'SPOIL',
+    reason: 'spoil',
     note: null,
     event_name: null,
     unit_cost: null,
@@ -110,13 +110,26 @@ describe('waste_entries — table shape', () => {
 
 describe('waste_entries — the closed sets', () => {
   it('accepts every reason in SOP 12', () => {
-    for (const reason of ['SPOIL', 'OVERPREP', 'ERROR', 'EVENT']) {
+    for (const reason of ['spoil', 'overprep', 'error', 'event']) {
       assert.doesNotThrow(() => logWaste({ reason, item: `Elote (${reason})` }));
     }
   });
 
+  it("accepts 'unknown', the bucket migrated rows land in", () => {
+    // inventory_updates recorded only that a count went down — no reason at
+    // all. Inventing one would poison the rollup this table exists for.
+    assert.doesNotThrow(() => logWaste({ reason: 'unknown', item: 'Carnitas' }));
+  });
+
   it('rejects a reason outside the set', () => {
-    assert.throws(() => logWaste({ reason: 'DROPPED' }), /CHECK constraint failed/);
+    assert.throws(() => logWaste({ reason: 'dropped' }), /CHECK constraint failed/);
+  });
+
+  it('rejects the old uppercase spelling', () => {
+    // The set is lowercase like every other CHECK enum in the schema; a
+    // consumer that sends SCREAMING_CASE should fail loudly, not silently
+    // write a row nothing groups.
+    assert.throws(() => logWaste({ reason: 'SPOIL' }), /CHECK constraint failed/);
   });
 
   it('accepts every unit the line actually uses', () => {
@@ -210,17 +223,17 @@ describe('waste_entries — the questions it was built to answer', () => {
     db.prepare('DELETE FROM waste_entries').run();
     // A pan of green chile that soured, and an over-prepped hotel pan of rice.
     logWaste({
-      item: 'Pork Green Chile', quantity: 4, unit: 'qt', reason: 'SPOIL',
+      item: 'Pork Green Chile', quantity: 4, unit: 'qt', reason: 'spoil',
       unit_cost: 6.25, extended_cost: 25.0, cost_source: 'recipe_costs',
       shift_date: '2026-09-08',
     });
     logWaste({
-      item: 'Cilantro Lime Rice', quantity: 1, unit: 'pan', reason: 'OVERPREP',
+      item: 'Cilantro Lime Rice', quantity: 1, unit: 'pan', reason: 'overprep',
       unit_cost: 11.4, extended_cost: 11.4, cost_source: 'recipe_costs',
       shift_date: '2026-09-08',
     });
     logWaste({
-      item: 'Elote', quantity: 12, unit: 'portion', reason: 'OVERPREP',
+      item: 'Elote', quantity: 12, unit: 'portion', reason: 'overprep',
       unit_cost: 1.05, extended_cost: 12.6, cost_source: 'recipe_costs',
       shift_date: '2026-09-07',
     });
@@ -228,7 +241,7 @@ describe('waste_entries — the questions it was built to answer', () => {
     // An uncosted entry: most rows will look like this, because only a
     // fraction of recipes are costed.
     logWaste({
-      item: 'Fryer Oil', quantity: 1, unit: 'each', reason: 'SPOIL',
+      item: 'Fryer Oil', quantity: 1, unit: 'each', reason: 'spoil',
       shift_date: '2026-09-08',
     });
 
@@ -249,8 +262,8 @@ describe('waste_entries — the questions it was built to answer', () => {
     // The uncosted count has to travel with the dollar figure: 'SPOIL $25.00,
     // 2 entries' alone reads as $25 of spoilage across both of them.
     assert.deepStrictEqual(rows, [
-      { reason: 'SPOIL', cost: 25.0, entries: 2, uncosted: 1 },
-      { reason: 'OVERPREP', cost: 24.0, entries: 2, uncosted: 0 },
+      { reason: 'spoil', cost: 25.0, entries: 2, uncosted: 1 },
+      { reason: 'overprep', cost: 24.0, entries: 2, uncosted: 0 },
     ]);
   });
 
@@ -321,7 +334,7 @@ describe('waste_entries — the questions it was built to answer', () => {
   it('keeps the cost snapshot as written — a later price move must not change it', () => {
     db.prepare('DELETE FROM waste_entries').run();
     const { lastInsertRowid } = logWaste({
-      item: 'Pangasius', quantity: 3, unit: 'lb', reason: 'ERROR',
+      item: 'Pangasius', quantity: 3, unit: 'lb', reason: 'error',
       unit_cost: 4.19, extended_cost: 12.57, cost_source: 'vendor_prices',
     });
     const row = db.prepare('SELECT unit_cost, extended_cost, cost_source FROM waste_entries WHERE id = ?')
@@ -335,7 +348,7 @@ describe('waste_entries — the questions it was built to answer', () => {
 describe('waste_entries — init stays idempotent', () => {
   it('survives a second initSchema with its rows intact', () => {
     db.prepare('DELETE FROM waste_entries').run();
-    logWaste({ item: 'Taco Setup', reason: 'EVENT', event_name: 'Grelecki Wedding' });
+    logWaste({ item: 'Taco Setup', reason: 'event', event_name: 'Grelecki Wedding' });
     assert.doesNotThrow(() => initSchema(db));
     const { c } = db.prepare('SELECT COUNT(*) AS c FROM waste_entries').get();
     assert.strictEqual(c, 1);
