@@ -70,6 +70,14 @@ export const FAMILY_1_TABLES: ReadonlySet<string> = new Set([
   'beo_line_items',
   'beo_prep_tasks',
   'inventory_updates',
+  // waste_entries carries the same sync_source_* provenance triple as
+  // inventory_updates, the table it replaces for SOP 12 waste. Append-only:
+  // a discard is logged once and never updated, so INSERT OR IGNORE against
+  // idx_waste_entries_sync_source is the right semantics. Leaving it out of
+  // every family made familyOf() return 'unknown', which SKIPs the row AND
+  // still advances the replay checkpoint — waste logged on one host would
+  // never arrive on another, silently and permanently.
+  'waste_entries',
   'line_check_entries',
   'station_signoffs',
   'eighty_six',

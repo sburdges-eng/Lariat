@@ -72,6 +72,52 @@ export interface InventoryUpdate {
   location_id: string;
 }
 
+/**
+ * SOP 12 · Waste Logging. One row per thing thrown away.
+ *
+ * `master_id` / `recipe_id` / `menu_item_uuid` are soft references — the row
+ * is valid whether or not the item is costed yet, and the join happens at
+ * read time. `unit_cost` / `extended_cost` are a snapshot taken when the row
+ * was written and are never recomputed against a later price.
+ */
+export interface WasteEntryRow {
+  id: number;
+  shift_date: string;              // 'YYYY-MM-DD'
+  logged_at: string;
+  station_id: string | null;
+
+  item: string;
+  master_id: string | null;
+  recipe_id: string | null;
+  menu_item_uuid: string | null;
+
+  quantity: number;
+  unit: 'portion' | 'lb' | 'oz' | 'each' | 'pan' | 'qt';
+
+  /** SOP 12's four reasons, plus 'unknown' for rows migrated out of
+   *  inventory_updates, which carried no reason at all. Never write
+   *  'unknown' from a cook-facing path. */
+  reason: 'spoil' | 'overprep' | 'error' | 'event' | 'unknown';
+  note: string | null;
+  event_name: string | null;       // set when reason === 'event'
+
+  unit_cost: number | null;        // snapshot, never recomputed
+  extended_cost: number | null;    // quantity * unit_cost at log time
+  cost_source: 'recipe_costs' | 'vendor_prices' | 'manual' | null;
+
+  entered_during: 'service' | 'close' | null;
+
+  cook_id: string | null;
+
+  // Replay provenance, present on the table and carried through sync.
+  sync_source_host: string | null;
+  sync_source_started_at: string | null;
+  sync_source_pk: string | null;
+
+  created_at: string;
+  location_id: string;
+}
+
 export interface Location {
   id: string;
   name: string;

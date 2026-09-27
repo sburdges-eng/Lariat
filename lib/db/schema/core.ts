@@ -30,7 +30,7 @@ import { initManagementSchema } from './management.ts';
  * `scripts/check-schema-version-bump.mjs` enforces the bump at commit time so
  * the marker stays trustworthy.
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 /**
  * Create/migrate every table in the database. Idempotent: safe to call on
@@ -128,6 +128,73 @@ function initCoreSchema(db: DB): void {
       location_id TEXT DEFAULT 'default'
     );
     CREATE INDEX IF NOT EXISTS idx_inv_shift ON inventory_updates(shift_date, station_id);
+
+    -- SOP 12 - Waste Logging. Deliberately NOT a direction='waste' row on
+    -- inventory_updates: waste is a movement plus a reason from a closed set,
+    -- a unit, and a cost captured at the moment it happened. A count that went
+    -- down has nowhere to put any of those.
+    --
+    -- master_id / recipe_id / menu_item_uuid are soft refs, not foreign keys.
+    -- A hard REFERENCES would refuse waste for anything not costed yet, and
+    -- only a fraction of recipes are costed — the log would reject most real
+    -- entries on day one and the data would never exist. Joined at read time.
+    --
+    -- unit_cost / extended_cost are a SNAPSHOT. Never recompute them against a
+    -- later price: a pan thrown away in March costed at September's price is a
+    -- wrong number presented confidently.
+    --
+    -- entered_during is the instrument that tests SOP 12's own timing rule
+    -- ("log at the moment of discard, close-down sweep as the exception").
+    -- If close entries dominate on high-cover nights, the rule is not
+    -- survivable and the sweep becomes the honest standard.
+    CREATE TABLE IF NOT EXISTS waste_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      logged_at TEXT NOT NULL DEFAULT (datetime('now')),
+      station_id TEXT,
+
+      -- what was thrown away, at whichever level applies
+      item TEXT NOT NULL,
+      master_id TEXT,                    -- ingredient_masters.master_id, soft ref
+      recipe_id TEXT,                    -- recipe_costs.recipe_id, soft ref
+      menu_item_uuid TEXT,               -- entities_menu_items.uuid, soft ref
+
+      -- how much, in a unit that is fixed per item
+      -- typeof() guard, not just > 0: REAL affinity keeps a value it cannot
+      -- convert (an empty form field, '2 qt') as TEXT, and SQLite sorts every
+      -- TEXT value above every number, so a bare 'quantity > 0' accepts it.
+      quantity REAL NOT NULL CHECK(typeof(quantity) IN ('integer','real') AND quantity > 0),
+      unit TEXT NOT NULL CHECK(unit IN ('portion','lb','oz','each','pan','qt')),
+
+      -- why, from the closed set in SOP 12. Lowercase to match every other
+      -- CHECK enum in this schema (and the three below it in this table) —
+      -- a per-column casing rule buys nothing and every consumer pays for it.
+      --
+      -- 'unknown' is not one of SOP 12's reasons. It exists for rows migrated
+      -- out of inventory_updates, which recorded only that a count went down
+      -- and carries no reason at all. Inventing SPOIL for those would put a
+      -- confidently wrong number in the one rollup this table exists to make
+      -- trustworthy; 'unknown' groups them into a bucket that visibly cannot
+      -- be acted on. Nothing entered by a cook should ever be 'unknown'.
+      reason TEXT NOT NULL CHECK(reason IN ('spoil','overprep','error','event','unknown')),
+      note TEXT,
+      event_name TEXT,                   -- required when reason = 'EVENT' (SOP 16)
+
+      -- cost snapshot AT LOG TIME, never recomputed
+      unit_cost REAL,
+      extended_cost REAL,
+      cost_source TEXT CHECK(cost_source IN ('recipe_costs','vendor_prices','manual')),
+
+      -- the instrument that tests SOP 12's own timing rule
+      entered_during TEXT CHECK(entered_during IN ('service','close')),
+
+      cook_id TEXT,
+      sync_source_host TEXT,
+      sync_source_started_at TEXT,
+      sync_source_pk TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      location_id TEXT NOT NULL DEFAULT 'default'
+    );
 
     -- Periodic on-hand counts. One header row per "count session" the BOH
     -- opens (e.g. weekly / EOM); count_lines holds the actual on-hand qty

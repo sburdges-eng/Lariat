@@ -67,6 +67,20 @@ function reentrant(sql) {
 const NONDETERMINISTIC_COLS = new Set(['created_at', 'updated_at', 'applied_at', 'imported_at']);
 
 /**
+ * Fixed stamp for the wall-clock columns in the --full / --executable seed
+ * INSERTs. The --seeds mode drops these columns outright; the executable
+ * dumps must still emit them (they reconstruct a real DB), so they get a
+ * constant instead. Without this every regeneration rewrites the seed rows
+ * with the current time, the two committed fixtures disagree because they
+ * come from two separate script runs, and the real DDL change is buried in
+ * timestamp churn. #635 pinned `applied_at` by hand for this reason; doing
+ * it in the script keeps the next regen from quietly undoing that.
+ */
+const FIXED_SEED_TIMESTAMP = '1970-01-01 00:00:00';
+const normalizeSeedValue = (col, value) =>
+  NONDETERMINISTIC_COLS.has(col) && value !== null ? FIXED_SEED_TIMESTAMP : value;
+
+/**
  * Normalize one sqlite_master.sql text for comparison:
  * collapse all whitespace runs to a single space, trim, then strip
  * `IF NOT EXISTS ` (SQLite may or may not retain it in sqlite_master
@@ -171,7 +185,7 @@ try {
         const cols = Object.keys(r);
         out.push(
           `${insertVerb} "${o.name}" (${cols.map((c) => `"${c}"`).join(', ')}) ` +
-            `VALUES (${cols.map((c) => quote(r[c])).join(', ')});`,
+            `VALUES (${cols.map((c) => quote(normalizeSeedValue(c, r[c]))).join(', ')});`,
         );
       }
     }
