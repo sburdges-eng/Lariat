@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lariat outage card</title>
+<style>
+  @page { margin: 1.5cm; }
+  body { font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; color: #111; margin: 24px; max-width: 640px; }
+  h1 { font-size: 30px; margin: 0 0 4px; }
+  .sub { color: #555; margin: 0 0 20px; font-size: 15px; }
+  section { border: 2px solid #111; border-radius: 8px; padding: 14px 18px; margin-bottom: 14px; break-inside: avoid; }
+  h2 { font-size: 19px; margin: 0 0 8px; }
+  p, li { font-size: 16px; line-height: 1.5; margin: 6px 0; }
+  code { font-family: Menlo, monospace; font-size: 15px; background: #eee; padding: 2px 6px; border-radius: 4px; }
+  .blank { display: inline-block; min-width: 200px; border-bottom: 2px solid #111; }
+  .big { font-size: 18px; font-weight: 700; }
+</style>
+</head>
+<body>
+  <h1>If Lariat is down</h1>
+  <p class="sub">Do these in order. Keep cooking — use the paper packet while you fix it.</p>
+
+  <section>
+    <h2>1 · Is the app really down?</h2>
+    <p>On this Mac, open <code>http://localhost:3000</code> in a browser.</p>
+    <p>If it loads here but not on another computer, use this Mac's address:</p>
+    <p class="big">http://<span class="blank">&nbsp;</span>:3000</p>
+  </section>
+
+  <section>
+    <h2>2 · Restart the app</h2>
+    <p>Open Terminal and type this one line:</p>
+    <p><code>bash ~/lariat_dev/Lariat/scripts/start-hub.sh</code></p>
+    <p>It prints <b>“Lariat is up”</b> when it's ready — about 10 seconds. Then reload the browser.</p>
+    <p>You can close the Terminal window afterward; the app keeps running. If it says it's already running, the app is fine — the problem is somewhere else.</p>
+  </section>
+
+  <section>
+    <h2>3 · Assistant (LaRi) not answering?</h2>
+    <p>The boards still work without it. To bring it back, in Terminal:</p>
+    <p><code>~/.local/bin/ollama serve</code></p>
+  </section>
+
+  <section>
+    <h2>4 · Still stuck? Call</h2>
+    <p class="big"><span class="blank">&nbsp;</span></p>
+    <p>Until it's fixed: write temps, 86s, and counts on the printed packet. Enter them in Lariat after.</p>
+  </section>
+</body>
+</html>
