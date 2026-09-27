@@ -62,6 +62,15 @@ export default function SickWorkerBoard({ active, history, staff, pinOk, locatio
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
+  // Non-default locations must be threaded onto PATCH as `?location=` —
+  // the API's clearance handler resolves the caller's location scope
+  // from the URL query only, as a cross-location IDOR guard. Same
+  // convention as BreakBoard's locQ.
+  const locQ =
+    locationId && locationId !== 'default'
+      ? `?location=${encodeURIComponent(locationId)}`
+      : '';
+
   // Derive a suggested action from the symptom/diagnosis combo so the
   // PIC can see what FDA would require at minimum — they can raise but
   // not lower.
@@ -137,7 +146,7 @@ export default function SickWorkerBoard({ active, history, staff, pinOk, locatio
     if (!source) return;
     setErr('');
     try {
-      const res = await fetch('/api/sick-worker', {
+      const res = await fetch(`/api/sick-worker${locQ}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({

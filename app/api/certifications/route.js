@@ -167,10 +167,17 @@ async function certificationsPatchHandler(req) {
       return Response.json({ error: 'id required' }, { status: 400 });
     }
     const db = getDb();
+    const callerLocation = locationFromRequest(req);
     const existing = /** @type {{ location_id: string } | undefined} */ (
       db.prepare('SELECT * FROM staff_certifications WHERE id=?').get(id)
     );
     if (!existing) {
+      return Response.json({ error: 'unknown certification' }, { status: 404 });
+    }
+    // Cross-location IDOR guard: a PIC scoped to site-A must not
+    // deactivate or rewrite a cert that belongs to site-B by guessing
+    // the numeric id. Surfaced as 404 so existence does not leak.
+    if (existing.location_id !== callerLocation) {
       return Response.json({ error: 'unknown certification' }, { status: 404 });
     }
     // Patchable columns — nothing else.

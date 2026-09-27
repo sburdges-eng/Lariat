@@ -188,7 +188,11 @@ export default function WasteLogClient({
         {RANGES.map((r) => (
           <a
             key={r.days}
-            href={`/inventory/waste?days=${r.days}`}
+            href={
+              locationId && locationId !== 'default'
+                ? `/inventory/waste?days=${r.days}&location=${encodeURIComponent(locationId)}`
+                : `/inventory/waste?days=${r.days}`
+            }
             className={r.days === days ? 'btn primary' : 'btn'}
             aria-current={r.days === days ? 'page' : undefined}
             style={{ textDecoration: 'none' }}
