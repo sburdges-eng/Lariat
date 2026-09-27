@@ -161,11 +161,23 @@ async function sickWorkerPatchHandler(req) {
     const db = getDb();
     const now = new Date().toISOString();
 
+    // Caller's location scope, taken from ?location=. Used as a
+    // cross-location IDOR guard inside the transaction below.
+    const callerLocation = locationFromRequest(req);
+
     // The pre-check + UPDATE must be in the same transaction so that two
     // concurrent clearances can't both pass the 409 guard and double-write.
     const performUpdate = db.transaction(() => {
       const existing = /** @type {SickReportRow | undefined} */ (db.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(id));
       if (!existing) return { status: 404, error: 'unknown sick report' };
+
+      // Cross-location IDOR guard: a PIC scoped to site-A must not
+      // clear a sick report that belongs to site-B by guessing the
+      // numeric id. Surfaced as 404 so existence does not leak.
+      if (existing.location_id !== callerLocation) {
+        return { status: 404, error: 'unknown sick report' };
+      }
+
       if (existing.return_at) return { status: 409, error: 'already cleared', entry: existing };
 
       db.prepare(`

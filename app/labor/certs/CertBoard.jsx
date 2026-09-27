@@ -67,6 +67,15 @@ export default function CertBoard({ rows, staff, today, locationId, pinOk }) {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
+  // Non-default locations must be threaded onto PATCH as `?location=` —
+  // the API's deactivate handler resolves the caller's location scope
+  // from the URL query only, as a cross-location IDOR guard. Same
+  // convention as BreakBoard's locQ.
+  const locQ =
+    locationId && locationId !== 'default'
+      ? `?location=${encodeURIComponent(locationId)}`
+      : '';
+
   const withStatus = useMemo(() => {
     return rows.map((r) => {
       const days = daysBetween(today, r.expires_on);
@@ -131,7 +140,7 @@ export default function CertBoard({ rows, staff, today, locationId, pinOk }) {
   const deactivate = async (id) => {
     if (!confirm('Mark this certification inactive? Use this when the worker leaves, or the cert is replaced.')) return;
     try {
-      const res = await fetch('/api/certifications', {
+      const res = await fetch(`/api/certifications${locQ}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id, active: false }),

@@ -124,6 +124,20 @@ describe('POST /api/beo/[id]/share-token', () => {
     assert.equal(audits.length, 0);
   });
 
+  it('mints a token when the caller location matches the event', async () => {
+    const id = seedEvent({ location: 'west' });
+    const res = await shareTokenRoute.POST(
+      makeReq({ method: 'POST', path: `/api/beo/${id}/share-token?location=west`, withPin: true }),
+      { params: { id: String(id) } },
+    );
+    assert.equal(res.status, 200);
+    const j = await res.json();
+    assert.equal(j.event_id, id);
+    assert.equal(j.created, true);
+    const stored = conn.prepare('SELECT share_token FROM beo_events WHERE id = ?').get(id);
+    assert.equal(stored.share_token, j.token);
+  });
+
   it('generates a token, persists it, returns share_url + created:true', async () => {
     const id = seedEvent();
     const res = await shareTokenRoute.POST(

@@ -3,7 +3,7 @@
 // only, no behavior change.
 import { getDb } from '../../../lib/db';
 import { serviceDate } from '../../../lib/serviceDate';
-import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { locationFromBodyOrRequest, locationFromRequest } from '../../../lib/location';
 import { hasPinCookie, hasPinOrTempPin, pinRequiredForPic, requirePin } from '../../../lib/pin';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
@@ -172,8 +172,7 @@ export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
   try {
-    const u = new URL(req.url);
-    const loc = u.searchParams.get('location') || DEFAULT_LOCATION_ID;
+    const loc = locationFromRequest(req);
     const db = getDb();
     // Statements are prepared once per db instance and reused across requests.
     const stmts = _getBeoStatements(db);
@@ -203,7 +202,7 @@ async function beoPostHandler(req) {
     const body = await req.json();
     const gateFail = await checkPostGate(req, body);
     if (gateFail) return gateFail;
-    const loc = body.location_id || DEFAULT_LOCATION_ID;
+    const loc = locationFromBodyOrRequest(body, req);
     const db = getDb();
 
     if (body.action === 'event') {

@@ -8,6 +8,7 @@ import EventFirePanel from './_components/EventFirePanel';
 import EventOrderGuidePanel from './_components/EventOrderGuidePanel';
 import EventPrepPanel from './_components/EventPrepPanel';
 import LariAmbient from '../_components/LariAmbient';
+import { useLocation } from '../_components/useLocation';
 import { formatDollars } from '../../lib/formatMoney';
 import type { CateringMenuItem } from '../../lib/data';
 
@@ -84,6 +85,12 @@ interface BeoBoardProps {
 }
 
 export default function BeoBoard({ initialMenu = [] }: BeoBoardProps) {
+  // The route scopes every read and write by location (app/api/beo/route.js
+  // GET locationFromRequest, POST locationFromBodyOrRequest; share-token
+  // looks up WHERE id = ? AND location_id = ?). This board sent none of
+  // its fetches a location, so on any non-default venue it listed and
+  // wrote against 'default'. Same class of bug as GoldStarBoard.
+  const { locationId, locQuery } = useLocation();
   const [data, setData] = useState<BeoData | null>(null);
   const [menu] = useState<MenuItem[]>(initialMenu);
   const [openEventId, setOpenEventId] = useState<number | null>(null);
@@ -108,18 +115,28 @@ export default function BeoBoard({ initialMenu = [] }: BeoBoardProps) {
   const [newNotes, setNewNotes] = useState('');
 
   const load = () =>
-    fetch('/api/beo')
+    fetch(`/api/beo${locQuery}`)
       .then((r) => r.json())
       .then((j) => {
         setData(j);
-        if (openEventId == null && j.events?.length) setOpenEventId(j.events[0].id);
+        setOpenEventId((prev) => {
+          if (prev != null && (j.events || []).some((e: BeoEvent) => e.id === prev)) return prev;
+          return j.events?.[0]?.id ?? null;
+        });
       })
       .catch(() => setErr('Couldn’t load — refresh the page'));
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setOpenEventId(null);
+    setData(null);
+    fetch(`/api/beo${locQuery}`)
+      .then((r) => r.json())
+      .then((j) => {
+        setData(j);
+        if (j.events?.length) setOpenEventId(j.events[0].id);
+      })
+      .catch(() => setErr('Couldn’t load — refresh the page'));
+  }, [locationId, locQuery]);
 
   const loadCourses = async (eventId: number | null, locationId: string | null | undefined = 'default') => {
     const resolvedLocation = locationId ?? 'default';
@@ -161,7 +178,7 @@ export default function BeoBoard({ initialMenu = [] }: BeoBoardProps) {
   const shareEvent = async (id: number) => {
     setErr('');
     try {
-      const res = await fetch(`/api/beo/${encodeURIComponent(id)}/share-token`, {
+      const res = await fetch(`/api/beo/${encodeURIComponent(id)}/share-token${locQuery}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
       });
@@ -203,7 +220,7 @@ export default function BeoBoard({ initialMenu = [] }: BeoBoardProps) {
       const res = await fetch('/api/beo', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, location_id: locationId }),
       });
       if (!res.ok) setErr('Didn’t save — try again');
       return res.ok;

@@ -45,8 +45,8 @@ function postReq(body) {
     body: JSON.stringify(body),
   });
 }
-function patchReq(body) {
-  return new Request('http://localhost/api/sick-worker', {
+function patchReq(body, qs = '') {
+  return new Request(`http://localhost/api/sick-worker${qs}`, {
     method: 'PATCH',
     headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: JSON.stringify(body),
@@ -124,6 +124,69 @@ describe('PATCH /api/sick-worker — clearance', () => {
     const row = testDb.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(id);
     assert.ok(row.return_at);
     assert.strictEqual(row.clearance_source, 'asymptomatic_24h');
+  });
+});
+
+describe('PATCH /api/sick-worker — cross-location IDOR guard', () => {
+  it('404 when caller location does not match the row location', async () => {
+    const post = await POST(postReq({
+      cook_id: 'bob', symptoms: ['vomiting'], action: 'excluded',
+      started_at: T_START, reported_by_pic_id: 'alice',
+      location_id: 'site-a',
+    }));
+    assert.strictEqual(post.status, 200);
+    const id = (await post.json()).entry.id;
+
+    const res = await PATCH(patchReq(
+      { id, clearance_source: 'asymptomatic_24h', reported_by_pic_id: 'mallory' },
+      '?location=site-b',
+    ));
+    assert.strictEqual(res.status, 404);
+    const body = await res.json();
+    assert.match(body.error, /unknown sick report/);
+
+    const row = testDb.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(id);
+    assert.strictEqual(row.return_at, null, 'return_at must remain NULL');
+    assert.strictEqual(row.location_id, 'site-a');
+    assert.strictEqual(countAudit('sick_worker_reports'), 1, 'no clearance audit');
+  });
+
+  it('200 when caller location matches the row location', async () => {
+    const post = await POST(postReq({
+      cook_id: 'bob', symptoms: ['vomiting'], action: 'excluded',
+      started_at: T_START, reported_by_pic_id: 'alice',
+      location_id: 'site-a',
+    }));
+    const id = (await post.json()).entry.id;
+
+    const res = await PATCH(patchReq(
+      { id, clearance_source: 'asymptomatic_24h', reported_by_pic_id: 'alice' },
+      '?location=site-a',
+    ));
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.ok, true);
+    assert.ok(body.entry.return_at);
+
+    const row = testDb.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(id);
+    assert.ok(row.return_at);
+    assert.strictEqual(row.clearance_source, 'asymptomatic_24h');
+  });
+
+  it('default-location compat: POST without location_id, PATCH without ?location= → 200', async () => {
+    const post = await POST(postReq({
+      cook_id: 'bob', symptoms: ['vomiting'], action: 'excluded',
+      started_at: T_START, reported_by_pic_id: 'alice',
+    }));
+    const id = (await post.json()).entry.id;
+
+    const res = await PATCH(patchReq({
+      id, clearance_source: 'asymptomatic_24h', reported_by_pic_id: 'alice',
+    }));
+    assert.strictEqual(res.status, 200);
+    const row = testDb.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(id);
+    assert.strictEqual(row.location_id, 'default');
+    assert.ok(row.return_at);
   });
 });
 

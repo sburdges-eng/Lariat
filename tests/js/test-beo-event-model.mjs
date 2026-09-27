@@ -362,4 +362,32 @@ describe('location scoping through the parent event', () => {
     assert.deepEqual(body.charges.map((c) => c.item_name), ['A PA']);
     assert.deepEqual(body.run_of_show.map((r) => r.note), ['A cue']);
   });
+
+  it('POST honors ?location= when the body omits location_id', async () => {
+    const req = new Request('http://localhost/api/beo?location=site-a', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: 'lariat_pin_ok=1' },
+      body: JSON.stringify({
+        action: 'event',
+        title: 'Query-scoped party',
+        event_date: '2026-09-27',
+        tax_rate: 0.0675,
+        service_fee_pct: 20,
+      }),
+    });
+    const res = await POST(req);
+    assert.equal(res.status, 200);
+    const { id } = await res.json();
+    const row = eventRow(id);
+    assert.equal(row.location_id, 'site-a');
+  });
+
+  it('GET honors the ?location_id= alias', async () => {
+    await seedEvent(POST, { location_id: 'site-a', title: 'A Party' });
+    await seedEvent(POST, { location_id: 'site-b', title: 'B Party' });
+    const res = await GET(getReq('?location_id=site-a'));
+    const body = await res.json();
+    assert.equal(body.location_id, 'site-a');
+    assert.deepEqual(body.events.map((e) => e.title), ['A Party']);
+  });
 });
