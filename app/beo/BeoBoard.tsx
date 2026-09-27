@@ -136,7 +136,6 @@ export default function BeoBoard({ initialMenu = [] }: BeoBoardProps) {
         if (j.events?.length) setOpenEventId(j.events[0].id);
       })
       .catch(() => setErr('Couldn’t load — refresh the page'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationId, locQuery]);
 
   const loadCourses = async (eventId: number | null, locationId: string | null | undefined = 'default') => {
